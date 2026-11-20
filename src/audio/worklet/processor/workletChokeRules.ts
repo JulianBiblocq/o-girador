@@ -122,7 +122,7 @@ export function resolveTrackPhysicsSpec(
     if (symbol === 'G' || symbol === 'g') return { chokeMode: CHOKE_TIMBAL_BASS_22MS, voiceClass: VOICE_CLASS_TIMBAL_BASS };
     if (symbol === 'P' || symbol === 'p') return { chokeMode: CHOKE_TIMBAL_PRESO_SLAP_LP, voiceClass: VOICE_CLASS_GENERIC };
     if (symbol === 'S' || symbol === 's' || symbol === 'V' || symbol === 'v') return { chokeMode: CHOKE_TIMBAL_PRESO_SLAP_LP, voiceClass: VOICE_CLASS_TIMBAL_SLAP };
-    if (symbol === 'A' || symbol === 'a' || symbol === 'F' || symbol === 'f') return { chokeMode: CHOKE_TIMBAL_OPEN_20MS, voiceClass: VOICE_CLASS_TIMBAL_OPEN };
+    if (symbol === 'A' || symbol === 'a' || symbol === 'T' || symbol === 't' || symbol === 'F' || symbol === 'f') return { chokeMode: CHOKE_TIMBAL_OPEN_20MS, voiceClass: VOICE_CLASS_TIMBAL_OPEN };
     return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
   return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };

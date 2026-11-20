@@ -5,7 +5,7 @@
  */
 import { doc, getDoc } from 'firebase/firestore';
 import { getGroupIdVariants } from '../../services/cloud-groups/cloudGroupVariants';
-import { getDrumNaturalBaseHz, roundSemitonesTenth } from './drumFundamentalRegistry';
+import { getDrumNaturalBaseHz, isDrumStudioBankActive, roundSemitonesTenth } from './drumFundamentalRegistry';
 import { LutherieDrumRole } from './lutherieFactoryPresets';
 
 export type GongueAlignColor = 'major' | 'minor' | 'exact';
@@ -113,7 +113,20 @@ export function computeGongueAlignedTunings(
     }
   }
 
-  const tunings: Record<LutherieDrumRole, number> = { marcante: best.m, meiao: best.me, repique: best.r, caixa: 0, tarol: 0, timbal: 0, gongue: gongueSt };
+  let timbalSt = 0;
+  if (isDrumStudioBankActive('timbal')) {
+    const tbBaseMidi = 69 + 12 * Math.log2(getDrumNaturalBaseHz('timbal') / 440);
+    const tbPcs = [best.rootPc, (best.rootPc + 7) % 12];
+    let bestTb = Infinity;
+    for (let m = 51; m <= 59; m++) {
+      if (!tbPcs.includes(m % 12)) continue;
+      const diff = m + microShift - tbBaseMidi;
+      if (Math.abs(diff) < Math.abs(bestTb)) bestTb = diff;
+    }
+    if (Number.isFinite(bestTb)) timbalSt = roundSemitonesTenth(Math.max(-3.5, Math.min(3.5, bestTb)));
+  }
+
+  const tunings: Record<LutherieDrumRole, number> = { marcante: best.m, meiao: best.me, repique: best.r, caixa: 0, tarol: 0, timbal: timbalSt, gongue: gongueSt };
   if (color === 'exact' && drumsHz) {
     (Object.keys(EXACT_ROLE_MAX_ST) as LutherieDrumRole[]).forEach((role) => {
       if (typeof drumsHz[role] === 'number' && drumsHz[role]! > 20) tunings[role] = computeDrumFoldedTuning(role, drumsHz[role]!, EXACT_ROLE_MAX_ST[role]);

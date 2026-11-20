@@ -1,7 +1,6 @@
 /**
  * Types d'interface pour l'action de sauvegarde cloud (< 40 lignes).
  */
-
 import { QueryClient } from '@tanstack/react-query';
 import { CatalogVisibility, Preset, CloudPreset } from '../../types';
 

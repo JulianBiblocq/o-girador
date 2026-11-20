@@ -1,20 +1,14 @@
-
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
-import { db, storage } from '../../firebase/config';
+import { auth, db, storage } from '../../firebase/config';
 import { presetCache, CLOUD_PRESETS_COLLECTION } from './presetCache';
+import {
+  SANCTUARIZED_PRESET_IDS,
+  isMestreOrAdminProfile,
+  canMutatePreset,
+} from '../../utils/presetPermissions';
 
-// SANCTUARISATION : Morceaux officiels du répertoire sanctuarisés
-export const SANCTUARIZED_PRESET_IDS = new Set<string>([
-  '29dIDjgc2vPuDnwjiy9V', // Opanijé
-  'hJFMrFdzwLezPmeTgVpE', // Vovó Falou
-  'nawSahyNqRJK09bwmbHu', // Convenção 2
-  'EcUcFC6Vd9hiKq8UR0dD', // Tem macaiba
-  'HV63gho48hxMmAXM95TN', // Breque de caixa
-  'tqsSWxMG8UbzK9FMUE1Q', // Vou vadiar carnaval
-  'Vou vadiar carnaval',
-  '_convencao_2'
-]);
+export { SANCTUARIZED_PRESET_IDS };
 
 export function isTestPresetName(name?: string, metadata?: any): boolean {
   const combined = `${name || ''} ${metadata?.toada || ''}`.toLowerCase();
@@ -33,15 +27,29 @@ export function isTestEnvironment(): boolean {
 export async function deleteCloudPreset(
   presetId: string,
   audioUrl?: string | null,
-  isEditorOrMestre?: boolean
+  isMestreOrAdminFlag?: boolean
 ): Promise<void> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
-  if (SANCTUARIZED_PRESET_IDS.has(presetId) && !isRestoration && !isEditorOrMestre) {
+  const currentUid = auth.currentUser?.uid || null;
+  const isMestre = Boolean(isMestreOrAdminFlag) || isMestreOrAdminProfile({ uid: currentUid });
+
+  if (SANCTUARIZED_PRESET_IDS.has(presetId) && !isRestoration && !isMestre) {
     throw new Error(`[Sanctuarisation] Suppression formellement interdite du preset officiel sanctuarisé "${presetId}".`);
   }
-  if (isTestEnvironment() && !isRestoration && !presetId.startsWith('test_e2e_') && !isEditorOrMestre) {
+  if (isTestEnvironment() && !isRestoration && !presetId.startsWith('test_e2e_') && !isMestre) {
     throw new Error(`[Sanctuarisation E2E] Suppression interdite d'un preset non-E2E en contexte de test ("${presetId}").`);
   }
+
+  if (!isMestre && !isRestoration) {
+    const snap = await getDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId));
+    if (snap.exists()) {
+      const docOwnerId = snap.data()?.ownerId;
+      if (!currentUid || !docOwnerId || docOwnerId !== currentUid) {
+        throw new Error('Suppression refusée : seul le Mestre ou le créateur du morceau peut le supprimer.');
+      }
+    }
+  }
+
   presetCache.delete(presetId);
   if (audioUrl) {
     try {
@@ -70,10 +78,12 @@ export async function togglePresetDraftStatus(
   presetId: string,
   currentDraft: boolean,
   userRole?: string,
-  userUid?: string
+  userUid?: string,
+  canWriteSequenciador?: boolean
 ): Promise<void> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
-  const isMestre = userRole === 'mestre' || userRole === 'admin' || userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+  const effectiveUid = auth.currentUser?.uid || userUid || null;
+  const isMestre = isMestreOrAdminProfile({ uid: effectiveUid, role: userRole });
 
   if (SANCTUARIZED_PRESET_IDS.has(presetId) && !isRestoration && !isMestre) {
     throw new Error(`[Sanctuarisation] Seul le Mestre est autorisé à modifier la visibilité du preset officiel sanctuarisé "${presetId}".`);
@@ -81,8 +91,21 @@ export async function togglePresetDraftStatus(
   if (isTestEnvironment() && !isRestoration && !presetId.startsWith('test_e2e_') && !isMestre) {
     throw new Error(`[Sanctuarisation E2E] Modification interdite d'un preset non-E2E en contexte de test ("${presetId}").`);
   }
+
+  if (!isMestre && !isRestoration) {
+    const snap = await getDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId));
+    const docOwnerId = snap.exists() ? snap.data()?.ownerId : undefined;
+    const allowed = canMutatePreset(
+      { id: presetId, ownerId: docOwnerId },
+      { uid: effectiveUid, role: userRole, canWriteSequenciador: canWriteSequenciador ?? true }
+    );
+    if (!allowed) {
+      throw new Error('Action refusée : seul le Mestre ou le créateur du morceau peut modifier son statut Brouillon.');
+    }
+  }
+
   await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId), {
     isDraft: !currentDraft,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
   });
 }

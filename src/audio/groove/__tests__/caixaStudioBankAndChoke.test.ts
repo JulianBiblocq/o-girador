@@ -42,7 +42,7 @@ function runDsp(nBlocks: number, startFrame: number, q: WorkletEventQueue, p: Wo
 
 // 1. Préservation des 16 fichiers Legacy `Caixa *.ogg` + Cache v6 + Boucle `Caixa studio B.ogg` + Isolation `r` Caixa vs Tarol
 {
-  assert.equal(SAMPLE_CACHE_VERSION, 6);
+  assert.equal(SAMPLE_CACHE_VERSION, 7);
   const mixDir = path.resolve(process.cwd(), 'public/Mixdown');
   const legacy16 = [
     'Caixa B.ogg', 'Caixa C 1.ogg', 'Caixa C 2.ogg', 'Caixa F 1.ogg', 'Caixa F 2.ogg', 'Caixa F 3.ogg', 'Caixa F 4.ogg',

@@ -93,8 +93,10 @@ export function useInstrumentEditorKeyboard({
           const toolStr = String(nextTool);
           setActiveTool(toolStr);
           const isAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
+          const isTimbalHand = inst.id === 'timbal' && ['g', 'a', 's', 't', 'd', 'p'].includes(toolStr);
           if (toolStr !== '0' && audioEngine && track) {
-            try { audioEngine.playNote(track.id, toolStr, Tone.now(), isAlfaia ? 0.7 : (dir === 'down' ? 0.6 : 0.95), isAlfaia ? 1.0 : (dir === 'down' ? 0.8 : 1.0)); } catch (_) {}
+            const downWeak = dir === 'down' && !isTimbalHand;
+            try { audioEngine.playNote(track.id, toolStr, Tone.now(), isAlfaia ? 0.7 : (downWeak ? 0.6 : 0.95), isAlfaia ? 1.0 : (downWeak ? 0.8 : 1.0)); } catch (_) {}
           }
         }
         return;
@@ -117,7 +119,8 @@ export function useInstrumentEditorKeyboard({
           const ci = exact ?? pair.strokes.find((s) => s.symbol.toLowerCase() === char.toLowerCase() || s.shortcut.toLowerCase() === char.toLowerCase());
           const sym = ci ? ci.symbol : (isUpper ? pair.strong.symbol : (pair.weak ? pair.weak.symbol : pair.strong.symbol));
           const isAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
-          const isWeak = !isUpper && !((inst.id === 'caixa' || inst.id === 'tarol') && sym === 'a') && sym === pair.weak?.symbol;
+          const isDedicatedHand = ((inst.id === 'caixa' || inst.id === 'tarol') && sym === 'a') || (inst.id === 'timbal' && ['g', 'a', 's', 't', 'd', 'p'].includes(sym));
+          const isWeak = !isUpper && !isDedicatedHand && sym === pair.weak?.symbol;
           setActiveTool(sym);
           if (audioEngine && track) {
             try { audioEngine.playNote(track.id, sym, Tone.now(), isAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95), isAlfaia ? 1.0 : (isWeak ? 0.8 : 1.0)); } catch (_) {}

@@ -86,7 +86,7 @@ const memStore = new Map<string, string>();
   assert.ok(Math.abs(tbShelf.q - Math.SQRT1_2) < 1e-6);
   assert.equal(tbShelf.gainDb, -3.5);
   assert.ok(Math.abs(plan100.timbal[0].gainDb - -4.6667) < 0.01);
-  assert.ok(tbShelf.frequencyHz <= 0.85 * 95.39 + 1e-6, `Timbal shelf ${tbShelf.frequencyHz} Hz must never exceed 0.85 * 95.39 Hz (81.08 Hz)`);
+  assert.ok(tbShelf.frequencyHz <= 0.85 * 60.8 + 1e-6, `Timbal shelf ${tbShelf.frequencyHz} Hz must never exceed 0.85 * 60.8 Hz (51.68 Hz)`);
   assert.equal(clampProtectedLowShelfHz(150, 100), 85);
   assert.equal(plan75.marcante[2].frequencyHz, 360);
   assert.equal(plan75.marcante[2].gainDb, -2.2);
@@ -99,6 +99,7 @@ const memStore = new Map<string, string>();
   assert.equal(buildLoopOverrideKey('apito', 'studio'), 'apito::studio');
   assert.equal(resolveLoopSampleFilePath('apito', { apito: false }), 'Mixdown/Apito W long.ogg');
   assert.equal(resolveLoopSampleFilePath('apito', { apito: true }), 'Mixdown/Apito L.ogg');
+  assert.equal(resolveLoopSampleFilePath('timbal', { timbal: true }), 'Mixdown/Timbal studio B 1.ogg');
 
   setBarulhoLoopOverride('apito', { loopStartMs: 200, loopEndMs: 740, crossfadeMs: 90, softEntryMs: 310 }, 960, 'legacy');
   assert.equal(getEffectiveBarulhoLoopPoints('apito', 960, 'legacy').loopEndMs, 740);

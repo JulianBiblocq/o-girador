@@ -9,7 +9,7 @@ import { buildStudioTimbalStrokes, resolveStudioBankFlags, STUDIO_BANK_ENABLED }
 export const timbalConfig: InstrumentAudioConfig = {
   id: 'timbal',
   name: 'Timbal',
-  uiOrder: ['G', 'g', 'A', 'a', 'S', 's', 'D', 'd', 'P', 'p', 'F', 'V', 'C', 'B'],
+  uiOrder: ['G', 'g', 'A', 'a', 'S', 's', 'T', 't', 'D', 'd', 'P', 'p', 'F', 'V', 'C', 'B'],
   leftHandedSupport: true,
   ...resolveStudioBankFlags('timbal'),
   strokes: STUDIO_BANK_ENABLED.timbal ? buildStudioTimbalStrokes() : timbalStrokes,

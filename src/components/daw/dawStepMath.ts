@@ -1,4 +1,6 @@
 import { TrackGroup, Pattern } from '../../types';
+import { useTransportStore } from '../../stores/useTransportStore';
+import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 
 export function resolveDawPattern({
   track,
@@ -13,6 +15,11 @@ export function resolveDawPattern({
   effectiveTrack: TrackGroup;
   isLinkedSlave: boolean;
 }) {
+  const soloPlayId = useTransportStore.getState().soloPatternPlayId;
+  if (soloPlayId !== null && soloPlayId !== undefined) {
+    const soloPat = resolveActivePattern(effectiveTrack, tracks, currentMeasure, true, soloPlayId) as Pattern | null;
+    if (soloPat) return { activePattern: soloPat, masterActivePattern: soloPat, isGhostStep: false };
+  }
   const override = track.patternOverrides?.[currentMeasure];
   const hasExplicitVariation = override !== undefined && override !== null;
 

@@ -8,7 +8,7 @@
 import { instrumentsConfig } from '../../data';
 import { TrackGroup } from '../../types';
 import { PendingStudioInstrumentId } from '../../universes/maracatu/instruments/studioBankRegistry';
-import { DRUM_FUNDAMENTAL_SPECS, getDrumNaturalBaseHz } from '../../utils/audio/drumFundamentalRegistry';
+import { getDrumLowestNaturalHz, getDrumNaturalBaseHz } from '../../utils/audio/drumFundamentalRegistry';
 
 export const SPECTRAL_BREATHING_ROLES = ['marcante', 'meiao', 'repique', 'timbal', 'caixa', 'tarol'] as const;
 export type SpectralBreathingRole = (typeof SPECTRAL_BREATHING_ROLES)[number];
@@ -85,11 +85,8 @@ export function solveRodaSpectralBreathing(
   };
   const fLive = (role: string): number =>
     getDrumNaturalBaseHz(role, studioFlagsOverride) * Math.pow(2, meanSt(role) / 12);
-  const fLowest = (role: string): number => {
-    const base = getDrumNaturalBaseHz(role, studioFlagsOverride);
-    const sec = DRUM_FUNDAMENTAL_SPECS[role]?.secondaryHz;
-    return (sec !== undefined ? Math.min(base, sec) : base) * Math.pow(2, meanSt(role) / 12);
-  };
+  const fLowest = (role: string): number =>
+    getDrumLowestNaturalHz(role, studioFlagsOverride) * Math.pow(2, meanSt(role) / 12);
 
   const safeAmt = disableEq ? 0 : Math.max(0, Math.min(1, Number.isFinite(effectiveBreathingAmount) ? effectiveBreathingAmount : 0.75));
   const scale = safeAmt <= 0 ? 0 : safeAmt / 0.75;

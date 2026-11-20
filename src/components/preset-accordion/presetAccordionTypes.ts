@@ -17,6 +17,7 @@ export interface PresetAccordionSelectorProps {
   canSetDefaultPreset?: boolean;
   onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
   canEdit?: boolean;
+  canToggleDraftPreset?: (preset: { id: string; ownerId?: string }) => boolean;
   onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
   onSelectPreset: (presetValue: string, cloudId?: string) => void;
   className?: string;

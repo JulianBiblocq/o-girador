@@ -1,6 +1,7 @@
-
 import React from 'react';
 import { Copy, Download, CloudUpload, FolderOpen } from 'lucide-react';
+import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { getPasteDisabledReason } from '../../../utils/patternPasteNormalizer';
 import { ImportToadaButton } from '../../ImportToadaButton';
 import { AtelierVocalButton } from '../../AtelierVocalButton';
 import { ExportBaqueBounceButton } from '../../ExportBaqueBounceButton';
@@ -16,16 +17,26 @@ export interface PatternInspectorActionsProps {
   onLoadPattern?: () => void;
 }
 
+const BTN_ACTIVE_CLS = 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-ink-dark)]/10 active:scale-95 cursor-pointer';
+const BTN_DISABLED_CLS = 'bg-[var(--cordel-parchment-panel)] text-[var(--cordel-text-muted)] border-[var(--cordel-ink-dark)]/30 cursor-not-allowed opacity-50';
+
 export const PatternInspectorActions: React.FC<PatternInspectorActionsProps> = React.memo(({
   isFr, activePattern, canPaste, isVoice = false, onCopyPattern, onPastePattern, onSavePattern, onLoadPattern,
 }) => {
+  const hasCopiedPattern = useSequencerStore((s) => Boolean(s.copiedPattern && s.copiedPattern.steps > 0));
+  const copiedInstId = useSequencerStore((s) => s.copiedPattern?.sourceInstId || '');
+  const isPasteEnabled = Boolean(canPaste && activePattern);
+  const pasteTitle = isPasteEnabled
+    ? (isFr ? 'Coller le motif copié' : 'Colar o padrão copiado')
+    : (getPasteDisabledReason(hasCopiedPattern, canPaste, isFr ? 'fr' : 'pt', copiedInstId) || (isFr ? 'Coller le motif copié' : 'Colar o padrão copiado'));
+
   return (
     <div className="grid grid-cols-2 gap-1.5">
       <button
         type="button"
         onClick={onCopyPattern}
         disabled={!activePattern}
-        className="flex items-center justify-center gap-1.5 px-2 py-1 bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a] text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_#1a1a1a] hover:bg-black/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+        className={`flex items-center justify-center gap-1.5 px-2 py-1 border text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_var(--cordel-ink-dark)] transition-all ${activePattern ? BTN_ACTIVE_CLS : BTN_DISABLED_CLS}`}
         title={isFr ? 'Copier ce motif' : 'Copiar este padrão'}
       >
         <Copy size={12} />
@@ -35,13 +46,11 @@ export const PatternInspectorActions: React.FC<PatternInspectorActionsProps> = R
       <button
         type="button"
         onClick={onPastePattern}
-        disabled={!canPaste || !activePattern}
-        className={`flex items-center justify-center gap-1.5 px-2 py-1 text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_#1a1a1a] border transition-all ${
-          canPaste
-            ? 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a] hover:bg-black/10 active:scale-95 cursor-pointer'
-            : 'bg-stone-300 text-stone-500 border-[#1a1a1a]/30 cursor-not-allowed opacity-50'
+        disabled={!isPasteEnabled}
+        className={`flex items-center justify-center gap-1.5 px-2 py-1 text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_var(--cordel-ink-dark)] border transition-all ${
+          isPasteEnabled ? BTN_ACTIVE_CLS : BTN_DISABLED_CLS
         }`}
-        title={isFr ? 'Coller le motif copié' : 'Colar o padrão copiado'}
+        title={pasteTitle}
       >
         <Download size={12} />
         <span>{isFr ? 'Coller' : 'Colar'}</span>
@@ -59,7 +68,7 @@ export const PatternInspectorActions: React.FC<PatternInspectorActionsProps> = R
             type="button"
             onClick={onSavePattern}
             disabled={!activePattern}
-            className="flex items-center justify-center gap-1.5 px-2 py-1 bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a] text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_#1a1a1a] hover:bg-black/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            className={`flex items-center justify-center gap-1.5 px-2 py-1 border text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_var(--cordel-ink-dark)] transition-all ${activePattern ? BTN_ACTIVE_CLS : BTN_DISABLED_CLS}`}
             title={isFr ? 'Sauvegarder ce motif dans le catalogue cloud' : 'Salvar este padrão no catálogo nuvem'}
           >
             <CloudUpload size={12} />
@@ -70,7 +79,7 @@ export const PatternInspectorActions: React.FC<PatternInspectorActionsProps> = R
             type="button"
             onClick={onLoadPattern}
             disabled={!activePattern}
-            className="flex items-center justify-center gap-1.5 px-2 py-1 bg-[#f4ecd8] text-[#1a1a1a] border border-[#1a1a1a] text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_#1a1a1a] hover:bg-black/10 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            className={`flex items-center justify-center gap-1.5 px-2 py-1 border text-[11px] font-bold font-cactus rounded shadow-[1px_1px_0px_var(--cordel-ink-dark)] transition-all ${activePattern ? BTN_ACTIVE_CLS : BTN_DISABLED_CLS}`}
             title={isFr ? 'Charger un motif depuis le catalogue' : 'Carregar padrão do catálogo'}
           >
             <FolderOpen size={12} />

@@ -13,6 +13,7 @@ import { DEFAULT_REFERENCE_PITCH_HZ, sanitizePitchHz } from '../pitchHzContract'
 export interface DrumFundamentalSpec {
   studioHz: number;
   legacyHz: number;
+  studioSecondaryHz?: number;
   secondaryHz?: number;
   alwaysStudioCalibrated?: boolean;
   presetRangeSt: readonly [number, number];
@@ -49,8 +50,9 @@ export const DRUM_FUNDAMENTAL_SPECS: Record<string, DrumFundamentalSpec> = {
     presetRangeSt: [-2.0, 2.0],
   },
   timbal: {
-    studioHz: 206.91,
+    studioHz: 198.27,
     legacyHz: 206.91,
+    studioSecondaryHz: 60.8,
     secondaryHz: 95.39,
     presetRangeSt: [-5.0, 5.0],
   },
@@ -81,6 +83,17 @@ export function getDrumNaturalBaseHz(
 ): number {
   const spec = DRUM_FUNDAMENTAL_SPECS[instrumentId] || DRUM_FUNDAMENTAL_SPECS.meiao;
   return isDrumStudioBankActive(instrumentId, studioFlagsOverride) ? spec.studioHz : spec.legacyHz;
+}
+
+export function getDrumLowestNaturalHz(
+  instrumentId: string,
+  studioFlagsOverride?: Partial<Record<PendingStudioInstrumentId, boolean>>
+): number {
+  const spec = DRUM_FUNDAMENTAL_SPECS[instrumentId] || DRUM_FUNDAMENTAL_SPECS.meiao;
+  const active = isDrumStudioBankActive(instrumentId, studioFlagsOverride);
+  const base = active ? spec.studioHz : spec.legacyHz;
+  const sec = active ? (spec.studioSecondaryHz ?? spec.secondaryHz) : spec.secondaryHz;
+  return sec !== undefined ? Math.min(base, sec) : base;
 }
 
 export function roundSemitonesTenth(st: number): number {

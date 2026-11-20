@@ -3,9 +3,13 @@ import { Edit3 } from 'lucide-react';
 import { CordelContextMenu, CordelMenuItem } from '../ui/CordelContextMenu';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
-import { canTransferPatterns } from '../../utils/instrumentCompatibility';
+import { canTransferPatterns, resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
+import { getPasteDisabledReason } from '../../utils/patternPasteNormalizer';
 import { useSequencer } from '../../contexts/SequencerContext';
+import { useAudio } from '../../contexts/AudioContext';
+import { useTransportStore } from '../../stores/useTransportStore';
 import { XiloTarget } from '../XiloIcons';
+import { buildTrackSoloMenuItems } from './buildTrackSoloMenuItems';
 
 export interface TrackContextMenuProps {
   trackId: number;
@@ -16,41 +20,37 @@ export interface TrackContextMenuProps {
 }
 
 export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
-  trackId,
-  x,
-  y,
-  onClose,
-  onRename,
+  trackId, x, y, onClose, onRename,
 }) => {
   const sequencer = useSequencer();
-  const lang = useSequencerStore(state => state.lang);
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
-  const tracks = useSequencerStore(state => state.tracks);
-  const clipboard = useSequencerStore(state => state.instrumentPatternsClipboard);
-  const copyAllTrackPatterns = useSequencerStore(state => state.copyAllTrackPatterns);
-  const pasteAllTrackPatterns = useSequencerStore(state => state.pasteAllTrackPatterns);
-  const duplicateTrack = useSequencerStore(state => state.duplicateTrack);
+  const audio = useAudio();
+  const soloPatternPlayId = useTransportStore((s) => s.soloPatternPlayId);
+  const soloPatternVariationId = useTransportStore((s) => s.soloPatternVariationId);
+  const lang = useSequencerStore((state) => state.lang);
+  const track = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId));
+  const tracks = useSequencerStore((state) => state.tracks);
+  const clipboard = useSequencerStore((state) => state.instrumentPatternsClipboard);
+  const copyAllTrackPatterns = useSequencerStore((state) => state.copyAllTrackPatterns);
+  const pasteAllTrackPatterns = useSequencerStore((state) => state.pasteAllTrackPatterns);
+  const duplicateTrack = useSequencerStore((state) => state.duplicateTrack);
 
   if (!track) return null;
 
   const isPureBus = Boolean(track.isBusFolder && !track.isLinkFolder);
   const inst = instrumentsConfig[track.instrumentIdx];
   const trackDisplayName = track.customName || (isPureBus ? 'Bus' : inst?.name) || (lang === 'fr' ? 'Piste' : 'Faixa');
-  const isCompatible = clipboard ? canTransferPatterns(clipboard, track) : false;
-  const clipboardFamily = clipboard ? clipboard.sourceFamily : '';
+  const isCompatible = clipboard ? canTransferPatterns(clipboard, track, tracks) : false;
+  const targetInstId = resolveTrackInstrumentId(track, tracks);
 
   const handleDelete = async () => {
-    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
-    let confirmMsg: string;
-    if (track.isBusFolder && childTracks.length > 0) {
-      confirmMsg = lang === 'fr'
+    const childTracks = tracks.filter((t) => String(t.busId) === String(trackId));
+    const confirmMsg = track.isBusFolder && childTracks.length > 0
+      ? (lang === 'fr'
         ? `Attention : le bus "${trackDisplayName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?`
-        : `Atenção: o bus "${trackDisplayName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`;
-    } else {
-      confirmMsg = lang === 'fr'
+        : `Atenção: o bus "${trackDisplayName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`)
+      : (lang === 'fr'
         ? `Supprimer définitivement la piste "${trackDisplayName}" et tous ses motifs ?`
-        : `Excluir definitivamente a faixa "${trackDisplayName}" e todos os seus padrões?`;
-    }
+        : `Excluir definitivamente a faixa "${trackDisplayName}" e todos os seus padrões?`);
     if (await sequencer.confirmAsync(confirmMsg)) {
       useSequencerStore.getState().handleTrackDelete(trackId);
     }
@@ -58,9 +58,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
 
   const handleRenameClick = () => {
     onClose();
-    requestAnimationFrame(() => {
-      onRename?.();
-    });
+    requestAnimationFrame(() => { onRename?.(); });
   };
 
   const items: CordelMenuItem[] = [];
@@ -76,13 +74,16 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
   }
 
   if (!isPureBus) {
+    items.push(...buildTrackSoloMenuItems({
+      track, tracks, lang, soloPatternPlayId, soloPatternVariationId,
+      onPlaySolo: (pId, vId) => audio.handleStartSoloPattern?.(pId, vId),
+      onStopSolo: () => audio.handleStopSoloPattern?.(),
+    }));
     items.push({
       id: 'train-track',
-      label: lang === 'fr' ? "S'entraîner sur ce pupitre (Jouer avec)" : "Treinar neste naipe (Tocar Junto)",
+      label: lang === 'fr' ? "S'entraîner sur ce pupitre (Jouer avec)" : 'Treinar neste naipe (Tocar Junto)',
       icon: <XiloTarget size={16} className="shrink-0" />,
-      onClick: () => {
-        useSequencerStore.getState().activateFocusOnTrack(trackId);
-      },
+      onClick: () => { useSequencerStore.getState().activateFocusOnTrack(trackId); },
     });
     items.push({ isSeparator: true });
     items.push({
@@ -96,9 +97,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
       label: lang === 'fr' ? 'Coller les motifs' : 'Colar padrões',
       icon: '',
       disabled: !clipboard || !isCompatible,
-      disabledReason: !clipboard 
-        ? (lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia')
-        : (!isCompatible ? `${lang === 'fr' ? 'Incompatible' : 'Incompatível'} (${clipboardFamily})` : undefined),
+      disabledReason: getPasteDisabledReason(Boolean(clipboard), isCompatible, lang, clipboard?.sourceInstId || clipboard?.sourceFamily, targetInstId),
       subItems: (clipboard && isCompatible) ? [
         { id: 'paste-bank', label: lang === 'fr' ? 'Banque seule' : 'Apenas banco', icon: '', onClick: () => pasteAllTrackPatterns(trackId, 'libraryOnly') },
         { id: 'paste-full', label: lang === 'fr' ? 'Banque + Timeline' : 'Banco + Linha do tempo', icon: '', onClick: () => pasteAllTrackPatterns(trackId, 'libraryAndTimeline') },
@@ -121,13 +120,5 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
     onClick: handleDelete,
   });
 
-  return (
-    <CordelContextMenu
-      x={x}
-      y={y}
-      title={trackDisplayName}
-      items={items}
-      onClose={onClose}
-    />
-  );
+  return <CordelContextMenu x={x} y={y} title={trackDisplayName} items={items} onClose={onClose} />;
 };

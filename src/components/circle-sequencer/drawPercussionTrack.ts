@@ -70,9 +70,9 @@ export const drawPercussionTrack = (
     if (!pastille.hasEvent) return;
 
     const patForM = mIdx === measureIdx ? activePattern : (mIdx === nextMeasureIdx ? nextResolved.pattern : prevResolved.pattern);
-    const canVaryM = Boolean(isPlaying && patForM?.variations?.length && (soloPatternPlayId !== null || patForM.measureAllowVariations?.[mIdx] !== false));
+    const canVaryM = Boolean((isPlaying || soloPatternPlayId !== null) && patForM?.variations?.length && (soloPatternPlayId !== null || patForM.measureAllowVariations?.[mIdx] !== false));
     const isVariationStep = canVaryM && !areStepValuesEqual(rawState, baseState);
-    const varMapForM = !isPlaying ? undefined : (mIdx === measureIdx ? (snapshots.currentStepsByTrackId || activeVariationsRef?.current) : (mIdx === nextMeasureIdx ? snapshots.nextStepsByTrackId : snapshots.prevStepsByTrackId));
+    const varMapForM = (!isPlaying && soloPatternPlayId === null) ? undefined : (mIdx === measureIdx ? (snapshots.currentStepsByTrackId || activeVariationsRef?.current) : (mIdx === nextMeasureIdx ? snapshots.nextStepsByTrackId : snapshots.prevStepsByTrackId));
     const slaveOpacity = isVariationStep
       ? 1.0
       : resolveSlaveStepOpacity({ track, allTracks: rawTracks, measureIdx: mIdx, stepIdx, ownStepVal: rawState, focusCtx, activeVariationsMap: varMapForM });

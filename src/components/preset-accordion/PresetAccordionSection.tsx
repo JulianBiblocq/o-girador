@@ -16,13 +16,14 @@ interface SectionProps {
   defaultPresetId?: string | null;
   canEdit?: boolean;
   canSetDefaultPreset?: boolean;
+  canToggleDraftPreset?: (preset: { id: string; ownerId?: string }) => boolean;
   canDeletePreset?: (preset: { id: string; ownerId?: string }) => boolean;
   lang: 'pt' | 'fr';
   isItemActive: (val: string, name: string) => boolean;
   onItemClick: (val: string, cloudId?: string) => void;
   onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
   onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
-  onDeletePreset?: (preset: { id: string; name: string; audioUrl?: string | null }) => Promise<void> | void;
+  onDeletePreset?: (preset: { id: string; name: string; ownerId?: string; audioUrl?: string | null }) => Promise<void> | void;
   testId?: string;
 }
 
@@ -39,8 +40,8 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
   isGroupList = false,
   isLoading = false,
   defaultPresetId,
-  canEdit = false,
   canSetDefaultPreset = false,
+  canToggleDraftPreset,
   canDeletePreset,
   lang,
   isItemActive,
@@ -60,7 +61,7 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
       >
         <span className="flex items-center gap-1.5 truncate">
           {logo && (
-            <span className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] rounded-xs p-0.5 mr-2 shrink-0 shadow-xs border border-black/10">
+            <span className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-paper-surface)] rounded-xs p-0.5 mr-2 shrink-0 shadow-xs border border-[var(--cordel-border)]/20">
               <img src={logo} alt="" className="w-full h-full object-contain" />
             </span>
           )}
@@ -74,7 +75,7 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
       {isOpen && (
         <div className="flex flex-col gap-1 p-1.5 pt-0 max-h-56 overflow-y-auto border-t border-[var(--cordel-border)]/20">
           {isLoading && items.length === 0 ? (
-            <div className="px-2 py-2 text-xs italic text-[var(--cordel-subtext)] text-center">
+            <div className="px-2 py-2 text-xs italic text-[var(--cordel-text-muted)] text-center">
               {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
             </div>
           ) : items.length > 0 ? (
@@ -85,7 +86,7 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
                 active={isItemActive(`cloud:${p.id}`, p.name)}
                 isGroupList={isGroupList}
                 isDefault={isGroupList && defaultPresetId === p.id}
-                canEdit={canEdit}
+                canToggleDraft={canToggleDraftPreset ? canToggleDraftPreset(p) : false}
                 canSetDefaultPreset={canSetDefaultPreset}
                 canDelete={canDeletePreset ? canDeletePreset(p) : false}
                 icon={itemIcon}
@@ -97,7 +98,7 @@ export const PresetAccordionSection: React.FC<SectionProps> = ({
               />
             ))
           ) : (
-            <div className="px-2 py-2 text-xs italic text-[var(--cordel-subtext)] text-center">{emptyMsg}</div>
+            <div className="px-2 py-2 text-xs italic text-[var(--cordel-text-muted)] text-center">{emptyMsg}</div>
           )}
         </div>
       )}

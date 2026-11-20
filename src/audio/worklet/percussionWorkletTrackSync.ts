@@ -77,7 +77,7 @@ export class PercussionWorkletTrackSync {
 
       const rawDecay = track.trackDecay !== undefined ? track.trackDecay : 1.0;
       const decayNorm = rawDecay <= 0 ? 1.0 : (rawDecay > 1 ? rawDecay / 100 : rawDecay);
-      const isPracticeMuted = isTrackMutedByPracticeMode(trackId, tracks, seqState, familyCache);
+      const isPracticeMuted = soloPatternPlayId !== null ? false : isTrackMutedByPracticeMode(trackId, tracks, seqState, familyCache);
       const isMuted = (soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, trackId)) || isPracticeMuted;
       const mutedFlag = isMuted ? 1 : 0;
 

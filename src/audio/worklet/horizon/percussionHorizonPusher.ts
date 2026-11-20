@@ -82,6 +82,7 @@ function projectAndPushHorizon(ctx: HorizonPusherContext, minRebuildFrame: numbe
       soloPatternPlayId: ctx.soloPatternPlayIdRef.current, globalSwing: ctx.globalSwingRef.current,
       flatCompiledSchedule: ctx.flatCompiledScheduleRef.current,
       variedTrackIds: snap.variedTrackIds, variationNotes: snap.variationNotes,
+      variedPatternsByTrackId: snap.variedPatternsByTrackId,
       engineDeps: engine, sampleRate, currentFrame, minRebuildFrame,
       previousEmittedNoteFrames: existing?.emittedNoteFrames, lookaheadPoints,
     });

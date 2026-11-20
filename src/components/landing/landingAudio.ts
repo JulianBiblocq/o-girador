@@ -35,9 +35,9 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     name: 'Caixa',
     Icon: CaixaCordelIcon,
     strokes: [
-      { symbol: 'D', labelFr: 'Coup fort', labelPt: 'Toque forte', file: '/Mixdown/Caixa F 1.ogg' },
-      { symbol: 'F', labelFr: 'Fla', labelPt: 'Fla', file: '/Mixdown/Caixa Fla 1.ogg' },
-      { symbol: 'R', labelFr: 'Roulement', labelPt: 'Rufada', file: '/Mixdown/Caixa R 1.ogg' },
+      { symbol: 'D', labelFr: 'Coup fort', labelPt: 'Toque forte', file: '/Mixdown/Caixa studio F D 1.ogg' },
+      { symbol: 'F', labelFr: 'Fla', labelPt: 'Fla', file: '/Mixdown/Caixa studio Fla D 1.ogg' },
+      { symbol: 'R', labelFr: 'Roulement', labelPt: 'Rufada', file: '/Mixdown/Caixa studio R D 1.ogg' },
     ],
   },
   {
@@ -47,7 +47,7 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     strokes: [
       { symbol: 'G', labelFr: 'Grave (corps)', labelPt: 'Grave (corpo)', file: '/Mixdown/Gongue G 1.ogg' },
       { symbol: 'A', labelFr: 'Aigu (bouche)', labelPt: 'Agudo (boca)', file: '/Mixdown/Gongue A 1.ogg' },
-      { symbol: 'a', labelFr: 'Aigu faible', labelPt: 'Agudo fraco', file: '/Mixdown/Gongue f a 1.ogg' },
+      { symbol: 'a', labelFr: 'Aigu faible', labelPt: 'Agudo fraco', file: '/Mixdown/Gongue a_min 1.ogg' },
     ],
   },
   {
@@ -57,7 +57,7 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     strokes: [
       { symbol: 'E', labelFr: 'Frappe gauche', labelPt: 'Batida esquerda', file: '/Mixdown/Agbe F E 1.ogg' },
       { symbol: 'D', labelFr: 'Frappe droite', labelPt: 'Batida direita', file: '/Mixdown/Agbe F D 1.ogg' },
-      { symbol: 'd', labelFr: 'Toucher faible', labelPt: 'Toque fraco', file: '/Mixdown/Agbe f 1.ogg' },
+      { symbol: 'd', labelFr: 'Toucher faible', labelPt: 'Toque fraco', file: '/Mixdown/Agbe f_min d 1.ogg' },
     ],
   },
   {
@@ -67,7 +67,7 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     strokes: [
       { symbol: 'P', labelFr: 'P ↑ — Pousser (Avant)', labelPt: 'P ↑ — Projetar (Para frente)', file: '/Mixdown/Mineiro F P 1.ogg' },
       { symbol: 'T', labelFr: 'T ↓ — Tirer (Vers soi)', labelPt: 'T ↓ — Trazer (Para trás)', file: '/Mixdown/Mineiro F T 1.ogg' },
-      { symbol: 'p', labelFr: 'p ↑ — Pousser faible', labelPt: 'p ↑ — Projetar fraco', file: '/Mixdown/Mineiro f 1.ogg' },
+      { symbol: 'p', labelFr: 'p ↑ — Pousser faible', labelPt: 'p ↑ — Projetar fraco', file: '/Mixdown/Mineiro f_min p 1.ogg' },
     ],
   },
   {
@@ -75,15 +75,16 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     name: 'Timbal',
     Icon: TimbalCordelIcon,
     strokes: [
-      { symbol: 'A', labelFr: 'Ouvert (aberto)', labelPt: 'Aberto', file: '/Mixdown/Timbal A 1.ogg' },
-      { symbol: 'G', labelFr: 'Basse (baixo)', labelPt: 'Baixo', file: '/Mixdown/Timbal G 1.ogg' },
-      { symbol: 'P', labelFr: 'Tonique (preso)', labelPt: 'Preso', file: '/Mixdown/Timbal P 1.ogg' },
-      { symbol: 'S', labelFr: 'Claqué (slap)', labelPt: 'Slap', file: '/Mixdown/Timbal S 1.ogg' },
+      { symbol: 'A', labelFr: 'Ouvert (aberto)', labelPt: 'Aberto', file: '/Mixdown/Timbal studio A D 1.ogg' },
+      { symbol: 'G', labelFr: 'Basse (baixo)', labelPt: 'Baixo', file: '/Mixdown/Timbal studio G D 1.ogg' },
+      { symbol: 'P', labelFr: 'Pressé (preso)', labelPt: 'Preso', file: '/Mixdown/Timbal studio P D 1.ogg' },
+      { symbol: 'S', labelFr: 'Claqué (slap)', labelPt: 'Slap', file: '/Mixdown/Timbal studio S D 1.ogg' },
     ],
   },
 ];
 
 import { getRawAudioContext } from '../../audio/audioContextSuspendManager';
+import { fetchAndDecodeAudioSample } from '../../audio/engine/sampleFetchUtils';
 
 export const ALL_LANDING_SAMPLES = BAQUE_INSTRUMENTS_DATA.flatMap(inst =>
   inst.strokes.map(s => ({ id: inst.id, symbol: s.symbol, file: s.file }))
@@ -103,10 +104,8 @@ export function preloadLandingSamples() {
       const bufferKey = `${id}_${symbol}`;
       if (decodedAudioBuffers.has(bufferKey)) return;
       try {
-        const resp = await fetch(file);
-        if (!resp.ok) return;
-        const arrayBuffer = await resp.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        const audioBuffer = await fetchAndDecodeAudioSample(ctx, file);
+        if (!audioBuffer) return;
         decodedAudioBuffers.set(bufferKey, audioBuffer);
         if (!decodedAudioBuffers.has(id)) decodedAudioBuffers.set(id, audioBuffer);
       } catch (_) {}

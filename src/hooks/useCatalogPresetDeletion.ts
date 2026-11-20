@@ -1,35 +1,28 @@
 /**
- * Hook de suppression directe d'un morceau du catalogue avec confirmation Cordel (< 65 lignes).
+ * Hook de suppression directe d'un morceau du catalogue avec confirmation Cordel (< 60 lignes).
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { deleteCloudPreset } from '../cloudPresetsStorage';
 import { getActiveCloudPresetId, resetActiveCloudPresetId } from '../utils/cloudPresetState';
+import { isMestreOrAdminProfile, canDeleteCatalogPreset } from '../utils/presetPermissions';
 
-export function useCatalogPresetDeletion(lang: 'pt' | 'fr', canEditProp = false) {
+export function useCatalogPresetDeletion(lang: 'pt' | 'fr', _canEditProp = false) {
   const { userProfile, isAdmin, currentUser } = useAuth();
   const sequencer = useSequencer();
   const queryClient = useQueryClient();
-  const currentUid = userProfile?.uid || currentUser?.uid;
 
-  const isMestre = Boolean(
-    userProfile?.role === 'mestre' ||
-    (userProfile as any)?.dbRole === 'mestre' ||
-    userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    currentUser?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'
-  );
-  const isSuperMestre = Boolean(isAdmin || (userProfile?.role as string) === 'super-admin' || userProfile?.role === 'admin');
-  const isEditor = Boolean(canEditProp || isSuperMestre || isMestre || userProfile?.canWriteSequenciador);
+  const effectiveProfile = userProfile
+    ? { ...userProfile, uid: userProfile.uid || currentUser?.uid || '' }
+    : (currentUser ? { uid: currentUser.uid } : null);
+  const isMestreOrAdmin = isMestreOrAdminProfile(effectiveProfile, isAdmin);
 
-  const canDeletePreset = (preset: { id: string; ownerId?: string }) => {
-    if (isEditor) return true;
-    return Boolean(currentUid && preset.ownerId === currentUid);
-  };
+  const canDeletePreset = (preset: { id: string; ownerId?: string }) =>
+    canDeleteCatalogPreset(preset, effectiveProfile);
 
-  const handleDeletePreset = async (preset: { id: string; name: string; audioUrl?: string | null }) => {
-    const canDelete = isEditor || Boolean(currentUid && (preset as any).ownerId === currentUid);
-    if (!canDelete) return;
+  const handleDeletePreset = async (preset: { id: string; name: string; ownerId?: string; audioUrl?: string | null }) => {
+    if (!canDeleteCatalogPreset(preset, effectiveProfile)) return;
 
     const confirmMsg = lang === 'pt'
       ? `Excluir definitivamente "${preset.name}" do catálogo?`
@@ -39,7 +32,7 @@ export function useCatalogPresetDeletion(lang: 'pt' | 'fr', canEditProp = false)
     if (!confirmed) return;
 
     try {
-      await deleteCloudPreset(preset.id, preset.audioUrl, isEditor);
+      await deleteCloudPreset(preset.id, preset.audioUrl, isMestreOrAdmin);
       if (getActiveCloudPresetId() === preset.id) {
         resetActiveCloudPresetId();
       }

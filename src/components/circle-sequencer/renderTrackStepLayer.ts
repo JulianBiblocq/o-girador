@@ -4,6 +4,7 @@ import { getEffectiveMuteState, isToadaBus, useSequencerStore } from '../../stor
 import {
   computeMeasurePatternStepOffset, computeRodaStepAngles, getRodaMeasureGeometry, resolveActiveBeatResolutions,
 } from '../../utils/rodaTimeSigGeometry';
+import { resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { drawTrackRing } from './drawTrackRings';
 import { getPhysicalStepFromRatio } from './measurePatternHelpers';
@@ -91,14 +92,17 @@ export function renderTrackStepLayer(
     }
 
     const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
+    const soloVarId = stateVal.soloPatternVariationId ?? null;
     const canHaveLiveVar = Boolean(
       isPlayheadActive && activePattern?.variations?.length && (soloId !== null || activePattern.measureAllowVariations?.[measureIdx] !== false)
     );
-    const rawPlayingSteps = canHaveLiveVar && activeVariationsRef?.current
-      ? activeVariationsRef.current[track.id] || activePattern!.activeSteps
-      : activePattern?.activeSteps;
+    const { steps: rawPlayingSteps, beatResolutions: varBeatRes } = resolveEffectivePatternStepsForSoloOrLive({
+      pattern: activePattern, trackId: track.id, tracks: localRawTracks,
+      soloPatternPlayId: soloId, soloPatternVariationId: soloVarId,
+      liveStepsMap: activeVariationsRef?.current, canUseLiveVariation: canHaveLiveVar,
+    });
 
-    const beatRes = resolveActiveBeatResolutions(String(activeTimeSig), activePattern);
+    const beatRes = resolveActiveBeatResolutions(String(activeTimeSig), activePattern ? { ...activePattern, beatResolutions: varBeatRes } : null);
     const stepAngles = computeRodaStepAngles(String(activeTimeSig), beatRes);
     const effectiveStepCount = stepAngles.length;
     const stepOffset = computeMeasurePatternStepOffset(activePattern, effectiveStepCount, measureIdx);

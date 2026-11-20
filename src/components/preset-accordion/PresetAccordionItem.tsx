@@ -7,7 +7,7 @@ interface PresetAccordionItemProps {
   active: boolean;
   isGroupList: boolean;
   isDefault: boolean;
-  canEdit: boolean;
+  canToggleDraft?: boolean;
   canSetDefaultPreset: boolean;
   canDelete?: boolean;
   icon?: React.ReactNode;
@@ -15,11 +15,11 @@ interface PresetAccordionItemProps {
   onItemClick: (val: string, cloudId?: string) => void;
   onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
   onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
-  onDeletePreset?: (preset: { id: string; name: string; audioUrl?: string | null }) => Promise<void> | void;
+  onDeletePreset?: (preset: { id: string; name: string; ownerId?: string; audioUrl?: string | null }) => Promise<void> | void;
 }
 
 export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
-  preset, active, isGroupList, isDefault, canEdit, canSetDefaultPreset, canDelete,
+  preset, active, isGroupList, isDefault, canToggleDraft = false, canSetDefaultPreset, canDelete = false,
   icon, lang, onItemClick, onToggleDraft, onSetDefaultPreset, onDeletePreset,
 }) => {
   const stopEvent = (e: React.SyntheticEvent) => { e.preventDefault(); e.stopPropagation(); };
@@ -31,7 +31,9 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
         title={preset.name}
         onClick={() => onItemClick(`cloud:${preset.id}`, preset.id)}
         className={`flex-1 text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
-          active ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          active
+            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-wood)]'
+            : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
         }`}
       >
         <span className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -43,8 +45,8 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
 
       {/* Colonne d'actions à droite : largeur fixe et alignement strict */}
       <div className="flex items-center justify-end shrink-0 gap-0.5">
-        {/* Slot 1 : Sablier / Mégaphone */}
-        {isGroupList && canEdit ? (
+        {/* Slot 1 : Sablier / Mégaphone (strictement canMutatePreset) */}
+        {isGroupList && canToggleDraft ? (
           <button
             type="button"
             onPointerDown={stopEvent} onMouseDown={stopEvent}
@@ -57,21 +59,21 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
             {preset.isDraft === true ? (
               <XiloHourglass size={14} className="shrink-0 text-[var(--cordel-text)] opacity-60 hover:opacity-90 transition-opacity" />
             ) : (
-              <XiloMegaphone size={14} className="shrink-0 text-[#c25e38] dark:text-[#e07a5f] hover:opacity-90 transition-colors" />
+              <XiloMegaphone size={14} className="shrink-0 text-[var(--cordel-accent-readable)] hover:opacity-90 transition-colors" />
             )}
           </button>
         ) : isGroupList ? (
           <span className="w-6 h-6 shrink-0" />
         ) : null}
 
-        {/* Slot 2 : Corbeille */}
+        {/* Slot 2 : Corbeille (strictement canDeleteCatalogPreset) */}
         {canDelete ? (
           <button
             type="button"
             onPointerDown={stopEvent} onMouseDown={stopEvent}
             onClick={(e) => { stopEvent(e); onDeletePreset?.(preset); }}
             title={lang === 'pt' ? 'Excluir esta música do catálogo' : 'Supprimer ce morceau du catalogue'}
-            className="w-6 h-6 shrink-0 cursor-pointer flex items-center justify-center transition-colors text-[var(--cordel-text)] opacity-40 hover:opacity-100 hover:text-red-700 dark:hover:text-red-400 leading-none"
+            className="w-6 h-6 shrink-0 cursor-pointer flex items-center justify-center transition-colors text-[var(--cordel-text)] opacity-40 hover:opacity-100 hover:text-[var(--cordel-status-danger)] leading-none"
           >
             <Trash2 size={13} className="shrink-0" />
           </button>
@@ -79,13 +81,13 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
           <span className="w-6 h-6 shrink-0" />
         )}
 
-        {/* Slot 3 : Épingle Cactus */}
+        {/* Slot 3 : Épingle Cactus (strictement isMestreOrAdminProfile) */}
         {isGroupList && (
           canSetDefaultPreset ? (
             <button
               type="button"
-              data-testid={isDefault ? "cactus-default-preset" : "cactus-preset-toggle"}
-              aria-label={isDefault ? "Cactus" : "Épingler le morceau"}
+              data-testid={isDefault ? 'cactus-default-preset' : 'cactus-preset-toggle'}
+              aria-label={isDefault ? 'Cactus' : 'Épingler le morceau'}
               onClick={(e) => { e.stopPropagation(); onSetDefaultPreset?.(isDefault ? null : preset.id); }}
               title={lang === 'pt'
                 ? (isDefault ? 'Ritmo de referência ativo (clique para desafixar)' : 'Fixar como ritmo de referência do grupo')
@@ -95,7 +97,9 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
               <span
                 style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
                 className={`font-cactus-star text-xl select-none leading-none inline-flex items-center justify-center transform transition-colors ${
-                  isDefault ? 'text-[#2d6a4f] dark:text-amber-400 drop-shadow-none dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]' : 'text-[var(--cordel-text)] opacity-20 hover:opacity-80 transition-opacity'
+                  isDefault
+                    ? 'text-[var(--cordel-status-success)] dark:text-[var(--cordel-gold)]'
+                    : 'text-[var(--cordel-text)] opacity-20 hover:opacity-80 transition-opacity'
                 }`}
               >
                 *
@@ -107,7 +111,7 @@ export const PresetAccordionItem: React.FC<PresetAccordionItemProps> = ({
               aria-label="Cactus"
               title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
               style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-              className="w-6 h-6 shrink-0 select-none leading-none text-xl font-cactus-star text-[#2d6a4f] dark:text-amber-400 drop-shadow-none dark:drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] inline-flex items-center justify-center"
+              className="w-6 h-6 shrink-0 select-none leading-none text-xl font-cactus-star text-[var(--cordel-status-success)] dark:text-[var(--cordel-gold)] inline-flex items-center justify-center"
             >
               *
             </span>

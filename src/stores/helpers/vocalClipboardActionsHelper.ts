@@ -23,9 +23,14 @@ export const handleCopyVoiceStepsAction = (
   );
   if (!res) return;
   set({
-    voiceStepsClipboard: { steps: res.steps },
+    voiceStepsClipboard: {
+      steps: res.steps,
+      sourceTrackId: res.sourceTrackId,
+      sourceInstId: res.sourceInstId,
+      sourceInstrumentType: res.sourceInstId,
+    },
     vocalNotesClipboard: res.vocalNotes,
-    ...(res.fallbackSelection ? { selectedStepIdx: res.fallbackSelection.step, selectedStepIsPreRoll: res.fallbackSelection.isPreRoll } : {})
+    ...(res.fallbackSelection ? { selectedStepIdx: res.fallbackSelection.step, selectedStepIsPreRoll: res.fallbackSelection.isPreRoll } : {}),
   });
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
@@ -40,13 +45,11 @@ export const handleCutVoiceStepsAction = (
   trackIdOverride?: number,
   patternIdOverride?: number
 ) => {
-  state.pushUndoState();
-  get().copyVoiceStepsRange(rangeOverride, trackIdOverride, patternIdOverride);
   const res = cutVoiceStepsRangeState(
     state.tracks,
     rangeOverride,
     trackIdOverride,
-    patternIdOverride,
+    trackIdOverride !== undefined ? patternIdOverride : state.selectedPatternId,
     state.selectedStepRange,
     state.selectedStepIdx,
     state.selectedStepIsPreRoll,
@@ -54,12 +57,14 @@ export const handleCutVoiceStepsAction = (
     state.selectedPatternId
   );
   if (!res) return;
+  get().copyVoiceStepsRange(rangeOverride, trackIdOverride, patternIdOverride);
+  state.pushUndoState();
   set({
     tracks: res.tracks,
     tracksVersion: state.tracksVersion + 1,
     selectedStepIdx: res.anchorStep,
     selectedStepIsPreRoll: res.anchorIsPreRoll,
-    selectedStepRange: null
+    selectedStepRange: null,
   });
 };
 
@@ -76,6 +81,8 @@ export const handlePasteVoiceStepsAction = (
     state.vocalNotesClipboard?.map((n: string) => ({ note: n, syllable: '', role: n ? ('P' as const) : ('0' as const) }));
   if (!steps || steps.length === 0) return;
 
+  const sourceInstId = state.voiceStepsClipboard?.sourceInstrumentType || state.voiceStepsClipboard?.sourceInstId || 'puxador';
+
   const nextTracks = pasteVoiceStepsState(
     state.tracks,
     steps,
@@ -84,7 +91,8 @@ export const handlePasteVoiceStepsAction = (
     startIsPreRoll,
     startStepIdx,
     notesOnly,
-    state.selectedPatternId
+    state.selectedPatternId,
+    sourceInstId
   );
   if (!nextTracks) return;
   state.pushUndoState();

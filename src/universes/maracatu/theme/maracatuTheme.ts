@@ -95,6 +95,7 @@ export const MARACATU_THEME: ThemePalette = {
       'G': '#78350f', 'g': '#78350f',
       'A': '#d97706', 'a': '#d97706',
       'S': '#fbbf24', 's': '#fbbf24',
+      'T': '#fde047', 't': '#fde047',
       'D': '#fef08a', 'd': '#fef08a',
       'P': '#451a03', 'p': '#451a03',
       'F': '#ea580c', 'f': '#ea580c',

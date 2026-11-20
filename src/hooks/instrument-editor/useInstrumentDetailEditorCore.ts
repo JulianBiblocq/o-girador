@@ -7,6 +7,7 @@ import { useBalancoStore } from '../../stores/useBalancoStore';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { canTransferPatterns, resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
 import { useCloudAudioBounce } from '../useCloudAudioBounce';
 import { useEditorResolvedTrackContext } from './useEditorResolvedTrackContext';
 import { useInstrumentEditorTracksMeta } from './useInstrumentEditorTracksMeta';
@@ -43,21 +44,31 @@ export function useInstrumentDetailEditorCore(props: {
     displayedPatterns, isVocalContext, puxTrack, coroTrack, isCoroActive,
   } = useEditorResolvedTrackContext(trackId, editorDeepLink?.patternId);
 
+  const resolvedTargetInstId = useSequencerStore(
+    useCallback((s) => resolveTrackInstrumentId(effectiveTrack ?? track, s.tracks) || inst?.id || '', [effectiveTrack, track, inst?.id])
+  );
+
   const { tracksMeta, visibleTrackIds, trackDisplayName, getPatternUsage } = useInstrumentEditorTracksMeta(instSourceTrack, effectiveEditTrackId, inst);
   const { isPatternRecording, togglePatternRecording, armedPatternId, toggleArmPattern } = useInstrumentEditorRecording({ trackId: effectiveEditTrackId });
   const { onPlaySoloPattern, onStopSoloPattern, soloPatternPlayId, soloPatternVariationId } = useInstrumentEditorSoloPlayback();
   const ctrl = useInstrumentDetailEditorController(onClose, isMobile, isDetached);
   const patternOps = useInstrumentEditorPatterns({ effectiveEditTrackId, totalMeasures, lang, sequencer, setSelectedPatternId: (id) => editorState.setSelectedPatternId(id) });
-  const cloud = useInstrumentEditorCloudActions({ inst, displayedPatterns, currentBpm, currentTimeSig, lang, sequencer, genererEtUploaderCloudBounce, onLoadLibraryPattern: (targetId, libPtn) => sequencer.handleLoadLibraryPattern(effectiveEditTrackId, targetId, libPtn) });
+  const cloud = useInstrumentEditorCloudActions({
+    inst: { id: resolvedTargetInstId || inst.id }, displayedPatterns, currentBpm, currentTimeSig, lang, sequencer,
+    genererEtUploaderCloudBounce, onLoadLibraryPattern: (targetId, libPtn) => sequencer.handleLoadLibraryPattern(effectiveEditTrackId, targetId, libPtn),
+  });
   const clipboard = useSequencerStore(useShallow((s) => ({
-    canPaste: Boolean(s.copiedPattern && s.copiedPattern.steps > 0), canPasteRange: Boolean(s.stepRangeClipboard?.steps?.length),
-    copyAll: s.copyAllTrackPatterns, pasteAll: s.pasteAllTrackPatterns, clipboard: s.instrumentPatternsClipboard, isPasteable: Boolean(s.instrumentPatternsClipboard?.patterns?.length),
+    canPaste: Boolean(s.copiedPattern && s.copiedPattern.steps > 0 && canTransferPatterns(s.copiedPattern, resolvedTargetInstId, s.tracks)),
+    canPasteRange: Boolean(s.stepRangeClipboard?.steps?.length && canTransferPatterns(s.stepRangeClipboard, resolvedTargetInstId, s.tracks)),
+    copyAll: s.copyAllTrackPatterns, pasteAll: s.pasteAllTrackPatterns, clipboard: s.instrumentPatternsClipboard,
+    isPasteable: Boolean(s.instrumentPatternsClipboard?.patterns?.length && canTransferPatterns(s.instrumentPatternsClipboard, resolvedTargetInstId, s.tracks)),
   })));
 
   const editorState = useInstrumentDetailEditorState({
     track: effectiveTrack, inst, effectiveEditTrackId, trackId, displayedPatterns, setEditingTrackId,
     handleDuplicatePattern: patternOps.handleDuplicatePattern, handleClearPatternStrokes: patternOps.handleClearPatternStrokes,
-    handleContextDeletePattern: patternOps.handleContextDeletePattern, onCopyPattern: (p) => sequencer.handleCopyPattern(p),
+    handleContextDeletePattern: patternOps.handleContextDeletePattern,
+    onCopyPattern: (p) => sequencer.handleCopyPattern(p, effectiveEditTrackId),
     onPastePattern: (pId) => sequencer.handlePastePattern(effectiveEditTrackId, pId), canPaste: clipboard.canPaste, lang, isVocalContext,
     editorDeepLink, consumeEditorDeepLink, isMobile, isInspectorMobileOpen: ctrl.isInspectorMobileOpen,
     setIsInspectorMobileOpen: ctrl.setIsInspectorMobileOpen, puxTrack, coroTrack,

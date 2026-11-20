@@ -29,6 +29,7 @@ const FACTORY_DEFAULTS: Record<string, BarulhoLoopPointsMs> = {
   'repique::studio': { loopStartMs: 260, loopEndMs: 2765, crossfadeMs: 110, softEntryMs: 440 },
   'gongue::studio': { loopStartMs: 540, loopEndMs: 2780, crossfadeMs: 110, softEntryMs: 720 },
   'caixa::studio': { loopStartMs: 640, loopEndMs: 2600, crossfadeMs: 110, softEntryMs: 820 },
+  'timbal::studio': { loopStartMs: 320, loopEndMs: 2680, crossfadeMs: 110, softEntryMs: 500 },
   'agbe::studio': { loopStartMs: 290, loopEndMs: 2610, crossfadeMs: 110, softEntryMs: 470 },
   'mineiro::studio': { loopStartMs: 270, loopEndMs: 1950, crossfadeMs: 110, softEntryMs: 450 },
   'apito::studio': { loopStartMs: 920, loopEndMs: 1600, crossfadeMs: 110, softEntryMs: 1100 },
@@ -69,6 +70,7 @@ export function resolveLoopSampleFilePath(instId: LoopLabInstrumentId, studioFla
   if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') return `Mixdown/Alfaia ${instId} B.ogg`;
   if (instId === 'apito') return getActiveLoopBankTier('apito', studioFlagsOverride) === 'studio' ? 'Mixdown/Apito L.ogg' : 'Mixdown/Apito W long.ogg';
   if (instId === 'caixa') return getActiveLoopBankTier('caixa', studioFlagsOverride) === 'studio' ? 'Mixdown/Caixa studio B.ogg' : 'Mixdown/Caixa B.ogg';
+  if (instId === 'timbal') return getActiveLoopBankTier('timbal', studioFlagsOverride) === 'studio' ? 'Mixdown/Timbal studio B 1.ogg' : 'Mixdown/Timbal B.ogg';
   return `Mixdown/${FILE_PREFIX_MAP[instId]} B.ogg`;
 }
 
@@ -77,7 +79,7 @@ export function resolveLoopInstrumentFromPath(path: string): LoopLabInstrumentId
   const norm = path.trim().toLowerCase();
   const alf = norm.match(/alfaia\s+(marcante|meiao|repique)\s+b\.(?:ogg|m4a|wav)/);
   if (alf) return alf[1] as LoopLabInstrumentId;
-  const std = norm.match(/(?:^|\/)(caixa|tarol|timbal|gongue|agbe|mineiro)(?:\s+studio)?\s+b\.(?:ogg|m4a|wav)/);
+  const std = norm.match(/(?:^|\/)(caixa|tarol|timbal|gongue|agbe|mineiro)(?:\s+studio)?\s+b(?:\s+\d+)?\.(?:ogg|m4a|wav)/);
   if (std) return std[1] as LoopLabInstrumentId;
   if (/apito\s+(?:l|w\s+long)\.(?:ogg|m4a|wav)/.test(norm)) return 'apito';
   return null;

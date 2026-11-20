@@ -7,6 +7,7 @@
 import { isBarulhoSamplePath } from '../barulho/barulhoLoopRegionAnalyzer';
 import { LoopLabInstrumentId, resolveLoopInstrumentFromPath, subscribeLoopLabRegistry } from '../engine/barulhoLoopRegistry';
 import { bindBufferPoolEviction } from '../engine/engineMemorySync';
+import { normalizeCanonicalSampleKey } from '../engine/sampleFetchUtils';
 import { buildWorkletLoadSampleMessage, isLoopSampleKeyMatchingInstrument, LOOP_KEY_PREFIX } from './percussionWorkletLoopPayload';
 import { MAX_WORKLET_SAMPLES, UnloadSamplesMessage } from './percussionWorkletTypes';
 
@@ -61,8 +62,9 @@ export class PercussionWorkletSampleBridge {
     return sampleId;
   }
 
-  public registerSampleBuffer(path: string, audioBuffer: AudioBuffer): number {
-    if (!path || !audioBuffer || typeof audioBuffer.getChannelData !== 'function') return -1;
+  public registerSampleBuffer(rawPath: string, audioBuffer: AudioBuffer): number {
+    if (!rawPath || !audioBuffer || typeof audioBuffer.getChannelData !== 'function') return -1;
+    const path = normalizeCanonicalSampleKey(rawPath);
     const primaryId = this.allocateAndStoreKey(path, audioBuffer);
     if (!isBarulhoSamplePath(path) && resolveLoopInstrumentFromPath(path) !== null) {
       this.allocateAndStoreKey(LOOP_KEY_PREFIX + path, audioBuffer);
@@ -72,7 +74,8 @@ export class PercussionWorkletSampleBridge {
 
   public unregisterSampleBuffers(paths: Iterable<string>): number[] {
     const freedIds: number[] = [];
-    for (const path of paths) {
+    for (const rawPath of paths) {
+      const path = normalizeCanonicalSampleKey(rawPath);
       for (const key of [path, LOOP_KEY_PREFIX + path]) {
         const sampleId = this.pathToSampleId.get(key);
         if (sampleId === undefined) continue;
@@ -108,7 +111,8 @@ export class PercussionWorkletSampleBridge {
     }
   }
 
-  public getSampleId(path: string, isLoop = false): number {
+  public getSampleId(rawPath: string, isLoop = false): number {
+    const path = normalizeCanonicalSampleKey(rawPath);
     if (isLoop) {
       const loopId = this.pathToSampleId.get(LOOP_KEY_PREFIX + path);
       if (loopId !== undefined) return loopId;
@@ -116,8 +120,8 @@ export class PercussionWorkletSampleBridge {
     return this.pathToSampleId.get(path) ?? -1;
   }
 
-  public isSampleReadyInWorklet(path: string): boolean {
-    const id = this.pathToSampleId.get(path);
+  public isSampleReadyInWorklet(rawPath: string): boolean {
+    const id = this.pathToSampleId.get(normalizeCanonicalSampleKey(rawPath));
     return id !== undefined && this.sentToCurrentPort.has(id);
   }
 

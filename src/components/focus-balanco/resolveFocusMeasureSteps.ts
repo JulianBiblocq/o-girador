@@ -2,32 +2,22 @@ import { GlobalSwing, Pattern, TrackGroup } from '../../types';
 import { instrumentsConfig, getVisualStrokeSymbol, isDarkText } from '../../data';
 import { applyCordelInkedPatina, getInstrumentPrimaryStrongColor, getContrastColor } from '../../utils/colorHelpers';
 import { computeStepBalancoPercent } from '../../utils/balancoUtils';
-import {
-  computeMeasurePatternStepOffset,
-  getRodaMeasureGeometry,
-  resolveActiveBeatResolutions,
-} from '../../utils/rodaTimeSigGeometry';
+import { computeMeasurePatternStepOffset, getRodaMeasureGeometry, resolveActiveBeatResolutions } from '../../utils/rodaTimeSigGeometry';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { areStepValuesEqual, isStepValueActive } from '../../utils/slaveStepOpacityResolver';
+import { getVariationSculptArrays, isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
 import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
 import { useBalancoStore } from '../../stores/useBalancoStore';
+import { useTransportStore } from '../../stores/useTransportStore';
 import { FocusBrickStepModel, FocusMeasureStepsModel } from './focusBalancoTypes';
 
-const hasAnyStroke = (steps?: unknown[]): boolean =>
-  Boolean(steps?.some((s) => isStepValueActive(s)));
+const hasAnyStroke = (steps?: unknown[]): boolean => Boolean(steps?.some((s) => isStepValueActive(s)));
 
 export function resolveFocusMeasureSteps(params: {
-  focusTrack: TrackGroup | null | undefined;
-  tracks: TrackGroup[];
-  measureIdx: number;
-  timeSig: string;
-  measureTimeSigs?: Record<number, string>;
-  soloPatternPlayId: number | null;
-  globalSwing: GlobalSwing;
-  isLeftHanded: boolean;
-  isPlaying: boolean;
-  lang: string;
+  focusTrack: TrackGroup | null | undefined; tracks: TrackGroup[]; measureIdx: number;
+  timeSig: string; measureTimeSigs?: Record<number, string>; soloPatternPlayId: number | null;
+  globalSwing: GlobalSwing; isLeftHanded: boolean; isPlaying: boolean; lang: string;
 }): FocusMeasureStepsModel {
   const { focusTrack, tracks, measureIdx, timeSig, measureTimeSigs, soloPatternPlayId, globalSwing, isLeftHanded, isPlaying, lang } = params;
   const sigStr = String(measureTimeSigs?.[measureIdx] || timeSig || '4/4');
@@ -35,41 +25,40 @@ export function resolveFocusMeasureSteps(params: {
   if (!focusTrack) {
     return {
       trackId: null, trackName: lang === 'pt' ? 'Instrumento' : 'Instrument',
-      primaryColor: 'var(--cordel-accent)', contrastColor: 'var(--cordel-on-accent)',
-      socketStrokeColor: 'var(--cordel-accent)',
-      timeSig: sigStr, beatsCount: geom.beatsCount, stepCount: geom.defaultSteps,
-      presetName: 'Maracatu', nominalIntensityPct: 100, steps: [],
+      primaryColor: 'var(--cordel-accent)', contrastColor: 'var(--cordel-on-accent)', socketStrokeColor: 'var(--cordel-accent)',
+      timeSig: sigStr, beatsCount: geom.beatsCount, stepCount: geom.defaultSteps, presetName: 'Maracatu', nominalIntensityPct: 100, steps: [],
     };
   }
 
   const inst = instrumentsConfig[focusTrack.instrumentIdx];
-  const primaryColor = getInstrumentPrimaryStrongColor(inst, focusTrack);
-  const contrastColor = getContrastColor(primaryColor);
-  const isLightPrimary = contrastColor.toLowerCase() === '#1a1a1a';
-  const socketStrokeColor = isLightPrimary
-    ? `color-mix(in srgb, ${primaryColor} 62%, var(--cordel-ink-dark))`
-    : primaryColor;
+  const primaryColor = getInstrumentPrimaryStrongColor(inst, focusTrack), contrastColor = getContrastColor(primaryColor);
+  const socketStrokeColor = contrastColor.toLowerCase() === '#1a1a1a' ? `color-mix(in srgb, ${primaryColor} 62%, var(--cordel-ink-dark))` : primaryColor;
   const rawName = focusTrack.customName || inst?.name || 'Instrument';
   const trackName = rawName.replace(/\s*\([^)]*\)/g, '').replace(/^\d+[\.\s\-]+/, '').trim();
 
-  const isSolo = soloPatternPlayId !== null;
-  const isSlave = isSlaveTrack(focusTrack, tracks);
+  const isSolo = soloPatternPlayId !== null, isSlave = isSlaveTrack(focusTrack, tracks);
   const masterTrack = isSlave ? resolveMasterTrack(focusTrack.id, tracks) : undefined;
   const ownPattern = resolveActivePattern(focusTrack, tracks, measureIdx, isSolo, soloPatternPlayId) as Pattern | null;
   const masterPattern = masterTrack ? (resolveActivePattern(masterTrack, tracks, measureIdx, isSolo, soloPatternPlayId) as Pattern | null) : null;
   const explicitMuteOverride = isSlave && focusTrack.patternOverrides?.[measureIdx] === null;
   const activePattern = explicitMuteOverride ? null : ((ownPattern && hasAnyStroke(ownPattern.activeSteps)) ? ownPattern : (masterPattern ?? ownPattern));
 
+  const soloVarId = isSolo ? useTransportStore.getState().soloPatternVariationId : null;
+  const targetedSoloVar = isSolo && isSpecificSoloVariationId(soloVarId) ? resolveTargetedSoloVariation(activePattern, tracks, soloPatternPlayId, soloVarId) : null;
   const beatsCount = geom.beatsCount;
-  const beatRes = resolveActiveBeatResolutions(sigStr, activePattern);
+  const beatRes = resolveActiveBeatResolutions(sigStr, targetedSoloVar?.beatResolutions && activePattern ? { ...activePattern, beatResolutions: targetedSoloVar.beatResolutions } : activePattern);
   const stepCount = beatRes.reduce((acc, r) => acc + r, 0);
 
   const liveSnap = getLiveVariationRodaSnapshots();
-  let playedSteps: any[] = activePattern?.activeSteps || [];
-  let effectiveMicros = activePattern?.microtimings;
+  let playedSteps: any[] = activePattern?.activeSteps || [], effectiveMicros = activePattern?.microtimings;
 
   if (activePattern && !explicitMuteOverride) {
-    if (isPlaying) {
+    if (targetedSoloVar) {
+      const sculpt = getVariationSculptArrays(activePattern, targetedSoloVar);
+      playedSteps = sculpt.steps; effectiveMicros = sculpt.microtimings;
+    } else if (isSolo && soloVarId === 'base') {
+      playedSteps = activePattern.activeSteps || [];
+    } else if (isPlaying) {
       const liveForFocus = liveSnap.currentStepsByTrackId?.[focusTrack.id];
       const liveForMaster = (isSlave && masterTrack && !hasAnyStroke(ownPattern?.activeSteps)) ? liveSnap.currentStepsByTrackId?.[masterTrack.id] : undefined;
       const chosenLive = (liveForFocus && hasAnyStroke(liveForFocus)) ? liveForFocus : (liveForMaster ?? liveForFocus);
@@ -81,10 +70,7 @@ export function resolveFocusMeasureSteps(params: {
     } else {
       const isBlockEntry = measureIdx === 0 || !activePattern.measureAssignments?.[measureIdx - 1];
       const firstVar = isBlockEntry ? activePattern.variations?.find((v) => v.playFirstTimeOnly) : undefined;
-      if (firstVar) {
-        playedSteps = firstVar.steps;
-        if (firstVar.microtimings) effectiveMicros = firstVar.microtimings;
-      }
+      if (firstVar) { playedSteps = firstVar.steps; if (firstVar.microtimings) effectiveMicros = firstVar.microtimings; }
     }
   }
 
@@ -110,7 +96,6 @@ export function resolveFocusMeasureSteps(params: {
       const nominalBalancoPct = idx === 0 ? 0 : computeStepBalancoPercent({
         stepIdx: idx, steps: stepCount, beatResolutions: beatRes, timeSig: sigStr, track: balancoTrack, pattern: activePattern, globalSwing,
       });
-
       const resolveSymVisual = (subRaw: any) => {
         if (!isStepValueActive(subRaw) || !inst) return { sym: '', bg: primaryColor, txt: contrastColor };
         const vis = String(getVisualStrokeSymbol(subRaw, isLeftHanded, inst.id));
@@ -120,7 +105,6 @@ export function resolveFocusMeasureSteps(params: {
       };
       const leftVis = resolveSymVisual(isSplit ? rawVal[0] : rawVal);
       const rightVis = isSplit ? resolveSymVisual(rawVal[1]) : { sym: '', bg: primaryColor, txt: contrastColor };
-
       steps.push({
         stepIdx: idx, beatIdx: b, subIdx: s, beatSubCount: res, isBeatStart: s === 0, isActive, isSplit,
         isVariationStep: isActive && !areStepValuesEqual(rawVal, baseVal),
@@ -131,6 +115,5 @@ export function resolveFocusMeasureSteps(params: {
     }
     cursor += res;
   }
-
   return { trackId: focusTrack.id, trackName, primaryColor, contrastColor, socketStrokeColor, timeSig: sigStr, beatsCount, stepCount, presetName, nominalIntensityPct, steps };
 }

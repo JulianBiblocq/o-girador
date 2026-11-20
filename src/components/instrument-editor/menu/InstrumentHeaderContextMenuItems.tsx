@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { getPasteDisabledReason } from '../../../utils/patternPasteNormalizer';
 import { XiloTarget } from '../../XiloIcons';
 
 interface InstrumentHeaderContextMenuItemsProps {
@@ -28,11 +29,22 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
   };
 
   const handlePaste = (mode: 'libraryOnly' | 'libraryAndTimeline') => {
+    if (!clipboard || !isCompatible) return;
     pasteAllTrackPatterns(trackId, mode);
     onClose();
   };
 
+  const canPaste = Boolean(clipboard && isCompatible);
+  const disabledReason = getPasteDisabledReason(
+    Boolean(clipboard),
+    isCompatible,
+    lang,
+    clipboard?.sourceFamily || clipboard?.sourceInstId,
+    targetFamily
+  );
+
   const itemBtnClass = 'w-full text-left px-3 py-1.5 hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] transition-colors flex items-center gap-2 cursor-pointer';
+  const disabledBtnClass = 'w-full text-left px-3 py-1.5 text-[var(--cordel-ink-dark)]/45 opacity-55 flex items-center gap-2 cursor-not-allowed';
 
   return (
     <>
@@ -51,36 +63,29 @@ export const InstrumentHeaderContextMenuItems: React.FC<InstrumentHeaderContextM
 
       <div className="my-1 border-t border-[var(--cordel-ink-dark)]/15" />
 
-      {!clipboard ? (
-        <div className="px-3 py-1.5 text-[11px] text-[var(--cordel-ink-dark)]/40 italic flex items-center gap-2 cursor-default">
-          <span>{lang === 'fr' ? 'Presse-papier vide' : 'Área de transferência vazia'}</span>
+      <button
+        type="button"
+        disabled={!canPaste}
+        onClick={() => handlePaste('libraryOnly')}
+        className={canPaste ? itemBtnClass : disabledBtnClass}
+        title={canPaste ? (lang === 'fr' ? 'Importe les motifs dans la bibliothèque sans toucher à la timeline' : 'Importa os padrões sem alterar a timeline') : disabledReason}
+      >
+        <span>{lang === 'fr' ? 'Coller (banque seule)' : 'Colar (somente banco)'}</span>
+      </button>
+      <button
+        type="button"
+        disabled={!canPaste}
+        onClick={() => handlePaste('libraryAndTimeline')}
+        className={canPaste ? itemBtnClass : disabledBtnClass}
+        title={canPaste ? (lang === 'fr' ? 'Importe les motifs et applique leur disposition sur la timeline' : 'Importa os padrões e aplica a disposição na timeline') : disabledReason}
+      >
+        <span>{lang === 'fr' ? 'Coller (banque + timeline)' : 'Colar (banco + timeline)'}</span>
+      </button>
+
+      {!canPaste && disabledReason && (
+        <div className="px-3 py-1 text-[10px] text-[var(--cordel-wood)]/80 italic">
+          {disabledReason}
         </div>
-      ) : !isCompatible ? (
-        <div className="px-3 py-1.5 text-[11px] text-[var(--cordel-wood)]/70 flex flex-col gap-0.5 cursor-default bg-[var(--cordel-wood)]/5">
-          <span>{lang === 'fr' ? 'Famille incompatible' : 'Família incompatível'}</span>
-          <span className="text-[10px] text-[var(--cordel-ink-dark)]/50 font-normal">
-            ({clipboard.sourceFamily || 'source'} {targetFamily || 'cible'})
-          </span>
-        </div>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={() => handlePaste('libraryOnly')}
-            className={itemBtnClass}
-            title={lang === 'fr' ? 'Importe les motifs dans la bibliothèque sans toucher à la timeline' : 'Importa os padrões sem alterar a timeline'}
-          >
-            <span>{lang === 'fr' ? 'Coller (banque seule)' : 'Colar (somente banco)'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePaste('libraryAndTimeline')}
-            className={itemBtnClass}
-            title={lang === 'fr' ? 'Importe les motifs et applique leur disposition sur la timeline' : 'Importa os padrões e aplica a disposição na timeline'}
-          >
-            <span>{lang === 'fr' ? 'Coller (banque + timeline)' : 'Colar (banco + timeline)'}</span>
-          </button>
-        </>
       )}
     </>
   );

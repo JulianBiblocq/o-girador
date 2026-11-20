@@ -39,7 +39,7 @@ export const DEFAULT_SIGNATURE_TUNINGS: Record<LutherieDrumRole, number> = {
   repique: 0.3,
   caixa: 0,
   tarol: 0,
-  timbal: 0,
+  timbal: -0.2,
   gongue: -0.9,
 };
 

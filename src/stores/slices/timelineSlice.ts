@@ -6,7 +6,7 @@ import { selectTimelineCellState, selectAllTimelineCellsState, selectTrackTimeli
 import { deleteSelectedTimelineCellsState } from '../helpers/timelineCellDeleteHelper';
 import { duplicateSelectedCellsState } from '../helpers/timelineCellDuplicateHelper';
 import { copyTimelineSelectionState, cutTimelineSelectionState } from '../helpers/timelineClipboardCopyCutHelper';
-import { pasteTimelineClipboardState } from '../helpers/timelineClipboardPasteHelper';
+import { pasteTimelineClipboardState, canPasteTimelineClipboard } from '../helpers/timelineClipboardPasteHelper';
 import { UISlice } from './uiSliceTypes';
 import { notifyToast } from '../../utils/toastHelper';
 
@@ -51,7 +51,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
       : (state.activeTimelineCell ? [{ trackId: state.activeTimelineCell.trackId, mIdx: state.activeTimelineCell.measureIdx }] : []);
     if (cells.length === 0) return;
 
-    const mIndices = cells.map(c => c.mIdx);
+    const mIndices = cells.map((c) => c.mIdx);
     const mMax = Math.max(...mIndices);
     const mMin = Math.min(...mIndices);
     const L = mMax - mMin + 1;
@@ -90,6 +90,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
         : null
     );
     if (!clipboard || !activeCell || clipboard.entries.length === 0) return;
+    if (!canPasteTimelineClipboard(state.tracks, clipboard, activeCell.trackId)) return;
 
     const targetM = activeCell.measureIdx;
     const maxTargetIdx = targetM + clipboard.spanMeasures - 1;

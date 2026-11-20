@@ -43,7 +43,7 @@ export function rollMeasureVariations(
     patternIdByTrackId[track.id] = activePattern.id;
     const isEnteringPatternBlock = precedingPatternIdByTrack[track.id] !== activePattern.id;
     const resolved = resolveCurrentPattern({
-      pattern: activePattern, trackId: track.id, measureIdx,
+      pattern: activePattern, trackId: track.id, measureIdx, tracks,
       currentPlayCount: isEnteringPatternBlock ? 0 : 1, isFirstPassConsumed: !isEnteringPatternBlock,
       isolateBaseOnly, isSoloPlayActive, soloPatternPlayId, soloPatternVariationId,
     });

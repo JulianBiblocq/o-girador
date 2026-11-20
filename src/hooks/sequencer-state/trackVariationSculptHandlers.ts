@@ -51,9 +51,10 @@ export function createTrackVariationSculptHandlers(ctx: VariationSculptContext) 
         steps: [...p.activeSteps],
         probability: 30,
         playFirstTimeOnly: currentVars.length === 0,
-        stepVolumes: p.volumes ? [...p.volumes] : undefined,
-        stepDecays: p.decays ? [...p.decays] : undefined,
-        stepMicrotimings: p.microtimings ? [...p.microtimings] : undefined,
+        volumes: p.volumes ? [...p.volumes] : undefined,
+        decays: p.decays ? [...p.decays] : undefined,
+        microtimings: p.microtimings ? [...p.microtimings] : undefined,
+        beatResolutions: p.beatResolutions ? [...p.beatResolutions] : undefined,
       };
       return { ...p, variations: [...currentVars, newVar] };
     }));

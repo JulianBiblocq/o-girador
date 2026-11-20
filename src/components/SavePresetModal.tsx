@@ -1,9 +1,11 @@
 import React from 'react';
+import { X } from 'lucide-react';
 import { Preset } from '../types';
 import { useSavePresetToCloud } from '../hooks/useSavePresetToCloud';
 import { SavePresetFields } from './save-preset/SavePresetFields';
 import { SavePresetProgressBar } from './save-preset/SavePresetProgressBar';
 import { SavePresetActionButtons } from './save-preset/SavePresetActionButtons';
+import { XiloInfo, XiloLock, XiloMestre } from './XiloIcons';
 
 interface SavePresetModalProps {
   presetData: Preset;
@@ -29,6 +31,9 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
     isExistingPreset,
     isLocked,
     isMestre,
+    canUpdate,
+    isForeignActivePreset,
+    hasMestreNameConflict,
     isDraft,
     setIsDraft,
     isSavedOnCloud,
@@ -38,19 +43,35 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-      <div className="bg-[var(--cordel-bg,#f4ecd8)] text-[var(--cordel-text,#1a1a1a)] border-4 border-[var(--cordel-border,#1a1a1a)] shadow-[8px_8px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full flex flex-col gap-6 relative">
+      <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border-strong)] shadow-[8px_8px_0px_var(--cordel-shadow-color)] p-6 max-w-md w-full flex flex-col gap-5 relative">
         <div className="flex justify-between items-start">
-          <h2 className="text-2xl font-bold uppercase leading-none mb-1">
+          <h2 className="text-2xl font-bold uppercase leading-none mb-1 font-cactus">
             {lang === 'fr' ? 'Sauvegarder Preset Cloud' : 'Salvar Preset na Nuvem'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             disabled={busy}
-            className="text-2xl hover:scale-110 transition-transform font-bold leading-none disabled:opacity-30 disabled:pointer-events-none"
+            aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
+            className="p-1 text-[var(--cordel-text)] hover:text-[var(--cordel-accent-readable)] transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
           >
-            ×
+            <X size={20} />
           </button>
         </div>
+
+        {isForeignActivePreset && (
+          <div
+            data-testid="foreign-mestre-preset-banner"
+            className="p-2.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] text-xs font-bold flex items-start gap-2"
+          >
+            <XiloInfo size={16} className="shrink-0 mt-0.5 text-[var(--cordel-accent-readable)]" />
+            <span>
+              {lang === 'fr'
+                ? 'Ce morceau ouvert appartient au Mestre. La sauvegarde créera un nouveau morceau dans le catalogue.'
+                : 'Esta música aberta pertence ao Mestre. Salvar criará uma nova música no catálogo.'}
+            </span>
+          </div>
+        )}
 
         <SavePresetFields
           name={name}
@@ -64,27 +85,40 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
           lang={lang}
         />
 
-        {isExistingPreset && isLocked && (
-          <div className={`p-2.5 border-2 text-xs font-bold flex items-center gap-2 ${
-            isMestre ? 'bg-amber-100 text-amber-950 border-amber-800' : 'bg-stone-200 text-stone-800 border-stone-600'
-          }`}>
-            <span className="text-base shrink-0">{isMestre ? '' : ''}</span>
+        {hasMestreNameConflict && Boolean(name.trim()) && (
+          <div
+            data-testid="mestre-homonym-conflict-banner"
+            className="p-2.5 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-status-danger)] border-2 border-[var(--cordel-status-danger)] text-xs font-bold flex items-start gap-2"
+          >
+            <XiloLock size={16} className="shrink-0 mt-0.5 text-[var(--cordel-status-danger)]" />
             <span>
-              {isMestre
-                ? (lang === 'fr' ? 'Morceau officiel sanctuarisé : En tant que Mestre, la mise à jour directe est autorisée.' : 'Música oficial santuarizada: Como Mestre, a atualização direta é permitida.')
-                : (lang === 'fr' ? 'Morceau officiel verrouillé. Utilisez "Sauvegarder une copie" pour votre version personnelle.' : 'Música oficial bloqueada. Use "Salvar como cópia" para sua versão pessoal.')}
+              {lang === 'fr'
+                ? 'Ce titre est déjà utilisé par un morceau du Mestre dans ce groupe. Veuillez saisir un titre distinct.'
+                : 'Este título já é usado por uma música do Mestre neste grupo. Digite um título distinto.'}
             </span>
           </div>
         )}
 
-        {busy && (
-          <SavePresetProgressBar progress={progress} stepLabel={stepLabel} lang={lang} />
+        {isExistingPreset && isLocked && isMestre && (
+          <div className="p-2.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-gold)] text-xs font-bold flex items-center gap-2">
+            <XiloMestre size={16} className="shrink-0 text-[var(--cordel-gold)]" />
+            <span>
+              {lang === 'fr'
+                ? 'Morceau officiel sanctuarisé : En tant que Mestre, la mise à jour directe est autorisée.'
+                : 'Música oficial santuarizada: Como Mestre, a atualização direta é permitida.'}
+            </span>
+          </div>
         )}
+
+        {busy && <SavePresetProgressBar progress={progress} stepLabel={stepLabel} lang={lang} />}
 
         <SavePresetActionButtons
           onClose={onClose}
           handleSave={handleSave}
           isExistingPreset={isExistingPreset}
+          canUpdate={canUpdate}
+          isForeignActivePreset={isForeignActivePreset}
+          hasMestreNameConflict={hasMestreNameConflict}
           name={name}
           isSaving={isSaving}
           isBouncingCloud={isBouncingCloud}

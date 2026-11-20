@@ -59,8 +59,8 @@ export const renderLegendStrokesHTML = (lang: 'fr' | 'pt'): string => {
                 ${isFr ? 'Spécificité Timbal : MAJUSCULE = Main Droite │ minuscule = Main Gauche' : 'Regra do Timbal: MAIÚSCULA = Mão Direita │ minúscula = Mão Esquerda'}
               </div>
               ${isFr
-                ? '<strong>G/g</strong> : Grave/Basse (D/G) • <strong>A/a</strong> : Ton ouvert/Aberto (D/G) • <strong>S/s</strong> : Claqué/Slap (D/G) • <strong>D/d</strong> : Doigts/Fantôme (D/G) • <strong>P/p</strong> : Pressé/Fermé (D/G) • <strong>F/f</strong> : Fla ouvert (D/G) • <strong>V/v</strong> : Fla claqué (D/G) • <strong>C</strong> : Clap • <strong>B</strong> : Barulho'
-                : '<strong>G/g</strong> : Grave (D/E) • <strong>A/a</strong> : Aberto (D/E) • <strong>S/s</strong> : Slap (D/E) • <strong>D/d</strong> : Ponta de dedos (D/E) • <strong>P/p</strong> : Preso/Fechado (D/E) • <strong>F/f</strong> : Fla aberto (D/E) • <strong>V/v</strong> : Fla slap (D/E) • <strong>C</strong> : Palma • <strong>B</strong> : Barulho'}
+                ? '<strong>G/g</strong> : Grave/Basse (D/G) • <strong>A/a</strong> : Ton ouvert/Aberto (D/G) • <strong>S/s</strong> : Claqué/Slap (D/G) • <strong>T/t</strong> : Slap ouvert/Tapa aberto (D/G) • <strong>D/d</strong> : Doigts/Fantôme (D/G) • <strong>P/p</strong> : Pressé/Fermé (D/G) • <strong>F/f</strong> : Fla ouvert (D/G) • <strong>V/v</strong> : Fla claqué (D/G) • <strong>C</strong> : Clap • <strong>B</strong> : Barulho'
+                : '<strong>G/g</strong> : Grave (D/E) • <strong>A/a</strong> : Aberto (D/E) • <strong>S/s</strong> : Slap (D/E) • <strong>T/t</strong> : Tapa aberto/Slap aberto (D/E) • <strong>D/d</strong> : Ponta de dedos (D/E) • <strong>P/p</strong> : Preso/Fechado (D/E) • <strong>F/f</strong> : Fla aberto (D/E) • <strong>V/v</strong> : Fla slap (D/E) • <strong>C</strong> : Palma • <strong>B</strong> : Barulho'}
             </td>
           </tr>
           <tr style="border-bottom: 1px solid #ccc;">

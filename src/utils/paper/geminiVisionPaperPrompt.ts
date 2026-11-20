@@ -25,7 +25,7 @@ RÈGLES D'IDENTIFICATION MANUSCRITE :
 1. Marge gauche : "Al" manuscrit ressemble souvent à "Ae" (le "l" cursif ressemble à un "e") -> toujours normaliser en rôle "al".
 2. Pupitres "Ab" (Agbê : E, e, D, d, S, V, B) et "Mi" (Mineiro : P, p, T, t, L, B) : conserver fidèlement leurs lettres respectives.
 2b. Pupitres "Cx" / "Tr" (Caixa / Tarol) : contiennent D, d, E, e, A (Rimshot Droite), a (Rimshot Gauche), R, r, F, f, X, C, B. Ne jamais reclasser une ligne "Cx"/"Tr" en "Gg" à cause de A ou a.
-2c. Pupitre "Gg" (Gonguê, cloche unique) : contient uniquement G, g, A, a, X, B. Pupitre "Tb" (Timbal) : G, g, A, a, S, s, D, d, P, p, F, f, V, v, C, B. Pupitre "Ap" (Apito) : L, l, C (ou anciens W, w).
+2c. Pupitre "Gg" (Gonguê, cloche unique) : contient uniquement G, g, A, a, X, B. Pupitre "Tb" (Timbal) : G, g, A, a, S, s, T, t, D, d, P, p, F, f, V, v, C, B. Pupitre "Ap" (Apito) : L, l, C (ou anciens W, w).
 3. Extraire TOUTES les lignes écrites dans la marge gauche (Al, Cx, Gg, Ab, Mi, Tb, Tr, Mc, Me, Rp, Ap...).
 4. ZÉRO "1" : INTERDICTION FORMELLE DE REMPLACER LES LETTRES PAR DES "1". Conserver les lettres exactes (D, d, E, e, G, g, A, a, S, s, V, v, T, t, P, p, L, l, I, R, r, F, f, X, B, C, W, w).
 5. Silences / cases vides : "." ou "-" ou espace vide -> renvoyer "0".

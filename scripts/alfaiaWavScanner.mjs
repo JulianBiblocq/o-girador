@@ -65,7 +65,7 @@ function measureWavBuffer(buf) {
 }
 
 export function scanCubaseAlfaiaWavs(sourceDir) {
-  const entries = fs.readdirSync(sourceDir).filter((f) => f.toLowerCase().endsWith('.wav')).sort();
+  const entries = fs.readdirSync(sourceDir).filter((f) => /^Alfaia\b.*\.wav$/iu.test(f)).sort();
   const grouped = new Map();
   const drumMaxPeak = { marcante: -Infinity, meiao: -Infinity, repique: -Infinity };
 

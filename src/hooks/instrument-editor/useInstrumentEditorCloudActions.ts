@@ -1,8 +1,8 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBalancoStore } from '../../stores/useBalancoStore';
 import { CloudPattern, CatalogVisibility, Pattern } from '../../types';
+import { canTransferPatterns, normalizeInstrumentId } from '../../utils/instrumentCompatibility';
 import { notifyToast } from '../../utils/toastHelper';
 
 export interface UseInstrumentEditorCloudActionsParams {
@@ -25,7 +25,7 @@ export function useInstrumentEditorCloudActions({
   const [cloudPatterns, setCloudPatterns] = useState<CloudPattern[]>([]);
   const [isSavingPattern, setIsSavingPattern] = useState(false);
   const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
-  const isGroupMember = Boolean(userProfile?.canWriteSequenciador || userProfile?.role === 'mestre' || userProfile?.groupId?.toLowerCase().includes('samambaia'));
+  const isGroupMember = Boolean(userProfile?.canWriteSequenciador || userProfile?.role === 'mestre');
   const [savePatternVisibility, setSavePatternVisibility] = useState<CatalogVisibility>(isGroupMember ? 'mestre_group' : 'private');
   const [saveModalPatternId, setSaveModalPatternId] = useState<number | null>(null);
   const [savePatternName, setSavePatternName] = useState('');
@@ -46,7 +46,8 @@ export function useInstrumentEditorCloudActions({
     syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId, userProfile.canWriteSequenciador);
   }, [userProfile, syncCloudPresets]);
 
-  const existingLibraryPatterns = cloudPatterns.filter((p) => p.instrumentId === inst.id);
+  const targetInstId = normalizeInstrumentId(inst.id);
+  const existingLibraryPatterns = cloudPatterns.filter((p) => canTransferPatterns(p.instrumentId, targetInstId));
   const existingFolders = Array.from(new Set(existingLibraryPatterns.map((p) => p.folder))).filter(Boolean);
   const toggleFolder = (folder: string) => setExpandedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
 
@@ -57,14 +58,14 @@ export function useInstrumentEditorCloudActions({
     if (!ptn) return;
 
     const existing = existingLibraryPatterns.find((p) => p.name.trim() === savePatternName.trim() && p.ownerId === userProfile.uid);
-    let targetDocId = existing?.id;
+    const targetDocId = existing?.id;
     if (existing && !(await sequencer.confirmAsync(lang === 'fr' ? `Remplacer "${savePatternName.trim()}" ?` : `Substituir "${savePatternName.trim()}"?`))) return;
 
     setIsSavingPattern(true);
     try {
       const savedPattern = {
         id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-        instrumentId: inst.id, name: savePatternName.trim(), folder: savePatternFolder.trim() || 'Général',
+        instrumentId: targetInstId || inst.id, name: savePatternName.trim(), folder: savePatternFolder.trim() || 'Général',
         steps: [...ptn.activeSteps], variations: JSON.parse(JSON.stringify(ptn.variations || [])),
         volumes: ptn.volumes ? [...ptn.volumes] : undefined, decays: ptn.decays ? [...ptn.decays] : undefined,
         microtimings: ptn.microtimings ? [...ptn.microtimings] : undefined, createdAt: Date.now(),
@@ -80,17 +81,17 @@ export function useInstrumentEditorCloudActions({
       setTimeout(() => setToastMessage(null), 3000);
     } catch (err: any) { notifyToast((lang === 'fr' ? 'Erreur: ' : 'Erro: ') + (err.message || String(err)), 'error'); }
     finally { setIsSavingPattern(false); }
-  }, [userProfile, saveModalPatternId, savePatternName, savePatternFolder, savePatternVisibility, autoGeneratePatternAudio, displayedPatterns, existingLibraryPatterns, inst.id, currentBpm, currentTimeSig, lang, sequencer, genererEtUploaderCloudBounce]);
+  }, [userProfile, saveModalPatternId, savePatternName, savePatternFolder, savePatternVisibility, autoGeneratePatternAudio, displayedPatterns, existingLibraryPatterns, targetInstId, inst.id, currentBpm, currentTimeSig, lang, sequencer, genererEtUploaderCloudBounce]);
 
   const handleLoadPatternFromLibrary = useCallback(async (libraryPatternId: string) => {
     if (loadModalPatternId === null) return;
     const libPtn = existingLibraryPatterns.find((p) => p.id === libraryPatternId);
-    if (!libPtn) return;
+    if (!libPtn || !canTransferPatterns(libPtn.instrumentId, targetInstId)) return;
     if (await sequencer.confirmAsync(lang === 'fr' ? 'Remplacer la phrase en cours ?' : 'Substituir o padrão atual?')) {
       onLoadLibraryPattern?.(loadModalPatternId, libPtn);
       setLoadModalPatternId(null);
     }
-  }, [loadModalPatternId, existingLibraryPatterns, sequencer, lang, onLoadLibraryPattern]);
+  }, [loadModalPatternId, existingLibraryPatterns, targetInstId, sequencer, lang, onLoadLibraryPattern]);
 
   const handleDeleteCloudPattern = useCallback(async (pId: string) => {
     if (await sequencer.confirmAsync(lang === 'fr' ? 'Supprimer définitivement ce motif ?' : 'Excluir permanentemente este padrão?')) {

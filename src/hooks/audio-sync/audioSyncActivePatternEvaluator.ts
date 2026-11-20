@@ -7,6 +7,7 @@ import { triggerVocalGrainAtStep0 } from './audioSyncVocalGrainTrigger';
 import { playActiveVoiceStep } from './audioSyncActiveVoiceStep';
 import { evaluateFreeStepAnacrusis } from './audioSyncFreeStepAnacrusis';
 import { isVocalSamplePattern, isSamplePlaybackAllowed, getVocalBufferForPattern } from './vocalSampleHelpers';
+import { getVariationSculptArrays, isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 
@@ -82,21 +83,22 @@ export function evaluateActiveVocalPattern(p: ActivePatternEvaluatorParams): voi
   let effectivePatternForSteps: Pattern = activePattern;
   if (isSolo && activePattern.variations) {
     let matchedVar: any = null;
-    if (soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble') {
-      matchedVar = activePattern.variations.find(v => v.id === soloPatternVariationId);
+    if (isSpecificSoloVariationId(soloPatternVariationId)) {
+      matchedVar = resolveTargetedSoloVariation(activePattern, tracks, soloPatternPlayId, soloPatternVariationId);
     } else if (soloPatternVariationId !== 'base' && soloLoopCycle === 0) {
       matchedVar = activePattern.variations.find(v => v.playFirstTimeOnly);
     }
     if (matchedVar) {
+      const sculpt = getVariationSculptArrays(activePattern, matchedVar);
       effectivePatternForSteps = {
         ...activePattern,
-        activeSteps: matchedVar.steps || matchedVar.activeSteps || activePattern.activeSteps,
+        activeSteps: sculpt.steps,
         notes: matchedVar.notes || activePattern.notes,
         lyrics: matchedVar.lyrics || activePattern.lyrics,
-        decays: matchedVar.decays || activePattern.decays,
-        volumes: matchedVar.volumes || activePattern.volumes,
-        microtimings: matchedVar.microtimings || activePattern.microtimings,
-        beatResolutions: matchedVar.beatResolutions || activePattern.beatResolutions,
+        decays: sculpt.decays,
+        volumes: sculpt.volumes,
+        microtimings: sculpt.microtimings,
+        beatResolutions: sculpt.beatResolutions,
       };
     }
   }

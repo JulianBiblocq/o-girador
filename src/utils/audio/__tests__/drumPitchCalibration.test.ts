@@ -19,18 +19,22 @@ import { useWizardStore } from '../../../stores/useWizardStore';
 import { buildDefaultBatuqueTracks } from '../../../stores/helpers/defaultBatuqueTemplateTracks';
 
 describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Presets', () => {
-  it('locks exact measured fundamentals for the 3 Studio Alfaias, Caixa (165.41 Hz / 267.55 Hz) and Gonguê', () => {
+  it('locks exact measured fundamentals for the 3 Studio Alfaias, Caixa, Timbal (198.27 Hz / 60.8 Hz) and Gonguê', () => {
     expect(getDrumNaturalBaseHz('marcante')).toBe(71.21);
     expect(getDrumNaturalBaseHz('meiao')).toBe(81.11);
     expect(getDrumNaturalBaseHz('repique')).toBe(96.33);
     expect(getDrumNaturalBaseHz('caixa')).toBe(165.41);
     expect(getDrumNaturalBaseHz('caixa', { caixa: false })).toBe(166.87);
+    expect(getDrumNaturalBaseHz('timbal')).toBe(198.27);
+    expect(getDrumNaturalBaseHz('timbal', { timbal: false })).toBe(206.91);
     expect(getDrumNaturalBaseHz('gongue')).toBe(411.97);
     expect(isDrumStudioBankActive('marcante')).toBe(true);
     expect(isDrumStudioBankActive('gongue')).toBe(true);
     expect(isDrumStudioBankActive('caixa')).toBe(true);
+    expect(isDrumStudioBankActive('timbal')).toBe(true);
     expect(isDrumStudioBankActive('tarol')).toBe(false);
     expect(DRUM_FUNDAMENTAL_SPECS.caixa.secondaryHz).toBe(267.55);
+    expect(DRUM_FUNDAMENTAL_SPECS.timbal.studioSecondaryHz).toBe(60.8);
     expect(DRUM_FUNDAMENTAL_SPECS.timbal.secondaryHz).toBe(95.39);
   });
 
@@ -71,14 +75,15 @@ describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Prese
 
     expect(byId.major_triad.tunings).toEqual(DEFAULT_SIGNATURE_TUNINGS);
     expect(byId.major_triad.tunings.caixa).toBe(0);
+    expect(byId.major_triad.tunings.timbal).toBe(-0.2);
     expect(byId.minor_triad.tunings).toEqual({
-      marcante: 0.5, meiao: 1.3, repique: 2.3, caixa: -2.0, tarol: 0, timbal: 0, gongue: 1.1,
+      marcante: 0.5, meiao: 1.3, repique: 2.3, caixa: -2.0, tarol: 0, timbal: 1.8, gongue: 1.1,
     });
     expect(byId.fifth_octave.tunings).toEqual({
-      marcante: -4.5, meiao: 0.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 0, gongue: 1.1,
+      marcante: -4.5, meiao: 0.3, repique: 2.3, caixa: 0, tarol: 0, timbal: 1.8, gongue: 1.1,
     });
     expect(byId.fast_tight.tunings).toEqual({
-      marcante: 0.5, meiao: 2.3, repique: 2.3, caixa: -2.0, tarol: 0, timbal: 0, gongue: 1.1,
+      marcante: 0.5, meiao: 2.3, repique: 2.3, caixa: -2.0, tarol: 0, timbal: 1.8, gongue: 1.1,
     });
     expect(byId.fast_tight.decays).toMatchObject({ marcante: 68, meiao: 74, repique: 82, gongue: 90 });
     expect(byId.studio_natural.tunings).toEqual({
@@ -87,7 +92,7 @@ describe('Studio f0 Calibration, Signature C Major + G4 Default & Harmonic Prese
 
     for (const presetId of ['major_triad', 'minor_triad', 'fifth_octave', 'fast_tight']) {
       const p = byId[presetId];
-      for (const role of ['marcante', 'meiao', 'repique', 'gongue'] as const) {
+      for (const role of ['marcante', 'meiao', 'repique', 'timbal', 'gongue'] as const) {
         const info = getDrumPitchNoteInfo(role, p.tunings[role], 'fr');
         expect(Math.abs(info.cents)).toBeLessThanOrEqual(4);
       }

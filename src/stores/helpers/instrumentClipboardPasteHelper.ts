@@ -1,7 +1,9 @@
 import { TrackGroup, Pattern } from '../../types';
-import { instrumentsConfig } from '../../data';
-import { canTransferPatterns, convertStepsToVocalRole } from '../../utils/instrumentCompatibility';
+import { canTransferPatterns, resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
+import { normalizePatternStepsForTarget } from '../../utils/patternPasteNormalizer';
 import { getNextPatternName } from '../../utils/patternNaming';
+import { resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 import { isToadaBus, isToadaChild } from './trackVisibilityHelpers';
 import { InstrumentPatternsClipboard } from '../slices/clipboardSliceTypes';
 
@@ -15,30 +17,24 @@ export const pasteAllTrackPatternsState = (
 ): { tracks: TrackGroup[]; message: string } | null => {
   if (!clip || !clip.patterns || clip.patterns.length === 0) return null;
 
-  const rawTargetTrack = tracks.find(t => t.id === targetTrackId || String(t.id) === String(targetTrackId));
+  const rawTargetTrack = tracks.find((t) => t.id === targetTrackId || String(t.id) === String(targetTrackId));
   if (!rawTargetTrack) return null;
+  if (rawTargetTrack.isBusFolder && !rawTargetTrack.isLinkFolder && !isToadaBus(rawTargetTrack)) return null;
 
   let effectiveTargetTrack = rawTargetTrack;
-  if (rawTargetTrack.linkedToTrackId) {
-    const parentBus = tracks.find(t => String(t.id) === String(rawTargetTrack.linkedToTrackId) && t.isLinkFolder);
-    if (parentBus) effectiveTargetTrack = parentBus;
-  } else if (rawTargetTrack.isLinkMaster) {
-    const parentBus = tracks.find(t => (String(t.id) === String(rawTargetTrack.id) || String(t.linkedToTrackId) === String(rawTargetTrack.id)) && t.isLinkFolder);
-    if (parentBus) effectiveTargetTrack = parentBus;
+  if (rawTargetTrack.isLinkFolder) {
+    const masterChild = resolveMasterTrack(rawTargetTrack.id, tracks);
+    if (masterChild && masterChild.id !== rawTargetTrack.id) {
+      effectiveTargetTrack = masterChild;
+    }
   } else if (isToadaBus(rawTargetTrack) && (!rawTargetTrack.patterns || rawTargetTrack.patterns.length === 0)) {
-    const vocalChild = tracks.find(t => isToadaChild(t, tracks));
+    const vocalChild = tracks.find((t) => isToadaChild(t, tracks));
     if (vocalChild) effectiveTargetTrack = vocalChild;
   }
 
-  const sourceType = (clip.sourceType || clip.sourceInstId || '').toLowerCase();
-  const targetInst = instrumentsConfig[effectiveTargetTrack.instrumentIdx];
-  const targetType = (targetInst?.id || (isToadaBus(effectiveTargetTrack) ? 'toada' : '')).toLowerCase();
+  if (!canTransferPatterns(clip, effectiveTargetTrack, tracks)) return null;
 
-  if (!canTransferPatterns(sourceType || clip, targetType || effectiveTargetTrack)) return null;
-
-  const isVocalTarget = targetType === 'puxador' || targetType === 'coro' || String(effectiveTargetTrack.id).includes('coro') || String(effectiveTargetTrack.id).includes('puxador');
-  const vocalRole: 'P' | 'C' = (targetType === 'coro' || String(effectiveTargetTrack.id).toLowerCase().includes('coro')) ? 'C' : 'P';
-
+  const targetType = resolveTrackInstrumentId(effectiveTargetTrack, tracks);
   const applyTimeline = typeof modeOrApplyTimeline === 'boolean'
     ? modeOrApplyTimeline
     : modeOrApplyTimeline === 'libraryAndTimeline';
@@ -47,16 +43,12 @@ export const pasteAllTrackPatternsState = (
   const accNewPatterns: Pattern[] = [];
 
   clip.patterns.forEach((p, idx) => {
-    const clonedP: Pattern = JSON.parse(JSON.stringify(p));
+    const clonedP: Pattern = normalizePatternStepsForTarget(
+      JSON.parse(JSON.stringify(p)),
+      targetType
+    );
     clonedP.id = Date.now() + Math.floor(Math.random() * 100000) + idx;
     clonedP.name = getNextPatternName([...existingPatterns, ...accNewPatterns], p.name, lang);
-
-    if (isVocalTarget && clonedP.activeSteps) {
-      clonedP.activeSteps = convertStepsToVocalRole(clonedP.activeSteps, vocalRole);
-      if (clonedP.preRollActiveSteps) {
-        clonedP.preRollActiveSteps = convertStepsToVocalRole(clonedP.preRollActiveSteps, vocalRole);
-      }
-    }
 
     if (!applyTimeline) {
       clonedP.measureAssignments = Array(totalMeasures).fill(false);
@@ -72,16 +64,20 @@ export const pasteAllTrackPatternsState = (
   const targetId = effectiveTargetTrack.id;
   const updatedPatterns = [...existingPatterns, ...accNewPatterns];
 
-  const nextTracks = tracks.map(t => {
+  let nextTracks = tracks.map((t) => {
     if (t.id === targetId || String(t.id) === String(targetId)) {
       return {
         ...t,
         patterns: updatedPatterns,
-        selectedPatternId: accNewPatterns[0]?.id || t.selectedPatternId || updatedPatterns[0]?.id || 0
+        selectedPatternId: accNewPatterns[0]?.id || t.selectedPatternId || updatedPatterns[0]?.id || 0,
       };
     }
     return t;
   });
+
+  if (effectiveTargetTrack.isLinkMaster === true && !effectiveTargetTrack.isBusFolder && !effectiveTargetTrack.isLinkFolder) {
+    nextTracks = syncMasterPatternsToLinkedFamily(nextTracks, effectiveTargetTrack.id).tracks;
+  }
 
   const count = accNewPatterns.length;
   const message = lang === 'fr'

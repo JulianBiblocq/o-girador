@@ -34,7 +34,7 @@ export function isStrokeActiveByDefault(instId: string, stroke: string): boolean
     return ['P', 'T', 'p', 't'].includes(stroke);
   }
   if (instId === 'timbal') {
-    return ['G', 'g', 'A', 'a', 'S', 's', 'D', 'd', 'P', 'p'].includes(stroke);
+    return ['G', 'g', 'A', 'a', 'S', 's', 'T', 't', 'D', 'd', 'P', 'p'].includes(stroke);
   }
   if (instId === 'apito') {
     return ['L', 'l', 'C', 'W', 'w'].includes(stroke);

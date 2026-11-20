@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useTransportStore } from '../../stores/useTransportStore';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { isBarulhoRollActive, resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
 import { computeAoVivoHitLeadMs } from './aoVivoHitTiming';
@@ -69,7 +70,7 @@ export function useAoVivoAnimationEngine(
         lastVuStepRef.current = -1; return;
       }
 
-      const soloPlayId = (state as any).soloPlayingPatternId ?? (state as any).soloPatternPlayId ?? null;
+      const soloPlayId = useTransportStore.getState().soloPatternPlayId ?? null;
       const isCombineGroup = family === 'alfaia' || family === 'caixa' || family === 'tarol' || family === 'timbal';
       const { pattern, activePlayingSteps } = resolveAoVivoPatternAndSteps(activeTrack, state.tracks, measure, soloPlayId, activeVariationsRef?.current, isCombineGroup);
       if (!pattern) {

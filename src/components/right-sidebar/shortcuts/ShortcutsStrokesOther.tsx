@@ -61,6 +61,7 @@ export const ShortcutsStrokesOther: React.FC<ShortcutsStrokesOtherProps> = ({
             {isStrokeActiveForInstruments(['timbal'], ['G', 'g']) && <div className={rowCls}>{renderBadge(['timbal'], ['G'], 'G / g')}<span>{t('legendTimbalBaixo')}</span></div>}
             {isStrokeActiveForInstruments(['timbal'], ['A', 'a']) && <div className={rowCls}>{renderBadge(['timbal'], ['A'], 'A / a')}<span>{t('legendTimbalAberto')}</span></div>}
             {isStrokeActiveForInstruments(['timbal'], ['S', 's']) && <div className={rowCls}>{renderBadge(['timbal'], ['S'], 'S / s')}<span>{t('legendTimbalSlap')}</span></div>}
+            {isStrokeActiveForInstruments(['timbal'], ['T', 't']) && <div className={rowCls}>{renderBadge(['timbal'], ['T'], 'T / t')}<span>{t('legendTimbalTapaAberto')}</span></div>}
             {isStrokeActiveForInstruments(['timbal'], ['D', 'd']) && <div className={rowCls}>{renderBadge(['timbal'], ['D'], 'D / d')}<span>{t('legendTimbalDedilhado')}</span></div>}
             {isStrokeActiveForInstruments(['timbal'], ['P', 'p']) && <div className={rowCls}>{renderBadge(['timbal'], ['P'], 'P / p')}<span>{t('legendTimbalPreso')}</span></div>}
             {isStrokeActiveForInstruments(['timbal'], ['F', 'f']) && <div className={rowCls}>{renderBadge(['timbal'], ['F'], 'F / f')}<span>{t('legendTimbalFlaAberto')}</span></div>}

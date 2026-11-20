@@ -19,6 +19,7 @@ export const getStrokeDescription = (
       case 'G': case 'g': return isPt ? `Grave (${side})` : `Grave / Basse (${side})`;
       case 'A': case 'a': return isPt ? `Aberto (${side})` : `Ton ouvert / Aberto (${side})`;
       case 'S': case 's': return isPt ? `Slap / Estalo (${side})` : `Claqué / Slap (${side})`;
+      case 'T': case 't': return isPt ? `Tapa aberto / Slap aberto (${side})` : `Slap ouvert / Tapa aberto (${side})`;
       case 'D': case 'd': return isPt ? `Ponta de dedos / Fantasma (${side})` : `Doigts / Fantôme (${side})`;
       case 'P': case 'p': return isPt ? `Preso / Fechado (${side})` : `Pressé / Fermé (${side})`;
       case 'F': case 'f': return isPt ? `Fla aberto (${side})` : `Fla ouvert (${side})`;

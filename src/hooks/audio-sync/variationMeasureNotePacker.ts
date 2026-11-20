@@ -1,6 +1,7 @@
 import { Track, Pattern, PatternVariation } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { buildMeasureStepGrid } from '../../workers/compiler/measureStepGridHelper';
+import { getVariationSculptArrays } from '../../utils/soloVariationMatcher';
 import {
   normalizeStrokeKey,
   computeStepVolume,
@@ -29,11 +30,13 @@ export function buildMeasureVariationNotes(params: {
     if (!inst || inst.type === 'voice') return;
 
     const { pattern: activePattern, variation } = entry;
-    const stepsToPlay = variation.steps || activePattern.activeSteps;
-    const effectiveVolumes = variation.volumes || activePattern.volumes;
-    const effectiveDecays = variation.decays || activePattern.decays;
-    const effectiveMicrotimings = variation.microtimings || activePattern.microtimings;
-    const effectiveBeatRes = variation.beatResolutions || activePattern.beatResolutions;
+    const {
+      steps: stepsToPlay,
+      volumes: effectiveVolumes,
+      decays: effectiveDecays,
+      microtimings: effectiveMicrotimings,
+      beatResolutions: effectiveBeatRes,
+    } = getVariationSculptArrays(activePattern, variation);
 
     const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset, maxTicks } = buildMeasureStepGrid(
       timeSig || '4/4',

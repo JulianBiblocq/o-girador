@@ -13,12 +13,15 @@ import { HeaderAuxiliaryControls } from './header/HeaderAuxiliaryControls';
 import { useHeaderTabMenu } from './header/useHeaderTabMenu';
 import { useHeaderProject } from './header/useHeaderProject';
 import { HeaderProps } from './header/headerTypes';
+import { useAuth } from '../contexts/AuthContext';
+import { isMestreOrAdminProfile } from '../utils/presetPermissions';
 
 export type { HeaderProps };
 
 const HeaderComponent: React.FC<HeaderProps> = (props) => {
   const { lang, setLang, handleUndo, handleRedo } = useSequencer();
   const { activePresetName: preset, handlePresetSelect } = useAudio();
+  const { userProfile, currentUser } = useAuth();
 
   const canUndo = useSequencerStore((s) => s.tracksHistory.length > 0);
   const canRedo = useSequencerStore((s) => s.tracksRedoHistory.length > 0);
@@ -33,6 +36,9 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
 
   const project = useHeaderProject(props.cloudPresets, preset);
   const onLangToggle = () => setLang(lang === 'pt' ? 'fr' : 'pt');
+  const effectiveProfile = userProfile
+    ? { ...userProfile, uid: userProfile.uid || currentUser?.uid || '' }
+    : (currentUser ? { uid: currentUser.uid } : null);
 
   const sharedProjectProps = {
     lang,
@@ -46,8 +52,9 @@ const HeaderComponent: React.FC<HeaderProps> = (props) => {
     groupLabel: project.groupLabel,
     groupLogo: project.groupLogo,
     defaultPresetId: project.groupDefaultPresetId,
-    canSetDefaultPreset: project.canSetDefaultPreset,
+    canSetDefaultPreset: isMestreOrAdminProfile(effectiveProfile) && project.canSetDefaultPreset,
     canEdit: project.isEditor,
+    canToggleDraftPreset: project.canTogglePresetDraft,
     onSetDefaultPreset: project.handleSetDefaultPreset,
     onToggleDraft: project.handleToggleDraft,
     onPresetChange: handlePresetSelect,

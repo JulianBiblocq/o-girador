@@ -10,7 +10,7 @@ export const PUPITRES_REGISTRY: PupitreInfo[] = [
   { code: 'gg', nameFr: 'Gonguê', namePt: 'Gonguê', instId: 'gongue', symbolMemo: 'Cloche unique : G/g (Grave — Haut / Topo), A/a (Aigu — Base), X (Arrêt étouffé / Parada), B (Barulho)' },
   { code: 'ab', nameFr: 'Agbê', namePt: 'Agbê', instId: 'agbe', symbolMemo: 'E/e (Gauche — Paume / Palma), D/d (Droite — Retour / Retorno), S (Salto), V (Volta), B (Barulho)' },
   { code: 'mi', nameFr: 'Mineiro', namePt: 'Mineiro', instId: 'mineiro', symbolMemo: 'P/p (Poussé / Projetar), T/t (Tiré / Trazer), L (Latéral / Lado), B (Barulho)' },
-  { code: 'tb', nameFr: 'Timbal', namePt: 'Timbal', instId: 'timbal', symbolMemo: 'G/g (Basse), A/a (Ouvert), S/s (Slap), D/d (Doigts), P/p (Pressé), F/f, V/v, C, B • MAJ=Droite / min=Gauche' },
+  { code: 'tb', nameFr: 'Timbal', namePt: 'Timbal', instId: 'timbal', symbolMemo: 'G/g (Basse), A/a (Ouvert), S/s (Slap F.), T/t (Slap O. / Tapa Ab.), D/d (Doigts), P/p (Pressé), F/f, V/v, C, B • MAJ=Droite / min=Gauche' },
   { code: 'ap', nameFr: 'Apito', namePt: 'Apito', instId: 'apito', symbolMemo: 'L/l (Long bouclé : L -> l -> / -> .), C (Court / Curto)' },
   { code: 'td', nameFr: 'Toada (Voix)', namePt: 'Toada (Voz)', instId: 'puxador', symbolMemo: 'P (Puxador), C (Coro), _ (Tenue liée), / (Soudure), 0 (Silence vocal), + (Anacrouse)' },
 ];

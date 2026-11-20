@@ -1,5 +1,3 @@
-
-import React from 'react';
 import { SortablePatternCardProps } from '../../components/instrument-editor/patterns/patternCardTypes';
 import { computeStepBalancoPercent } from '../../utils/balancoUtils';
 import { Pattern } from '../../types';
@@ -46,7 +44,7 @@ export function useEditorPatternCardProps(params: {
     isTupletEditMode: editorState.isTupletEditMode, isMultiSelectActive: editorState.isMultiSelectActive,
     setIsMultiSelectActive: editorState.setIsMultiSelectActive, selectedStepIsPreRoll: editorState.selectedStepIsPreRoll,
     setSelectedStepIsPreRoll: editorState.setSelectedStepIsPreRoll, onStepTouchStart,
-    onCopyPattern: (p: Pattern) => sequencer.handleCopyPattern(p),
+    onCopyPattern: (p: Pattern) => sequencer.handleCopyPattern(p, effectiveEditTrackId),
     onPastePattern: (pId: number) => sequencer.handlePastePattern(effectiveEditTrackId, pId),
     canPaste: clipboard.canPaste, activeTool: editorState.activeTool, isAlternating: editorState.isAlternating,
     isLeftHanded, isTouchDevice: typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0),

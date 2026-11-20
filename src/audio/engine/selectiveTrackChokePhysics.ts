@@ -12,7 +12,7 @@ import { ActiveVoice, ALFAIA_INSTRUMENTS } from './engineTypes';
 
 const CAIXA_OPEN_RING = new Set(['D', 'E', 'A', 'a', 'F', 'f', 'R', 'r']);
 const GONGUE_ALL_OPEN = new Set(['G', 'g', 'A', 'a']);
-const TIMBAL_HIGH_VOICES = new Set(['A', 'a', 'F', 'f', 'S', 's', 'V', 'v']);
+const TIMBAL_HIGH_VOICES = new Set(['A', 'a', 'F', 'f', 'S', 's', 'T', 't', 'V', 'v']);
 const TIMBAL_LP_TRIGGERS = new Set(['P', 'p', 'S', 's', 'V', 'v']);
 
 export function isWebAudioLoopVoiceSymbol(instId: string, sym?: string): boolean {
@@ -121,7 +121,7 @@ export function applyNonAlfaiaSelectiveChoke(
           ops.chokeVoiceIn(v, time, 0.020);
         }
       }
-    } else if (strokeSymbol === 'A' || strokeSymbol === 'a' || strokeSymbol === 'F' || strokeSymbol === 'f') {
+    } else if (strokeSymbol === 'A' || strokeSymbol === 'a' || strokeSymbol === 'T' || strokeSymbol === 't' || strokeSymbol === 'F' || strokeSymbol === 'f') {
       for (const v of voices) {
         if (v?.gainNode && v.strokeSymbol && TIMBAL_HIGH_VOICES.has(v.strokeSymbol) && v.time < time && time < v.expectedEnd) {
           ops.chokeVoiceIn(v, time, 0.020);

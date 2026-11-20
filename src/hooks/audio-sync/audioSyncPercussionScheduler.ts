@@ -59,7 +59,7 @@ function triggerPackedNote(
   const isPastCatchupHit = Boolean(audioEngine && triggerTime < nowSec - 0.015);
 
   const storeState = useSequencerStore.getState();
-  const isPracticeMuted = isTrackMutedByPracticeMode(liveTrack.id, tracks || storeState.tracks, storeState, familyMuteSet);
+  const isPracticeMuted = soloPatternPlayId !== null ? false : isTrackMutedByPracticeMode(liveTrack.id, tracks || storeState.tracks, storeState, familyMuteSet);
 
   if (!isPracticeMuted && !isPastCatchupHit) {
     const isCoveredByWorklet = Boolean(

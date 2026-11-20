@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useSequencerStore, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus, isToadaChild, canPasteTimelineClipboard } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
+import { getPasteDisabledReason } from '../utils/patternPasteNormalizer';
 import { TimelinePatternMiniCard } from './timeline/TimelinePatternMiniCard';
 import { resolveActivePatternForCell, cloneAndIsolatePatternOnMeasure } from '../utils/timelinePatternResolver';
 import { TimelineContextMenuHeader } from './timeline/TimelineContextMenuHeader';
@@ -55,6 +56,9 @@ export const TimelineContextMenu: React.FC = () => {
   const isOverridden = isSlave && targetTrack?.patternOverrides?.[menuData.measureIdx] !== undefined;
   const hasMulti = selectedCells.length > 1;
   const isToada = Boolean(targetTrack && (isToadaBus(targetTrack) || isToadaChild(targetTrack, tracks) || instrumentsConfig[targetTrack.instrumentIdx]?.id === 'puxador' || instrumentsConfig[targetTrack.instrumentIdx]?.id === 'coro' || String(targetTrack.id) === 'toada'));
+  const hasClipEntries = Boolean(clipboard && clipboard.entries.length > 0);
+  const canPaste = canPasteTimelineClipboard(tracks, clipboard, menuData.trackId);
+  const pasteDisabledReason = getPasteDisabledReason(hasClipEntries, canPaste, lang, clipboard?.entries?.[0]?.sourceInstId, inst?.id);
 
   const handleDeployToada = () => {
     deployToada(menuData.measureIdx); closeMenu();
@@ -73,7 +77,7 @@ export const TimelineContextMenu: React.FC = () => {
   return createPortal(
     <div
       ref={menuRef}
-      className={`fixed z-50 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1.5 ${!hasMulti && activePattern ? 'w-[240px]' : 'min-w-[190px]'} max-h-[calc(100vh-24px)] overflow-y-auto select-none text-xs font-cactus animate-in fade-in zoom-in-95 duration-75`}
+      className={`fixed z-50 bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-2 border-[var(--cordel-ink-dark)] shadow-[4px_4px_0px_var(--cordel-ink-dark)] p-1.5 ${!hasMulti && activePattern ? 'w-[240px]' : 'min-w-[190px]'} max-h-[calc(100vh-24px)] overflow-y-auto select-none text-xs font-cactus animate-in fade-in zoom-in-95 duration-75`}
       style={{ left: `${coords.x}px`, top: `${coords.y}px` }}
       onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
     >
@@ -81,16 +85,17 @@ export const TimelineContextMenu: React.FC = () => {
       {!hasMulti && activePattern && effOwner && (
         <>
           <TimelinePatternMiniCard pattern={activePattern} track={effOwner} inst={cardInst} measureIdx={menuData.measureIdx} lang={lang} isLeftHanded={isLeftHanded} onEditPattern={() => { closeMenu(); useSequencerStore.getState().setSelectedPatternId(effOwner.id, activePattern.id); useSequencerStore.getState().setEditingTrackId(effOwner.id); }} onMakeUniqueAndEdit={handleMakeUniqueAndEdit} />
-          <div className="my-1 border-b border-[#1a1a1a]/30" />
+          <div className="my-1 border-b border-[var(--cordel-ink-dark)]/30" />
         </>
       )}
       <TimelineContextMenuItems
         hasMultiSelect={hasMulti} selectedCellsCount={selectedCells.length} timelineClipboard={clipboard}
+        canPaste={canPaste} pasteDisabledReason={pasteDisabledReason}
         showToadaDeploy={!hasMulti && isToada && Boolean(toadaSlots?.length)} measureIdx={menuData.measureIdx}
         isOverridden={isOverridden} lang={lang}
         onCopy={() => { if (!hasMulti) useSequencerStore.getState().setActiveTimelineCell({ trackId: menuData.trackId, measureIdx: menuData.measureIdx }); copyTimelineSelection(); closeMenu(); }}
         onCut={() => { if (!hasMulti) useSequencerStore.getState().setActiveTimelineCell({ trackId: menuData.trackId, measureIdx: menuData.measureIdx }); cutTimelineSelection(); closeMenu(); }}
-        onPaste={() => { if (!clipboard) return; useSequencerStore.getState().setActiveTimelineCell({ trackId: menuData.trackId, measureIdx: menuData.measureIdx }); pasteTimelineClipboard(); closeMenu(); }}
+        onPaste={() => { if (!canPaste) return; useSequencerStore.getState().setActiveTimelineCell({ trackId: menuData.trackId, measureIdx: menuData.measureIdx }); pasteTimelineClipboard(); closeMenu(); }}
         onDuplicate={() => { if (hasMulti) duplicateSelectedCells(); else { duplicate(menuData.trackId, menuData.measureIdx, menuData.measureIdx + 1); useSequencerStore.getState().setActiveTimelineCell({ trackId: menuData.trackId, measureIdx: menuData.measureIdx + 1 }); } closeMenu(); }}
         onRepeat={(count) => { repeat(menuData.trackId, menuData.measureIdx, count); closeMenu(); }}
         onDeployToada={handleDeployToada} onResetToMaster={() => { assign(menuData.trackId, undefined, menuData.measureIdx); closeMenu(); }}

@@ -1,6 +1,15 @@
 import { Pattern, SongSection } from '../../types';
 import { StepRangeClipboard } from '../helpers/stepRangeClipboardHelper';
 
+export type CopiedPatternClipboard = Pattern & {
+  sourceTrackId?: number;
+  sourceInstId?: string;
+  sourceInstrumentType?: string;
+  sourceType?: string;
+  sourceFamily?: string;
+  sourceName?: string;
+};
+
 export interface InstrumentPatternsClipboard {
   sourceTrackId: number;
   sourceType: string;
@@ -9,6 +18,7 @@ export interface InstrumentPatternsClipboard {
   timelineAssignments?: Record<string, boolean[]>;
   sourceInstrumentIdx?: number;
   sourceInstId?: string;
+  sourceInstrumentType?: string;
   sourceFamily?: string;
 }
 
@@ -21,6 +31,9 @@ export interface VoiceStepData {
 
 export interface VoiceStepsClipboard {
   steps: VoiceStepData[];
+  sourceTrackId?: number;
+  sourceInstId?: string;
+  sourceInstrumentType?: string;
 }
 
 export interface SelectedStepRange {
@@ -39,16 +52,16 @@ export interface EditorStepRangeActionParams {
 }
 
 export interface ClipboardSlice {
-  copiedPattern: Pattern | null;
+  copiedPattern: CopiedPatternClipboard | null;
   copiedSection: any | null;
   instrumentPatternsClipboard: InstrumentPatternsClipboard | null;
   vocalNotesClipboard: string[] | null;
   voiceStepsClipboard: VoiceStepsClipboard | null;
   stepRangeClipboard: StepRangeClipboard | null;
 
-  setCopiedPattern: (pattern: Pattern | null) => void;
+  setCopiedPattern: (pattern: CopiedPatternClipboard | null) => void;
   setCopiedSection: (section: any | null) => void;
-  handleCopyPattern: (pattern: Pattern) => void;
+  handleCopyPattern: (pattern: Pattern, sourceTrackOrInst?: number | string) => void;
   handleCopySongSection: (section: SongSection) => void;
   handlePasteSongSection: (destStartMeasure: number) => void;
   copyAllTrackPatterns: (trackId: number) => void;

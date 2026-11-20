@@ -7,12 +7,17 @@ import { subscribeToGroupDefaultPreset, setDefaultGroupPreset } from '../../clou
 import { resolveGroupLogoFromCloud } from '../../services/cloud-groups/cloudGroupVariants';
 import { togglePresetDraftStatus } from '../../cloudPresetsStorage';
 import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
+import { isMestreOrAdminProfile, canMutatePreset } from '../../utils/presetPermissions';
 
 export function useHeaderProject(cloudPresets: any[] = [], activePresetName: string) {
   const sequencer = useSequencer();
   const { userProfile, isAdmin, currentUser } = useAuth();
   const metadata = useSequencerStore((state) => state.metadata);
   const queryClient = useQueryClient();
+
+  const effectiveProfile = userProfile
+    ? { ...userProfile, uid: userProfile.uid || currentUser?.uid || '' }
+    : (currentUser ? { uid: currentUser.uid } : null);
 
   const rawGroupId = (userProfile?.groupId || '').trim();
   const isSamambaia = isLegacySamambaiaGroup(rawGroupId);
@@ -30,8 +35,7 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
 
   const groupLogo = userProfile?.groupLogoUrl || cloudGroupLogo || (isSamambaia ? '/Pictures/logo-samambaia.png' : '/o-girador-logo.webp');
 
-  const isPublicPreset = (p: { visibility?: string }) =>
-    p.visibility === 'admin_global' || p.visibility === 'public';
+  const isPublicPreset = (p: { visibility?: string }) => p.visibility === 'admin_global' || p.visibility === 'public';
   const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
   const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
   const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || isOtherDistinctGroup));
@@ -44,56 +48,46 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
       setGroupDefaultPresetId(null);
       return;
     }
-    const unsub = subscribeToGroupDefaultPreset(targetGroupId, (id) => {
-      setGroupDefaultPresetId(id);
-    });
+    const unsub = subscribeToGroupDefaultPreset(targetGroupId, (id) => setGroupDefaultPresetId(id));
     return () => unsub();
   }, [rawGroupId, userProfile?.groupId, isSamambaia, isOtherDistinctGroup]);
 
-  const canSetDefaultPreset = Boolean(
-    userProfile && (
-      userProfile.role === 'mestre' ||
-      userProfile.role === 'admin' ||
-      userProfile.dbRole === 'mestre' ||
-      userProfile.dbRole === 'admin' ||
-      isAdmin
-    )
-  );
+  const isMestreOrAdmin = isMestreOrAdminProfile(effectiveProfile, isAdmin);
+  const canSetDefaultPreset = isMestreOrAdmin;
+  const isEditor = Boolean(isMestreOrAdmin || userProfile?.canWriteSequenciador);
+  const canTogglePresetDraft = (preset: { id: string; ownerId?: string }) => canMutatePreset(preset, effectiveProfile);
 
-  const isMestre = Boolean(
-    userProfile?.role === 'mestre' ||
-    (userProfile as any)?.dbRole === 'mestre' ||
-    (isSamambaia && (userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || currentUser?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'))
+  const activePresetId = activePresetName?.startsWith('cloud:') ? activePresetName.replace('cloud:', '') : activePresetName;
+  const loadedGroupPreset = privateCloudPresets.find((p) =>
+    p.id === activePresetId || (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
   );
-  const isEditor = Boolean(isAdmin || isMestre || userProfile?.canWriteSequenciador);
-
-  const activePresetId = activePresetName?.startsWith('cloud:')
-    ? activePresetName.replace('cloud:', '')
-    : activePresetName;
-
-  const loadedGroupPreset = privateCloudPresets.find(p =>
-    p.id === activePresetId ||
-    (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
-  );
-  const loadedPublicPreset = publicCloudPresets.find(p =>
-    p.id === activePresetId ||
-    (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
+  const loadedPublicPreset = publicCloudPresets.find((p) =>
+    p.id === activePresetId || (metadata?.toada && p.name.trim().toLowerCase() === metadata.toada.trim().toLowerCase())
   );
   const currentLoadedPreset = loadedGroupPreset || loadedPublicPreset;
 
   const handleToggleDraft = async (presetId: string, currentDraft: boolean) => {
+    const target = (cloudPresets || []).find((p: any) => p.id === presetId);
+    if (target && !canMutatePreset(target, effectiveProfile)) return;
+    if (!target && !isMestreOrAdmin) return;
+
     const nextDraft = !currentDraft;
     queryClient.setQueriesData({ queryKey: ['cloudPresets'] }, (oldData: any) => {
       if (!Array.isArray(oldData)) return oldData;
       return oldData.map((p: any) => (p.id === presetId ? { ...p, isDraft: nextDraft } : p));
     });
 
+    const roleForDraft = isMestreOrAdmin
+      ? (userProfile?.role === 'admin' || userProfile?.dbRole === 'admin' ? 'admin' : 'mestre')
+      : (userProfile?.role || undefined);
+
     try {
       await togglePresetDraftStatus(
         presetId,
         currentDraft,
-        userProfile?.role || (userProfile as any)?.dbRole || (isAdmin ? 'admin' : undefined),
-        userProfile?.uid || currentUser?.uid
+        roleForDraft,
+        effectiveProfile?.uid || undefined,
+        Boolean(userProfile?.canWriteSequenciador)
       );
     } catch (err: any) {
       console.error('Failed to toggle preset draft status:', err);
@@ -106,13 +100,10 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
   };
 
   const handleSetDefaultPreset = async (presetId: string | null) => {
-    if (!userProfile?.groupId) return;
+    if (!userProfile?.groupId || !isMestreOrAdmin) return;
+    const roleForGroup = userProfile.role === 'admin' || userProfile.dbRole === 'admin' ? 'admin' : 'mestre';
     try {
-      await setDefaultGroupPreset(
-        userProfile.groupId,
-        presetId,
-        userProfile.role || userProfile.dbRole || (isAdmin ? 'admin' : undefined)
-      );
+      await setDefaultGroupPreset(userProfile.groupId, presetId, roleForGroup);
     } catch (err: any) {
       console.error('Failed to set default group preset:', err);
       await sequencer.alertAsync(err.message || 'Erreur lors de la mise à jour du morceau de travail');
@@ -120,16 +111,8 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
   };
 
   return {
-    groupLabel,
-    groupLogo,
-    publicCloudPresets,
-    privateCloudPresets,
-    showGroupCatalogue,
-    groupDefaultPresetId,
-    canSetDefaultPreset,
-    isEditor,
-    currentLoadedPreset,
-    handleToggleDraft,
-    handleSetDefaultPreset,
+    groupLabel, groupLogo, publicCloudPresets, privateCloudPresets, showGroupCatalogue,
+    groupDefaultPresetId, canSetDefaultPreset, isEditor, canTogglePresetDraft,
+    currentLoadedPreset, handleToggleDraft, handleSetDefaultPreset,
   };
 }

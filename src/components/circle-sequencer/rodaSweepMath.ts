@@ -1,6 +1,8 @@
 import { TrackGroup, Pattern } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useTransportStore } from '../../stores/useTransportStore';
 import { areStepValuesEqual } from '../../utils/slaveStepOpacityResolver';
+import { resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
 import {
   angleToNormalizedRodaRatio, computeMeasurePatternStepOffset, computeRodaStepAngles,
   findStepIndexAtNormalizedP, normalizeTimeSig, resolveActiveBeatResolutions,
@@ -22,14 +24,17 @@ export function resolveTrackStepsForMeasure(
   stepsSnapshot?: Record<number, any> | null, measureTimeSigs?: Record<number, string>, defaultTimeSig?: string
 ): { activeSteps: any[]; baseSteps: any[]; pattern: Pattern | null; stepAngles: number[]; stepCount: number; timeSig: string } {
   const isSolo = soloPatternPlayId !== null;
+  const soloVarId = isSolo ? useTransportStore.getState().soloPatternVariationId : null;
   const pattern = resolveActivePattern(track, rawTracks, measureIdx, isSolo, soloPatternPlayId) as Pattern | null;
   const rawBase = pattern?.activeSteps || [];
   const canVary = Boolean(pattern?.variations?.length && (isSolo || pattern.measureAllowVariations?.[measureIdx] !== false));
-  const rawActive = (canVary && stepsSnapshot && stepsSnapshot[track.id]) ? stepsSnapshot[track.id] : rawBase;
+  const { steps: rawActive, beatResolutions: varBeatRes } = resolveEffectivePatternStepsForSoloOrLive({
+    pattern, trackId: track.id, tracks: rawTracks, soloPatternPlayId, soloPatternVariationId: soloVarId,
+    liveStepsMap: stepsSnapshot, canUseLiveVariation: canVary,
+  });
   const timeSig = normalizeTimeSig(measureTimeSigs?.[measureIdx] || defaultTimeSig || '4/4');
-  const beatRes = resolveActiveBeatResolutions(timeSig, pattern);
-  const stepAngles = computeRodaStepAngles(timeSig, beatRes);
-  const stepCount = stepAngles.length;
+  const beatRes = resolveActiveBeatResolutions(timeSig, pattern ? { ...pattern, beatResolutions: varBeatRes } : null);
+  const stepAngles = computeRodaStepAngles(timeSig, beatRes), stepCount = stepAngles.length;
   const offset = computeMeasurePatternStepOffset(pattern, stepCount, measureIdx);
   const activeSteps = offset > 0 ? rawActive.slice(offset, offset + stepCount) : rawActive;
   const baseSteps = offset > 0 ? rawBase.slice(offset, offset + stepCount) : rawBase;
@@ -60,10 +65,9 @@ function resolveAtNormalizedP(p: number, stepAngles: readonly number[], stepCoun
   const idx = stepAngles.length > 0
     ? findStepIndexAtNormalizedP(stepAngles, p)
     : (Math.abs(p * stepCount - Math.round(p * stepCount)) < 1e-4 ? Math.round(p * stepCount) : -1);
-  if (idx >= 0 && idx < stepCount) {
-    return { state: activeSteps?.[idx] ?? 0, baseState: baseSteps?.[idx] ?? 0, stepIdx: idx, stepCount };
-  }
-  return { state: 0, baseState: 0, stepIdx: -1, stepCount };
+  return (idx >= 0 && idx < stepCount)
+    ? { state: activeSteps?.[idx] ?? 0, baseState: baseSteps?.[idx] ?? 0, stepIdx: idx, stepCount }
+    : { state: 0, baseState: 0, stepIdx: -1, stepCount };
 }
 
 export function computeContinuousSweepRatio(
@@ -71,8 +75,7 @@ export function computeContinuousSweepRatio(
   currentMeasureIdx?: number, nextMeasureIdx?: number | null, measureTimeSigs?: Record<number, string>, defaultTimeSig?: string
 ): number | null {
   if (!isPlaying || rodaSweepMode === 'fullMeasure' || playheadRatio < 0) return null;
-  const st = useSequencerStore.getState();
-  const mSigs = measureTimeSigs ?? st.measureTimeSigs, defSig = defaultTimeSig ?? st.timeSig ?? '4/4';
+  const st = useSequencerStore.getState(), mSigs = measureTimeSigs ?? st.measureTimeSigs, defSig = defaultTimeSig ?? st.timeSig ?? '4/4';
   const currM = currentMeasureIdx ?? st.currentMeasure ?? 0, currSig = normalizeTimeSig(mSigs?.[currM] || defSig);
   const r = ((playheadRatio % 1) + 1) % 1;
   if (r >= 0.5) {
@@ -99,13 +102,11 @@ export function resolveStepSweepBlend(params: {
     nextStepCount, nextActiveSteps, nextBaseSteps, nextStepAngles = [],
     prevStepCount, prevActiveSteps, prevBaseSteps, prevStepAngles = [],
   } = params;
-
   const cur = resolveAtNormalizedP(p, currStepAngles, currStepCount, currentActiveSteps, currentBaseSteps);
   const makeSingle = (slot: typeof cur, mIdx: number): StepSweepBlend => ({
     isBlending: false, primaryState: slot.state, primaryMeasureIdx: mIdx, primaryBaseState: slot.baseState,
     primaryStepIdx: Math.max(0, slot.stepIdx), primaryStepCount: slot.stepCount, primaryAlpha: 1.0,
   });
-
   if (!isPlaying || rodaSweepMode === 'fullMeasure' || playheadRatio < 0) return makeSingle(cur, currentMeasureIdx);
   const st = useSequencerStore.getState(), mSigs = st.measureTimeSigs, defSig = st.timeSig || '4/4';
   const cSig = normalizeTimeSig(params.currTimeSig ?? (mSigs?.[currentMeasureIdx] || defSig));
@@ -127,7 +128,6 @@ export function resolveStepSweepBlend(params: {
       secondaryStepIdx: Math.max(0, nxt.stepIdx), secondaryStepCount: nxt.stepCount, secondaryAlpha: alpha,
     };
   }
-
   if (r >= 0.5 || !hasPrevMeasure || prevMeasureIdx === null || cSig !== pSig) return makeSingle(cur, currentMeasureIdx);
   const rSweep = r + 0.5, prv = resolveAtNormalizedP(p, prevStepAngles, prevStepCount, prevActiveSteps, prevBaseSteps);
   const alpha = Math.max(0, Math.min(1, (rSweep - p) / SWEEP_TRANSITION_WIDTH));

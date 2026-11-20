@@ -30,8 +30,8 @@ describe('legendsAndGuideConsistency — alignement SSOT intégral & Mode d’Em
     expect(getStrokesForRole('ab').weak).toEqual(['e', 'd']);
     expect(getStrokesForRole('mi').strong).toEqual(['P', 'T', 'L', 'B']);
     expect(getStrokesForRole('mi').weak).toEqual(['p', 't']);
-    expect(getStrokesForRole('tb').strong).toEqual(['G', 'A', 'S', 'D', 'P', 'F', 'V', 'C', 'B']);
-    expect(getStrokesForRole('tb').weak).toEqual(['g', 'a', 's', 'd', 'p', 'f', 'v']);
+    expect(getStrokesForRole('tb').strong).toEqual(['G', 'A', 'S', 'T', 'D', 'P', 'F', 'V', 'C', 'B']);
+    expect(getStrokesForRole('tb').weak).toEqual(['g', 'a', 's', 't', 'd', 'p', 'f', 'v']);
     expect(getStrokesForRole('ap').strong).toEqual(['L', 'C']);
     expect(getStrokesForRole('ap').weak).toEqual(['l']);
     expect(ALL_STROKE_LETTERS).not.toContain('i');

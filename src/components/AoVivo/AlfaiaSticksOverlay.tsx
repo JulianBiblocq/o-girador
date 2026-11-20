@@ -7,6 +7,7 @@ import {
   AlfaiaTwinMacanetaSvg,
 } from './AlfaiaStickSvgs';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useTransportStore } from '../../stores/useTransportStore';
 import {
   collectAlfaiaTrackStepsList,
   resolveAlfaiaSecondaryStickFromSteps,
@@ -17,7 +18,7 @@ export function resolveAlfaiaSecondaryFamily(activeTrack: any): AlfaiaSecondaryS
   const mode = CONFIG_ALFAIA_STICKS.leftStickMode;
   if (mode !== 'auto') return mode;
   const st = useSequencerStore.getState();
-  const soloId = (st as any).soloPlayingPatternId ?? (st as any).soloPatternPlayId ?? null;
+  const soloId = useTransportStore.getState().soloPatternPlayId ?? null;
   if (activeTrack && !activeTrack.isBusFolder && !activeTrack.isLinkFolder) {
     return resolveAlfaiaSecondaryStickFromSteps(
       collectAlfaiaTrackStepsList(activeTrack, st.tracks || [], st.editingTrackId, soloId)

@@ -1,5 +1,6 @@
 import React from 'react';
-import { TrackMeta } from '../../stores/useSequencerStore';
+import { TrackMeta, useSequencerStore } from '../../stores/useSequencerStore';
+import { canTransferPatterns } from '../../utils/instrumentCompatibility';
 import { MixerChannel } from '../MixerChannel';
 
 interface MixerTrackItemProps {
@@ -36,6 +37,10 @@ export const MixerTrackItem: React.FC<MixerTrackItemProps> = ({
   isWagonMember, isDraggingWagon, onOpenDetailEditor, onStepTouchStart,
   handleCopyPattern, handlePastePattern, copiedPattern,
 }) => {
+  const canPaste = Boolean(
+    copiedPattern && canTransferPatterns(copiedPattern, track, useSequencerStore.getState().tracks)
+  );
+
   return (
     <MixerChannel
       key={track.id}
@@ -56,7 +61,7 @@ export const MixerTrackItem: React.FC<MixerTrackItemProps> = ({
       onStepTouchStart={onStepTouchStart}
       onCopyPattern={handleCopyPattern}
       onPastePattern={handlePastePattern}
-      canPaste={Boolean(copiedPattern)}
+      canPaste={canPaste}
     />
   );
 };

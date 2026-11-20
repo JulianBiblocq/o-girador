@@ -39,7 +39,7 @@ export function generateTimbalKeyframes(stroke: string, isLeft: boolean): { keyf
     };
   }
 
-  if (stroke === 'S' || stroke === 's') {
+  if (stroke === 'S' || stroke === 's' || stroke === 'T' || stroke === 't') {
     const slapWindScale = CONFIG_TIMBAL.slap.windUpScale * scaleMult;
     const slapImpactScale = CONFIG_TIMBAL.slap.impactScale * scaleMult;
     return {

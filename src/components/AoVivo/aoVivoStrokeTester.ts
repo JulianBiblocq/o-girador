@@ -95,9 +95,9 @@ export function applyFrozenImpactPose(fam: TesterFamily, stroke: string): void {
   } else if (fam === 'mineiro' && mEl) {
     mEl.style.transform = getMineiroImpactPoseTransform(stroke, isLeftHanded);
   } else {
-    const hitDom = ['G', 'S', 'A', 'P', 'D'].includes(stroke) || ['F', 'V', 'C', 'X', 'B'].includes(sUp);
-    const hitSec = ['g', 's', 'a', 'p', 'd'].includes(stroke) || ['F', 'V', 'C', 'X', 'B'].includes(sUp);
-    const isSlapOrClap = sUp === 'S' || sUp === 'V' || sUp === 'C' || sUp === 'X';
+    const hitDom = ['G', 'S', 'T', 'A', 'P', 'D'].includes(stroke) || ['F', 'V', 'C', 'X', 'B'].includes(sUp);
+    const hitSec = ['g', 's', 't', 'a', 'p', 'd'].includes(stroke) || ['F', 'V', 'C', 'X', 'B'].includes(sUp);
+    const isSlapOrClap = sUp === 'S' || sUp === 'T' || sUp === 'V' || sUp === 'C' || sUp === 'X';
     if (domEl) { domEl.style.transform = hitDom ? getTimbalImpactPoseTransform(stroke, isLeftHanded) : getTimbalHandRestTransform(isLeftHanded, true); applyTimbalSlapBiomechanics(domEl, hitDom && isSlapOrClap); }
     if (secEl) { secEl.style.transform = hitSec ? getTimbalImpactPoseTransform(stroke, !isLeftHanded) : getTimbalHandRestTransform(!isLeftHanded, true); applyTimbalSlapBiomechanics(secEl, hitSec && isSlapOrClap); }
   }

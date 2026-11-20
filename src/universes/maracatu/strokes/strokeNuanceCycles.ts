@@ -7,7 +7,7 @@ import { getStrokePairs } from './strokeRegistry';
 const WHEEL_NUANCE_GROUPS: Record<string, string[][]> = {
   alfaia: [['D', 'd'], ['E', 'e'], ['B', 'b', '/', '.']],
   caixa: [['D', 'd'], ['E', 'e'], ['F', 'f'], ['A', 'a'], ['R', 'r'], ['B', 'b', '/', '.']],
-  timbal: [['G', 'g'], ['A', 'a'], ['S', 's'], ['D', 'd'], ['P', 'p'], ['F', 'f'], ['V', 'v'], ['B', 'b', '/', '.']],
+  timbal: [['G', 'g'], ['A', 'a'], ['S', 's'], ['T', 't'], ['D', 'd'], ['P', 'p'], ['F', 'f'], ['V', 'v'], ['B', 'b', '/', '.']],
   gongue: [['G', 'g'], ['A', 'a'], ['B', 'b', '/', '.']],
   agbe: [['E', 'e'], ['D', 'd'], ['B', 'b', '/', '.']],
   mineiro: [['P', 'p'], ['T', 't'], ['B', 'b', '/', '.']],

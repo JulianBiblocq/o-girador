@@ -1,10 +1,11 @@
 import { StateCreator } from 'zustand';
 import type { SequencerStore } from '../types/sequencerStoreTypes';
-import { ClipboardSlice } from './clipboardSliceTypes';
+import { ClipboardSlice, CopiedPatternClipboard } from './clipboardSliceTypes';
 import { copySongSectionData, pasteSongSectionState } from '../helpers/songSectionClipboardHelper';
 import { notifyToast } from '../../utils/toastHelper';
 import { copyAllTrackPatternsData } from '../helpers/instrumentClipboardCopyHelper';
 import { pasteAllTrackPatternsState } from '../helpers/instrumentClipboardPasteHelper';
+import { getInstrumentFamily, resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
 import {
   handleCopyVoiceStepsAction, handleCutVoiceStepsAction, handlePasteVoiceStepsAction,
 } from '../helpers/vocalClipboardActionsHelper';
@@ -21,12 +22,41 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
   setCopiedPattern: (pattern) => set({ copiedPattern: pattern }),
   setCopiedSection: (section) => set({ copiedSection: section }),
 
-  handleCopyPattern: (pattern) => {
+  handleCopyPattern: (pattern, sourceTrackOrInst) => {
+    if (!pattern) return;
     if (typeof window !== 'undefined') {
       (window as any).__oGiradorRelativeClipboard = null;
       window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
     }
-    set({ copiedPattern: JSON.parse(JSON.stringify(pattern)) });
+    const tracks = get().tracks || [];
+    let resolvedInstId = '';
+    let resolvedTrackId: number | undefined;
+    if (typeof sourceTrackOrInst === 'string') {
+      resolvedInstId = resolveTrackInstrumentId(sourceTrackOrInst, tracks);
+    } else if (typeof sourceTrackOrInst === 'number') {
+      const tr = tracks.find((t) => t.id === sourceTrackOrInst);
+      resolvedTrackId = tr?.id;
+      resolvedInstId = resolveTrackInstrumentId(tr, tracks);
+    }
+    if (!resolvedInstId) {
+      const owner = tracks.find((t) => !t.isLinkFolder && !t.isBusFolder && t.patterns?.some((p) => p.id === pattern.id))
+        || tracks.find((t) => t.patterns?.some((p) => p.id === pattern.id));
+      if (owner) {
+        resolvedTrackId = owner.id;
+        resolvedInstId = resolveTrackInstrumentId(owner, tracks);
+      } else {
+        resolvedInstId = resolveTrackInstrumentId(pattern, tracks);
+      }
+    }
+    const cloned: CopiedPatternClipboard = {
+      ...JSON.parse(JSON.stringify(pattern)),
+      sourceTrackId: resolvedTrackId,
+      sourceInstId: resolvedInstId,
+      sourceInstrumentType: resolvedInstId,
+      sourceType: resolvedInstId,
+      sourceFamily: getInstrumentFamily(resolvedInstId),
+    };
+    set({ copiedPattern: cloned });
   },
 
   handleCopySongSection: (section) => {
@@ -67,11 +97,11 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
   pasteAllTrackPatterns: (targetTrackId, modeOrApplyTimeline = false) => {
     const state = get();
     if (!state.instrumentPatternsClipboard) return;
-    state.pushUndoState();
     const res = pasteAllTrackPatternsState(
       state.tracks, state.instrumentPatternsClipboard, targetTrackId, modeOrApplyTimeline, state.totalMeasures, state.lang
     );
     if (!res) return;
+    state.pushUndoState();
     set({ tracks: res.tracks, tracksVersion: (state.tracksVersion || 0) + 1 });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: res.message } }));

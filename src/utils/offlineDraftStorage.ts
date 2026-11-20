@@ -1,7 +1,6 @@
 /**
- * Stockage hors-ligne des brouillons en répétition & synchronisation automatique (< 95 lignes).
+ * Stockage hors-ligne des brouillons en répétition & synchronisation automatique (< 110 lignes).
  */
-
 import { savePresetToCloud } from '../cloudLibrary';
 import { auth } from '../firebase/config';
 
@@ -10,6 +9,7 @@ const OFFLINE_DRAFT_KEY = 'o_girador_offline_drafts_v1';
 export interface OfflineDraftItem {
   id: string;
   name: string;
+  ownerId?: string;
   presetData: any;
   vigilancePoints?: any[];
   signals?: any[];
@@ -23,6 +23,7 @@ export function saveDraftLocally(name: string, presetData: any, vigilancePoints:
     const item: OfflineDraftItem = {
       id: `draft_${Date.now()}`,
       name,
+      ownerId: auth.currentUser?.uid || undefined,
       presetData: { ...presetData, isDraft: true, vigilancePoints },
       vigilancePoints,
       signals,
@@ -44,6 +45,13 @@ export function getOfflineDrafts(): OfflineDraftItem[] {
   }
 }
 
+export function deleteOfflineDraft(draftId: string): void {
+  try {
+    const remaining = getOfflineDrafts().filter((d) => d.id !== draftId);
+    localStorage.setItem(OFFLINE_DRAFT_KEY, JSON.stringify(remaining));
+  } catch (_) {}
+}
+
 export async function syncOfflineDraftsIfOnline(): Promise<number> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return 0;
   const user = auth.currentUser;
@@ -56,6 +64,10 @@ export async function syncOfflineDraftsIfOnline(): Promise<number> {
   const remaining: OfflineDraftItem[] = [];
 
   for (const draft of drafts) {
+    if (draft.ownerId && draft.ownerId !== user.uid) {
+      remaining.push(draft);
+      continue;
+    }
     try {
       await savePresetToCloud(
         draft.name,

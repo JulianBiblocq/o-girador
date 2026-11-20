@@ -85,6 +85,7 @@ export const PaperLegendStrokesView: React.FC<Props> = ({ lang }) => {
         { key: 'G / g', desc: isFr ? 'Grave / Basse (D / G)' : 'Grave (Dir / Esq)' },
         { key: 'A / a', desc: isFr ? 'Ton ouvert / Aberto (D / G)' : 'Aberto (Dir / Esq)' },
         { key: 'S / s', desc: isFr ? 'Claqué / Slap (D / G)' : 'Slap / Estalo (Dir / Esq)' },
+        { key: 'T / t', desc: isFr ? 'Slap ouvert / Tapa aberto (D / G)' : 'Tapa aberto / Slap aberto (Dir / Esq)' },
         { key: 'D / d', desc: isFr ? 'Doigts / Fantôme (D / G)' : 'Ponta de dedos (Dir / Esq)' },
         { key: 'P / p', desc: isFr ? 'Pressé / Fermé (D / G)' : 'Preso / Fechado (Dir / Esq)' },
         { key: 'F / f', desc: isFr ? 'Fla ouvert (D / G)' : 'Fla aberto (Dir / Esq)' },

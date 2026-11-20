@@ -1,5 +1,6 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { canTransferPatterns } from '../../utils/instrumentCompatibility';
 import { isVoiceHoldNote } from '../../utils/musicTheory';
 import { VoiceStepData } from '../slices/clipboardSliceTypes';
 import { resolveVoiceTrackAndPattern } from './vocalClipboardResolutionHelper';
@@ -12,12 +13,14 @@ export const pasteVoiceStepsState = (
   startIsPreRoll: boolean,
   startStepIdx: number,
   notesOnly = false,
-  selectedPatternId?: number | null
+  selectedPatternId?: number | null,
+  sourceInstId = 'puxador'
 ): TrackGroup[] | null => {
   if (!clipboardSteps || clipboardSteps.length === 0) return null;
 
   const { track, pattern } = resolveVoiceTrackAndPattern(tracks, targetTrackId, targetPatternId, null, null, selectedPatternId);
   if (!track || !pattern) return null;
+  if (!canTransferPatterns(sourceInstId, track, tracks)) return null;
 
   const instId = instrumentsConfig[track.instrumentIdx]?.id;
   const isCoro = instId === 'coro' || String(track.id).toLowerCase().includes('coro') || track.customName?.toLowerCase().includes('coro');
@@ -92,11 +95,11 @@ export const pasteVoiceStepsState = (
     }
   }
 
-  return tracks.map(t => {
+  return tracks.map((t) => {
     if (t.id === track.id || String(t.id) === String(track.id)) {
       return {
         ...t,
-        patterns: t.patterns.map(p => {
+        patterns: t.patterns.map((p) => {
           if (p.id === pattern.id || String(p.id) === String(pattern.id)) {
             return {
               ...p,
@@ -105,11 +108,11 @@ export const pasteVoiceStepsState = (
               activeSteps,
               preRollNotes,
               preRollLyrics,
-              preRollActiveSteps
+              preRollActiveSteps,
             };
           }
           return p;
-        })
+        }),
       };
     }
     return t;

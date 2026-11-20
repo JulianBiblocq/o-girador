@@ -1,5 +1,6 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
 import { isVoiceStepProlongation } from '../../utils/musicTheory';
 import { VoiceStepData, SelectedStepRange } from '../slices/clipboardSliceTypes';
 import { resolveEffectiveRange, resolveVoiceTrackAndPattern } from './vocalClipboardResolutionHelper';
@@ -14,20 +15,20 @@ export const copyVoiceStepsRangeState = (
   selectedStepIsPreRoll?: boolean,
   editingTrackId?: number | null,
   selectedPatternId?: number | null
-): { steps: VoiceStepData[]; vocalNotes: string[]; fallbackSelection?: { step: number; isPreRoll: boolean } } | null => {
+): {
+  steps: VoiceStepData[];
+  vocalNotes: string[];
+  sourceTrackId: number;
+  sourceInstId: string;
+  fallbackSelection?: { step: number; isPreRoll: boolean };
+} | null => {
   const effectiveRange = resolveEffectiveRange(rangeOverride, selectedStepRange, selectedStepIdx, selectedStepIsPreRoll);
-  if (!effectiveRange) {
-    console.warn('[Toada Copy] Aucune plage ni cellule vocale sélectionnée.');
-    return null;
-  }
+  if (!effectiveRange) return null;
 
   const { track, pattern } = resolveVoiceTrackAndPattern(tracks, trackIdOverride, patternIdOverride, effectiveRange, editingTrackId, selectedPatternId);
-  if (!track || !pattern) {
-    console.warn('[Toada Copy] Aucune piste ou motif vocal trouvé.');
-    return null;
-  }
+  if (!track || !pattern) return null;
 
-  const instId = instrumentsConfig[track.instrumentIdx]?.id;
+  const instId = resolveTrackInstrumentId(track, tracks) || instrumentsConfig[track.instrumentIdx]?.id || 'puxador';
   const isCoro = instId === 'coro' || String(track.id).toLowerCase().includes('coro') || track.customName?.toLowerCase().includes('coro');
   const defaultVoiceRole: 'P' | 'C' = isCoro ? 'C' : 'P';
 
@@ -78,7 +79,9 @@ export const copyVoiceStepsRangeState = (
 
   return {
     steps: copiedSteps,
-    vocalNotes: copiedSteps.map(s => s.note),
-    fallbackSelection
+    vocalNotes: copiedSteps.map((s) => s.note),
+    sourceTrackId: track.id,
+    sourceInstId: isCoro ? 'coro' : 'puxador',
+    fallbackSelection,
   };
 };

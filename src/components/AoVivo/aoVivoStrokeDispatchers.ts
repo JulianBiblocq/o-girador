@@ -98,11 +98,11 @@ export function dispatchTimbal(
   let durationLeft = CONFIG_TIMBAL.aberto.duration, durationRight = CONFIG_TIMBAL.aberto.duration;
   let triggerLeft = false, triggerRight = false;
 
-  if (['G', 'A', 'S', 'D', 'P'].includes(norm)) {
+  if (['G', 'A', 'S', 'T', 'D', 'P'].includes(norm)) {
     const res = generateTimbalKeyframes(norm, isLeftHanded);
     if (isLeftHanded) { keyframesLeft = res.keyframes; durationLeft = res.duration; triggerLeft = true; }
     else { keyframesRight = res.keyframes; durationRight = res.duration; triggerRight = true; }
-  } else if (['g', 'a', 's', 'd', 'p'].includes(norm)) {
+  } else if (['g', 'a', 's', 't', 'd', 'p'].includes(norm)) {
     const res = generateTimbalKeyframes(norm, !isLeftHanded);
     if (isLeftHanded) { keyframesRight = res.keyframes; durationRight = res.duration; triggerRight = true; }
     else { keyframesLeft = res.keyframes; durationLeft = res.duration; triggerLeft = true; }

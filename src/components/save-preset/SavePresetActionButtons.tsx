@@ -1,10 +1,12 @@
-
 import React from 'react';
 
 interface SavePresetActionButtonsProps {
   onClose: () => void;
   handleSave: (opts?: { forceNew: boolean }) => void;
   isExistingPreset: boolean;
+  canUpdate: boolean;
+  isForeignActivePreset?: boolean;
+  hasMestreNameConflict?: boolean;
   name: string;
   isSaving: boolean;
   isBouncingCloud: boolean;
@@ -19,36 +21,43 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
   onClose,
   handleSave,
   isExistingPreset,
+  canUpdate,
+  isForeignActivePreset = false,
+  hasMestreNameConflict = false,
   name,
   isSaving,
   isBouncingCloud,
   hasUser,
   isMestre,
   isLocked,
-  isSavedOnCloud = false,
   lang,
 }) => {
   const busy = isSaving || isBouncingCloud;
-  const canSave = Boolean(name.trim()) && !busy && hasUser;
+  const canSave = Boolean(name.trim()) && !busy && hasUser && !hasMestreNameConflict;
+  const allowOverwrite = isExistingPreset && canUpdate && !isForeignActivePreset;
+
+  const newPresetLabel = isForeignActivePreset
+    ? (lang === 'fr' ? 'Créer un nouveau morceau' : 'Criar nova música')
+    : (lang === 'fr' ? 'Sauvegarder le morceau' : 'Salvar música');
 
   return (
-    <div className="flex items-center justify-end gap-2 flex-wrap pt-2 border-t-2 border-[var(--cordel-border,#1a1a1a)]">
+    <div className="flex items-center justify-end gap-2 flex-wrap pt-2 border-t-2 border-[var(--cordel-border)]">
       <button
         type="button"
         onClick={onClose}
-        className="px-4 py-2 font-bold hover:bg-black/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-xs"
+        className="px-4 py-2 font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-surface)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-xs cursor-pointer"
         disabled={busy}
       >
         {lang === 'fr' ? 'Annuler' : 'Cancelar'}
       </button>
 
-      {isExistingPreset ? (
+      {allowOverwrite ? (
         <>
           <button
             type="button"
             onClick={() => handleSave({ forceNew: true })}
             disabled={!canSave}
-            className="px-3 py-2 bg-stone-200 text-stone-900 font-bold border-2 border-[var(--cordel-border,#1a1a1a)] hover:bg-stone-300 transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)] text-xs disabled:opacity-50"
+            className="px-3 py-2 bg-[var(--cordel-surface)] text-[var(--cordel-text)] font-bold border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-surface-elevated)] transition-colors shadow-[2px_2px_0px_var(--cordel-shadow-color)] text-xs disabled:opacity-50 cursor-pointer"
             title={lang === 'fr' ? 'Sauvegarder comme nouvelle copie' : 'Salvar como nova cópia'}
           >
             {lang === 'fr' ? 'Sauvegarder une copie' : 'Salvar como cópia'}
@@ -58,7 +67,7 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
             type="button"
             onClick={() => handleSave({ forceNew: false })}
             disabled={!canSave || (!isMestre && isLocked)}
-            className="px-4 py-2 bg-[var(--cordel-wood,#8b2a1a)] text-[#f4ecd8] font-bold disabled:opacity-50 hover:brightness-90 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center justify-center min-w-[140px] text-xs uppercase"
+            className="px-4 py-2 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-bold disabled:opacity-50 hover:bg-[var(--cordel-accent)] transition-colors shadow-[2px_2px_0px_var(--cordel-shadow-color)] flex items-center justify-center min-w-[140px] text-xs uppercase cursor-pointer"
             title={
               !hasUser
                 ? (lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Conecte-se para salvar')
@@ -75,10 +84,16 @@ export const SavePresetActionButtons: React.FC<SavePresetActionButtonsProps> = (
           type="button"
           onClick={() => handleSave({ forceNew: true })}
           disabled={!canSave}
-          className="px-4 py-2 bg-[var(--cordel-wood,#8b2a1a)] text-[#f4ecd8] font-bold disabled:opacity-50 hover:brightness-90 transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center justify-center min-w-[120px] text-xs uppercase"
-          title={!hasUser ? (lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Conecte-se para salvar') : ''}
+          className="px-4 py-2 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] font-bold disabled:opacity-50 hover:bg-[var(--cordel-accent)] transition-colors shadow-[2px_2px_0px_var(--cordel-shadow-color)] flex items-center justify-center min-w-[140px] text-xs uppercase cursor-pointer"
+          title={
+            !hasUser
+              ? (lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Conecte-se para salvar')
+              : hasMestreNameConflict
+              ? (lang === 'fr' ? 'Saisissez un titre distinct de celui du Mestre' : 'Digite um título distinto do Mestre')
+              : ''
+          }
         >
-          {busy ? (lang === 'fr' ? 'En cours...' : 'Salvando...') : (lang === 'fr' ? 'Sauvegarder le morceau' : 'Salvar música')}
+          {busy ? (lang === 'fr' ? 'En cours...' : 'Salvando...') : newPresetLabel}
         </button>
       )}
     </div>

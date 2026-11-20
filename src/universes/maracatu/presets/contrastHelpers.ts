@@ -34,7 +34,7 @@ export function isDarkText(instId?: string, strokeVal?: string, bgColor?: string
   if (instId === 'caixa' && (strokeVal === 'A' || strokeVal === 'a')) return false;
   if (instId === 'tarol' && (strokeVal === 'A' || strokeVal === 'a')) return false;
   if (instId === 'caixa' && ['r', 'R', 'd', 'e', 'c', 'C'].includes(strokeVal)) return true;
-  if (instId === 'timbal' && ['s', 'S', 'd', 'D', 'c', 'C', 'i', 'I'].includes(strokeVal)) return true;
+  if (instId === 'timbal' && ['s', 'S', 't', 'T', 'd', 'D', 'c', 'C', 'i', 'I'].includes(strokeVal)) return true;
   if (instId === 'mineiro' && ['t', 'p', 'L'].includes(strokeVal)) return true;
   if (instId === 'tarol' && ['c', 'C', 'd', 'e', 'F', 'f'].includes(strokeVal)) return true;
   if (instId && ['marcante', 'meiao', 'repique', 'alfaia', 'alfaia_1', 'alfaia_2', 'alfaia_3'].includes(instId)) {

@@ -36,6 +36,7 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   const isPlaying = useSequencerStore((s) => s.isPlaying);
   const globalSwing = useTransportStore((s) => s.globalSwing);
   const soloPatternPlayId = useTransportStore((s) => s.soloPatternPlayId);
+  const soloPatternVariationId = useTransportStore((s) => s.soloPatternVariationId);
 
   const [liveMeasure, setLiveMeasure] = useState<number>(storeMeasure);
   const [isCycleActive, setIsCycleActive] = useState<boolean>(() => isBalancoMorphCycleActive());
@@ -73,7 +74,7 @@ export const FocusBalancoDrawer: React.FC<FocusBalancoDrawerProps> = ({ compact 
   const model = useMemo(() => resolveFocusMeasureSteps({
     focusTrack, tracks, measureIdx: effectiveMeasure, timeSig, measureTimeSigs,
     soloPatternPlayId, globalSwing, isLeftHanded, isPlaying, lang,
-  }), [focusTrack, tracks, effectiveMeasure, timeSig, measureTimeSigs, soloPatternPlayId, globalSwing, isLeftHanded, isPlaying, lang]);
+  }), [focusTrack, tracks, effectiveMeasure, timeSig, measureTimeSigs, soloPatternPlayId, soloPatternVariationId, globalSwing, isLeftHanded, isPlaying, lang]);
 
   useFocusBalancoRaf({
     isOpen: isOpen && isActiveView, compact: isCompact,

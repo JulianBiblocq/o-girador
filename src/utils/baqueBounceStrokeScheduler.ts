@@ -10,7 +10,7 @@ import { applyWebAudioTrackSkinPhysics } from '../audio/engine/alfaiaTrackVoiceP
 import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../universes/maracatu/instruments/studioBankRegistry';
-import { fetchSampleWithRetry, resolveSampleFetchPath } from '../audio/engine/sampleFetchUtils';
+import { fetchAndDecodeAudioSample, normalizeCanonicalSampleKey } from '../audio/engine/sampleFetchUtils';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../audio/worklet/horizon/workletCompositeStrokeHelper';
 import { InstrumentAudioConfig, StrokeMapping } from '../data/audioConfig';
 import { Track } from '../types';
@@ -19,9 +19,10 @@ import { OfflineTrackGraph, scheduleOfflineStrokeHit } from './baqueBounceTrackG
 
 export async function decodeSampleForOffline(
   ctx: BaseAudioContext,
-  path: string,
+  rawPath: string,
   cache: Map<string, AudioBuffer>
 ): Promise<AudioBuffer | null> {
+  const path = normalizeCanonicalSampleKey(rawPath);
   if (cache.has(path)) return cache.get(path)!;
   try {
     const cached = await getCachedPcmSample(path, ctx.sampleRate);
@@ -30,9 +31,8 @@ export async function decodeSampleForOffline(
       cache.set(path, b);
       return b;
     }
-    const res = await fetchSampleWithRetry(resolveSampleFetchPath(path));
-    const buf = await ctx.decodeAudioData(await res.arrayBuffer());
-    cache.set(path, buf);
+    const buf = await fetchAndDecodeAudioSample(ctx, path);
+    if (buf) cache.set(path, buf);
     return buf;
   } catch {
     return null;

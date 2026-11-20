@@ -42,7 +42,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
 
   const safeTicks = isNaN(currentTicks) || currentTicks <= 0 ? 96 : currentTicks;
   const stepForUI = isNaN(stepIdx) ? 0 : (stepIdx % safeTicks);
-  const measureForUI = soloPatternPlayId !== null ? 0 : (isNaN(currentMeasureIdx) ? 0 : currentMeasureIdx);
+  const measureForUI = isNaN(currentMeasureIdx) || currentMeasureIdx < 0 ? 0 : currentMeasureIdx;
   const ratioVal = stepForUI / safeTicks;
 
   const rawCtx = Tone.getContext().rawContext as AudioContext;

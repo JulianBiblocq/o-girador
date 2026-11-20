@@ -18,6 +18,7 @@ export function useCircleSequencerStoreData(isActive: boolean) {
 
   const isMetroOn = useTransportStore(s => s.isMetroOn);
   const soloPatternPlayId = useTransportStore(s => s.soloPatternPlayId);
+  const soloPatternVariationId = useTransportStore(s => s.soloPatternVariationId);
 
   const vocalMode = useAudioStore(s => s.vocalMode);
   const setVocalMode = useAudioStore(s => s.setVocalMode);
@@ -36,6 +37,7 @@ export function useCircleSequencerStoreData(isActive: boolean) {
     toggleLetraActive,
     isMetroOn,
     soloPatternPlayId,
+    soloPatternVariationId,
     vocalMode,
     setVocalMode,
   };

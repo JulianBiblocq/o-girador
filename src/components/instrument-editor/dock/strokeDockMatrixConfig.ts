@@ -73,7 +73,8 @@ export function buildStrokeDockMatrix(
     const cols: DockDirectionalColumn[] = [
       { id: 'G', label: isFr ? 'Basse' : 'Grave', top: single('G'), bottom: single('g') },
       { id: 'A', label: 'Aberto', top: single('A'), bottom: single('a') },
-      { id: 'S', label: 'Slap', top: single('S'), bottom: single('s') },
+      { id: 'S', label: 'Slap F.', top: single('S'), bottom: single('s') },
+      { id: 'T', label: isFr ? 'Slap O.' : 'Tapa Ab.', top: single('T'), bottom: single('t') },
       { id: 'D', label: isFr ? 'Doigts' : 'Dedos', top: single('D'), bottom: single('d') },
       { id: 'P', label: isFr ? 'Pressé' : 'Preso', top: single('P'), bottom: single('p') },
       { id: 'F', label: 'Fla', top: single('F'), bottom: single('f') },

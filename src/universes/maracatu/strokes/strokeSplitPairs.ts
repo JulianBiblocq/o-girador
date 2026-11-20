@@ -57,6 +57,8 @@ export function getComplementaryStroke(
     if (norm === 'g') return 'G';
     if (norm === 'S') return 's';
     if (norm === 's') return 'S';
+    if (norm === 'T') return 't';
+    if (norm === 't') return 'T';
     if (norm === 'D') return 'd';
     if (norm === 'd') return 'D';
     if (norm === 'P') return 'p';

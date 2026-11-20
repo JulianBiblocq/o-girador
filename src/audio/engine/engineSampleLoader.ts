@@ -1,12 +1,12 @@
 /**
- * O Girador - Audio Sample Loading, Decoding & IndexedDB Caching (< 132 lignes)
+ * O Girador - Audio Sample Loading, Decoding & IndexedDB Caching (< 125 lignes)
  */
 
 import type * as ToneType from 'tone';
 import { getTone } from '../../ToneLoader';
 import { instrumentAudioConfigs, InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from '../audioSampleCache';
-import { resolveSampleFetchPath, fetchSampleWithRetry } from './sampleFetchUtils';
+import { fetchAndDecodeAudioSample, normalizeCanonicalSampleKey } from './sampleFetchUtils';
 
 function findBackingStroke(config: InstrumentAudioConfig, strokeSymbol: string): StrokeMapping | undefined {
   const norm = strokeSymbol.trim();
@@ -23,7 +23,8 @@ export class EngineSampleLoader {
   public onSampleDecoded?: (path: string, buffer: AudioBuffer) => void;
   public onSamplesEvicted?: (paths: string[]) => void;
 
-  public async loadPath(audioContext: AudioContext, path: string): Promise<void> {
+  public async loadPath(audioContext: AudioContext, rawPath: string): Promise<void> {
+    const path = normalizeCanonicalSampleKey(rawPath);
     if (this.bufferPool.has(path)) return;
     let promise = this.loadingPromises.get(path);
     if (!promise) {
@@ -39,29 +40,13 @@ export class EngineSampleLoader {
             return;
           }
 
-          const encodedFetchPath = resolveSampleFetchPath(path);
-          let response = await fetchSampleWithRetry(encodedFetchPath);
-          let arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await fetchAndDecodeAudioSample(audioContext, path);
+          if (!audioBuffer) return;
 
-          try {
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-            this.bufferPool.set(path, toneBuffer);
-            this.onSampleDecoded?.(path, audioBuffer);
-            saveCachedPcmSample(path, audioBuffer).catch(() => {});
-          } catch (_) {
-            const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
-            try {
-              response = await fetch(fallbackPath);
-              if (!response.ok) return;
-              arrayBuffer = await response.arrayBuffer();
-              const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-              const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-              this.bufferPool.set(path, toneBuffer);
-              this.onSampleDecoded?.(path, audioBuffer);
-              saveCachedPcmSample(path, audioBuffer).catch(() => {});
-            } catch (__) {}
-          }
+          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+          this.bufferPool.set(path, toneBuffer);
+          this.onSampleDecoded?.(path, audioBuffer);
+          saveCachedPcmSample(path, audioBuffer).catch(() => {});
         } catch (err) {
           console.error(`AudioEngine: Failed to load sample: ${path}`, err);
         } finally {
@@ -112,7 +97,8 @@ export class EngineSampleLoader {
     const stroke = findBackingStroke(config, strokeSymbol);
     if (!stroke) return true;
     const rim = stroke.compositeRimSymbol ? config.strokes.find((s) => s.symbol === stroke.compositeRimSymbol) : undefined;
-    return stroke.files.every((p) => this.bufferPool.has(p)) && (!rim || rim.files.every((p) => this.bufferPool.has(p)));
+    const hasFile = (p: string) => this.bufferPool.has(normalizeCanonicalSampleKey(p));
+    return stroke.files.every(hasFile) && (!rim || rim.files.every(hasFile));
   }
 
   public async loadStrokeSamples(

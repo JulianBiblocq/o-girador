@@ -1,4 +1,3 @@
-
 export {
   CLOUD_PRESETS_COLLECTION,
   presetCache,
@@ -15,3 +14,8 @@ export {
 
 export { savePresetToCloud } from './services/cloud-presets/cloudPresetsSaver';
 export { fetchCloudPresets } from './services/cloud-presets/cloudPresetsFetcher';
+export {
+  isMestreOrAdminProfile,
+  canMutatePreset,
+  canDeleteCatalogPreset,
+} from './utils/presetPermissions';

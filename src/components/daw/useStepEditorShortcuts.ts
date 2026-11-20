@@ -45,7 +45,9 @@ export function useStepEditorShortcuts({
         return;
       }
 
-      const targetStroke = allowedStrokes.find(s => String(s).toLowerCase() === key.toLowerCase());
+      const targetStroke =
+        allowedStrokes.find((s) => String(s) === key) ??
+        allowedStrokes.find((s) => String(s).toLowerCase() === key.toLowerCase());
       if (targetStroke) {
         e.preventDefault();
         handleSelectStroke(targetStroke);

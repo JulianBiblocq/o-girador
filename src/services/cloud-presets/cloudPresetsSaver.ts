@@ -1,16 +1,17 @@
-
 import { auth, db } from '../../firebase/config';
-import { collection, addDoc, getDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { Preset, CatalogVisibility } from '../../types';
 import LZString from 'lz-string';
 import { CLOUD_PRESETS_COLLECTION, presetCache } from './presetCache';
-import { SANCTUARIZED_PRESET_IDS, isTestEnvironment } from './sanctuarization';
+import { isTestEnvironment } from './sanctuarization';
+import { resolveDefensiveTargetPresetId } from './defensiveTargetGuard';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { uploadPendingVocalRecordings } from './vocalRecordingsUploader';
 import { findExistingPresetId } from './existingPresetMatcher';
 import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
 import { VOCAL_GRAMMAR_VERSION } from '../../utils/vocalGrammarV2';
 import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
+import { isMestreOrAdminProfile, OFFICIAL_MESTRE_UID } from '../../utils/presetPermissions';
 
 export async function savePresetToCloud(
   name: string,
@@ -27,39 +28,21 @@ export async function savePresetToCloud(
   userRole?: string
 ): Promise<string> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
-  const isPlaywrightTest = typeof window !== 'undefined' && Boolean(
-    (window as any).__PLAYWRIGHT_TEST__ || (window as any).__PLAYWRIGHT__ || (window as any).__TEST_ENV__
-  );
-
+  const isPlaywrightTest = isTestEnvironment();
   const currentAuthUid = auth.currentUser?.uid || ownerId;
-  const isMestre = (
-    userRole === 'mestre' || userRole === 'admin' || userRole === 'super-admin' ||
-    canWriteSequenciador === true || currentAuthUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    Boolean(mestreId && currentAuthUid === mestreId)
+  const isMestre = isMestreOrAdminProfile({ uid: currentAuthUid, role: userRole });
+
+  const { resolvedTargetId, wasForeignTargetReset } = await resolveDefensiveTargetPresetId(
+    targetPresetId, currentAuthUid, userRole, isRestoration, isPlaywrightTest
   );
 
-  if (targetPresetId && SANCTUARIZED_PRESET_IDS.has(targetPresetId)) {
-    if (isPlaywrightTest && !isRestoration) {
-      throw new Error(`[Sanctuarisation E2E] Écrasement formellement interdit du preset officiel sanctuarisé "${targetPresetId}" en test.`);
-    }
-    let isInitialOwner = currentAuthUid === ownerId;
-    if (!isInitialOwner && !isMestre) {
-      try {
-        const snap = await getDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId));
-        if (snap.exists() && snap.data()?.ownerId === currentAuthUid) isInitialOwner = true;
-      } catch (_) {}
-    }
-    if (!isMestre && !isInitialOwner && !isRestoration) {
-      throw new Error(`[Sanctuarisation] Écrasement interdit du preset officiel sanctuarisé "${targetPresetId}".`);
-    }
-  }
-
-  if (isPlaywrightTest && !isRestoration && targetPresetId && !targetPresetId.startsWith('test_e2e_')) {
-    throw new Error(`[Sanctuarisation E2E] Écrasement interdit : targetPresetId doit être préfixé par "test_e2e_". Reçu: "${targetPresetId}".`);
-  }
+  const effectiveOwnerId = (!isMestre && currentAuthUid) ? currentAuthUid : (ownerId || currentAuthUid || '');
 
   const presetToSave = JSON.parse(JSON.stringify(presetData));
   const alfaiaEquipment = resolvePresetAlfaiaEquipment(presetToSave) ?? null;
+  if (wasForeignTargetReset && presetToSave.metadata) {
+    delete presetToSave.metadata.morceauId;
+  }
   presetToSave.metadata = { ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION, alfaiaEquipment };
   const updatedMap = await uploadPendingVocalRecordings(presetToSave);
 
@@ -82,14 +65,14 @@ export async function savePresetToCloud(
   let effectiveGroupId = groupId ? groupId.trim() : '';
   let effectiveMestreId = mestreId || null;
   const isSamambaiaGroup =
-    ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    effectiveOwnerId === OFFICIAL_MESTRE_UID ||
     effectiveGroupId.toLowerCase().includes('samambaia') ||
     effectiveGroupId.toLowerCase().includes('sammbia') ||
     Boolean(canWriteSequenciador);
 
   if (isSamambaiaGroup) {
     effectiveGroupId = 'samambaia';
-    effectiveMestreId = effectiveMestreId || 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+    effectiveMestreId = effectiveMestreId || OFFICIAL_MESTRE_UID;
   } else if (effectiveGroupId) {
     effectiveGroupId = effectiveGroupId.toLowerCase();
   }
@@ -98,7 +81,7 @@ export async function savePresetToCloud(
   const docData: any = {
     name: name || 'Preset Sans Nom',
     data: dataString,
-    ownerId: ownerId || '',
+    ownerId: effectiveOwnerId,
     visibility: visibility || defaultVis,
     targetUserId: targetUserId || null,
     mestreId: effectiveMestreId,
@@ -109,25 +92,27 @@ export async function savePresetToCloud(
   if (audioUrl !== undefined) docData.audioUrl = audioUrl;
   if (isDraft !== undefined) docData.isDraft = isDraft;
 
-  const finalPresetId = targetPresetId || (ownerId ? await findExistingPresetId(name, ownerId, effectiveGroupId) : null);
+  const finalPresetId = wasForeignTargetReset
+    ? null
+    : (resolvedTargetId || (effectiveOwnerId ? await findExistingPresetId(name, effectiveOwnerId, effectiveGroupId) : null));
 
   if (finalPresetId) {
     await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, finalPresetId), docData, { merge: true });
     presetCache.set(finalPresetId, presetToSave);
     setActiveCloudPresetId(finalPresetId);
     return finalPresetId;
-  } else {
-    docData.createdAt = Date.now();
-    if (isTestEnvironment()) {
-      const testId = `test_e2e_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, testId), docData);
-      presetCache.set(testId, presetToSave);
-      setActiveCloudPresetId(testId);
-      return testId;
-    }
-    const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
-    presetCache.set(docRef.id, presetToSave);
-    setActiveCloudPresetId(docRef.id);
-    return docRef.id;
   }
+
+  docData.createdAt = Date.now();
+  if (isTestEnvironment()) {
+    const testId = `test_e2e_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    await setDoc(doc(db, CLOUD_PRESETS_COLLECTION, testId), docData);
+    presetCache.set(testId, presetToSave);
+    setActiveCloudPresetId(testId);
+    return testId;
+  }
+  const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
+  presetCache.set(docRef.id, presetToSave);
+  setActiveCloudPresetId(docRef.id);
+  return docRef.id;
 }

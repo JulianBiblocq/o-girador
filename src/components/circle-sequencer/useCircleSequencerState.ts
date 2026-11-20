@@ -40,6 +40,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const currentMeasure = props.currentMeasure ?? storeData.currentMeasure;
   const isMetroOn = props.isMetroOn ?? storeData.isMetroOn;
   const soloPatternPlayId = props.soloPatternPlayId ?? storeData.soloPatternPlayId;
+  const soloPatternVariationId = storeData.soloPatternVariationId;
   const isLetraActive = props.isLetraActive ?? storeData.isLetraActive;
 
   const bpm = props.bpm ?? sequencer.bpm;
@@ -85,7 +86,7 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   stateRef.current = {
     tracks, rawTracks, rodaTrackOrder, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn,
     totalMeasures, isLoopRegionActive, loopStartMeasure, loopEndMeasure, hitTriggersRef, bpm,
-    measureBpms, measureVols, isMobile: props.isMobile ?? false, soloPatternPlayId, measureSignals,
+    measureBpms, measureVols, isMobile: props.isMobile ?? false, soloPatternPlayId, soloPatternVariationId, measureSignals,
     rhythmSignals, mestreSignals, songSections, isLeftHanded, songMarkers, measureTimeSigs, isLetraActive, vocalMode,
   };
 

@@ -20,6 +20,7 @@ interface HeaderDesktopMenuProps {
   defaultPresetId: string | null;
   canSetDefaultPreset: boolean;
   canEdit: boolean;
+  canToggleDraftPreset?: (preset: { id: string; ownerId?: string }) => boolean;
   onSetDefaultPreset: (id: string | null) => void;
   onToggleDraft: (id: string, currentDraft: boolean) => void;
   onPresetChange: (val: string) => void;

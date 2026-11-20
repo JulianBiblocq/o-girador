@@ -42,7 +42,7 @@ MINEIRO
    B : Barulho (Agitação contínua)
 
 TIMBAL (Regra: MAIÚSCULA = Mão Direita | minúscula = Mão Esquerda)
-   G / g : Grave / Centro (D/E) • A / a : Aberto / Borda (D/E) • S / s : Slap / Estalo (D/E)
+   G / g : Grave / Centro (D/E) • A / a : Aberto / Borda (D/E) • S / s : Slap / Estalo (D/E) • T / t : Tapa aberto (D/E)
    D / d : Ponta de dedos / Fantasma (D/E) • P / p : Preso / Fechado (D/E)
    F / f : Fla aberto (D/E) • V / v : Fla slap (D/E) • C : Palma (Clap) • B : Barulho
 
@@ -100,7 +100,7 @@ MINEIRO
    B : Barulho (Secouement continu)
 
 TIMBAL (Règle : MAJUSCULE = Main Droite | minuscule = Main Gauche)
-   G / g : Grave / Basse (D/G) • A / a : Ton ouvert / Aberto (D/G) • S / s : Claqué / Slap (D/G)
+   G / g : Grave / Basse (D/G) • A / a : Ton ouvert / Aberto (D/G) • S / s : Claqué / Slap (D/G) • T / t : Slap ouvert / Tapa aberto (D/G)
    D / d : Doigts / Fantôme (D/G) • P / p : Pressé / Fermé (D/G)
    F / f : Fla ouvert (D/G) • V / v : Fla claqué (D/G) • C : Clap (Mains) • B : Barulho
 

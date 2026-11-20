@@ -7,6 +7,7 @@ export interface StrokeDockActionsPopoverProps {
   isFr: boolean;
   hasSteps: boolean;
   canPasteRange: boolean;
+  pasteTitle?: string;
   anchorRect: DOMRect;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   onCopyRange: () => void;
@@ -17,7 +18,7 @@ export interface StrokeDockActionsPopoverProps {
 }
 
 export const StrokeDockActionsPopover: React.FC<StrokeDockActionsPopoverProps> = React.memo(({
-  isFr, hasSteps, canPasteRange, anchorRect, triggerRef,
+  isFr, hasSteps, canPasteRange, pasteTitle, anchorRect, triggerRef,
   onCopyRange, onCutRange, onPasteRange, onClearRange, onClose,
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -60,10 +61,10 @@ export const StrokeDockActionsPopover: React.FC<StrokeDockActionsPopoverProps> =
   const left = Math.max(8, Math.min(anchorRect.right - menuWidth, vpW - menuWidth - 8));
 
   const items = [
-    { id: 'copy', label: isFr ? 'Copier' : 'Copiar', shortcut: 'Ctrl+C', icon: Copy, enabled: hasSteps, danger: false, run: onCopyRange },
-    { id: 'cut', label: isFr ? 'Couper' : 'Cortar', shortcut: 'Ctrl+X', icon: Scissors, enabled: hasSteps, danger: false, run: onCutRange },
-    { id: 'paste', label: isFr ? 'Coller' : 'Colar', shortcut: 'Ctrl+V', icon: ClipboardPaste, enabled: canPasteRange, danger: false, run: onPasteRange },
-    { id: 'clear', label: isFr ? 'Vider' : 'Limpar', shortcut: isFr ? 'Suppr' : 'Del', icon: Trash2, enabled: hasSteps, danger: true, run: onClearRange },
+    { id: 'copy', label: isFr ? 'Copier' : 'Copiar', title: isFr ? 'Copier [Ctrl+C]' : 'Copiar [Ctrl+C]', shortcut: 'Ctrl+C', icon: Copy, enabled: hasSteps, danger: false, run: onCopyRange },
+    { id: 'cut', label: isFr ? 'Couper' : 'Cortar', title: isFr ? 'Couper [Ctrl+X]' : 'Cortar [Ctrl+X]', shortcut: 'Ctrl+X', icon: Scissors, enabled: hasSteps, danger: false, run: onCutRange },
+    { id: 'paste', label: isFr ? 'Coller' : 'Colar', title: pasteTitle || (isFr ? 'Coller [Ctrl+V]' : 'Colar [Ctrl+V]'), shortcut: 'Ctrl+V', icon: ClipboardPaste, enabled: canPasteRange, danger: false, run: onPasteRange },
+    { id: 'clear', label: isFr ? 'Vider' : 'Limpar', title: isFr ? 'Vider [Suppr]' : 'Limpar [Del]', shortcut: isFr ? 'Suppr' : 'Del', icon: Trash2, enabled: hasSteps, danger: true, run: onClearRange },
   ];
 
   return createPortal(
@@ -94,6 +95,7 @@ export const StrokeDockActionsPopover: React.FC<StrokeDockActionsPopoverProps> =
               type="button"
               role="menuitem"
               disabled={!item.enabled}
+              title={item.title}
               onClick={() => {
                 if (!item.enabled) return;
                 item.run();

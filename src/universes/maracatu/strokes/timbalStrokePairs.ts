@@ -22,7 +22,8 @@ export function getTimbalStrokePairs(
 
   pushPair('G', 'G', 'g', isFr ? 'Basse' : 'Grave');
   pushPair('A', 'A', 'a', 'Aberto');
-  pushPair('S', 'S', 's', 'Slap');
+  pushPair('S', 'S', 's', isFr ? 'Slap fermé' : 'Slap fechado');
+  pushPair('T', 'T', 't', isFr ? 'Slap ouvert' : 'Tapa aberto');
   pushPair('D', 'D', 'd', isFr ? 'Doigts' : 'Dedos');
   pushPair('P', 'P', 'p', isFr ? 'Pressé' : 'Preso');
   pushPair('F', 'F', 'f', 'Fla');

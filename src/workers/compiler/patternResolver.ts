@@ -1,4 +1,5 @@
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
 
 const hasActiveStrokes = (ptn: any): boolean =>
   Boolean(ptn?.activeSteps?.some((s: any) => Array.isArray(s) ? s.some((x: any) => x && x !== '0') : (s && s !== '0' && s !== 0)));
@@ -90,17 +91,14 @@ export function resolvePatternVariation(
   currentPlayCount: number,
   measureIdx: number,
   isolateBaseOnly: boolean,
-  nextRand: () => number
+  nextRand: () => number,
+  tracks?: any[]
 ): any | null {
-  if (!activePattern.variations || activePattern.variations.length === 0) return null;
-
-  if (isSoloPlayActive && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble') {
-    const matchById = activePattern.variations.find((v: any) => String(v.id) === String(soloPatternVariationId));
-    if (matchById) return matchById;
-    const matchByName = activePattern.variations.find((v: any) => v.name?.trim().toLowerCase() === soloPatternVariationId.trim().toLowerCase());
-    if (matchByName) return matchByName;
+  if (isSoloPlayActive && isSpecificSoloVariationId(soloPatternVariationId)) {
+    return resolveTargetedSoloVariation(activePattern, tracks, soloPatternPlayId, soloPatternVariationId);
   }
   if (isSoloPlayActive && soloPatternVariationId === 'base') return null;
+  if (!activePattern.variations || activePattern.variations.length === 0) return null;
 
   const isFirstTime = currentPlayCount === 0;
   if (isFirstTime) {

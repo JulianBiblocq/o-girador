@@ -22,10 +22,10 @@ import {
   buildStudioMineiroStrokes, buildStudioSnareStrokes, buildStudioTimbalStrokes, STUDIO_BANK_ENABLED,
 } from '../studioBankRegistry';
 
-// 1. Zéro 404 sur les 10 instruments (Caixa + Lot 1 Studio actifs ; tarol/timbal à false) + nuances 0.82
+// 1. Zéro 404 (.ogg + .m4a miroir) sur les 10 instruments (Timbal Studio 89 WAV actif ; seul tarol reste Legacy)
 {
   const expectedStudioFlags: Record<string, boolean> = {
-    caixa: true, tarol: false, timbal: false, gongue: true, agbe: true, mineiro: true, apito: true,
+    caixa: true, tarol: false, timbal: true, gongue: true, agbe: true, mineiro: true, apito: true,
   };
   assert.deepEqual(STUDIO_BANK_ENABLED, expectedStudioFlags);
   const publicDir = path.resolve(process.cwd(), 'public');
@@ -35,14 +35,18 @@ import {
       for (const rel of st.files) {
         const full = path.join(publicDir, rel);
         assert.equal(fs.existsSync(full), true, `Missing sample file on disk (would 404): ${rel} for ${cfg.id}:${st.symbol}`);
-        if (STUDIO_BANK_ENABLED[cfg.id as keyof typeof STUDIO_BANK_ENABLED]) {
-          assert.equal(fs.existsSync(full.replace(/\.ogg$/i, '.m4a')), true, `Missing .m4a fallback for ${rel}`);
-        }
+        assert.equal(fs.existsSync(full.replace(/\.ogg$/i, '.m4a')), true, `Missing .m4a fallback for ${rel}`);
       }
     }
   }
 
   const strokesMaps = EngineVirtualStrokes.buildStrokesMaps(instrumentAudioConfigs);
+  for (const sym of ['G', 'g', 'A', 'a', 'S', 's', 'T', 't', 'D', 'd', 'P', 'p'] as const) {
+    const tbSt = EngineVirtualStrokes.resolveStroke(strokesMaps, 'timbal', sym)!;
+    assert.equal(tbSt.files.length, 6, `Timbal ${sym} must have 6 dedicated takes`);
+    assert.equal(tbSt.baseGain, 1.0, `Timbal ${sym} must have nominal 1.0 velocity`);
+    assert.ok(tbSt.files[0].startsWith('Mixdown/Timbal studio '), `Timbal ${sym} must point to Timbal studio`);
+  }
   const cxA = EngineVirtualStrokes.resolveStroke(strokesMaps, 'caixa', 'A')!;
   const cxa = EngineVirtualStrokes.resolveStroke(strokesMaps, 'caixa', 'a')!;
   assert.equal(cxA.baseGain, 1.0); assert.equal(cxa.baseGain, 0.82);
@@ -69,7 +73,8 @@ import {
   for (const strokes of studioBanks) {
     const lowerSet = new Map<string, string>();
     for (const s of strokes) {
-      const isVirtualWeak = !s.isBarulho && !s.files[0]?.includes('_min') && (['f', 'v', 's', 'l'].includes(s.symbol) || (s.symbol === 'a' && s.files[0]?.includes('Caixa studio A')));
+      const isTimbalDedicatedLeft = Boolean(s.files[0]?.startsWith('Mixdown/Timbal studio ') && / E \d+\.ogg$/u.test(s.files[0]));
+      const isVirtualWeak = !s.isBarulho && !s.files[0]?.includes('_min') && !isTimbalDedicatedLeft && (['f', 'v', 's', 'l'].includes(s.symbol) || (s.symbol === 'a' && s.files[0]?.includes('Caixa studio A')));
       const expectedGain = isVirtualWeak ? 0.82 : 1.0;
       assert.equal(s.baseGain, expectedGain, `Studio stroke ${s.symbol} expected gain ${expectedGain}`);
       for (const f of s.files) {

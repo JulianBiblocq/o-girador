@@ -44,9 +44,9 @@ const ROLE_STROKES_MAP: Record<string, RoleStrokesConfig> = {
     special: ['P/t', 'T/p'],
   },
   tb: {
-    strong: ['G', 'A', 'S', 'D', 'P', 'F', 'V', 'C', 'B'],
-    weak: ['g', 'a', 's', 'd', 'p', 'f', 'v'],
-    special: ['A/a', 'S/s'],
+    strong: ['G', 'A', 'S', 'T', 'D', 'P', 'F', 'V', 'C', 'B'],
+    weak: ['g', 'a', 's', 't', 'd', 'p', 'f', 'v'],
+    special: ['A/a', 'S/s', 'T/t'],
   },
   ap: {
     strong: ['L', 'C'],

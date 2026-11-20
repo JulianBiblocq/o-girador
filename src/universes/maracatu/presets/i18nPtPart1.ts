@@ -41,6 +41,7 @@ export const i18nPtPart1 = {
   legendTimbalBaixo: "Grave (Centro da pele)",
   legendTimbalAberto: "Aberto (Borda da pele)",
   legendTimbalSlap: "Slap / Estalo",
+  legendTimbalTapaAberto: "Tapa aberto / Slap aberto",
   legendTimbalDedilhado: "Ponta de dedos / Fantasma",
   legendTimbalPreso: "Preso / Fechado",
   legendTimbalFlaAberto: "Fla aberto",

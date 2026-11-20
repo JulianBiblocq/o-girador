@@ -7,6 +7,8 @@ import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
 import { resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 import { resetGongueStickAndShadow, resetAgbeAndMineiroRest } from './aoVivoOtherDispatchers';
 import { normalizeAoVivoFamily } from './resolveAoVivoFamily';
+import { useTransportStore } from '../../stores/useTransportStore';
+import { resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
 import { resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export function resolveAoVivoPatternAndSteps(
@@ -59,12 +61,15 @@ export function resolveAoVivoPatternAndSteps(
   }
   if (!pattern) return { pattern: null, activePlayingSteps: [] };
 
-  const baseSteps: any[] =
-    varMap?.[activeTrack.id] ||
-    (parent ? varMap?.[parent.id] : undefined) ||
-    (master ? varMap?.[master.id] : undefined) ||
-    pattern.activeSteps ||
-    [];
+  const soloVarId = soloPlayId !== null && soloPlayId !== undefined ? useTransportStore.getState().soloPatternVariationId : null;
+  const resolvedBase = resolveEffectivePatternStepsForSoloOrLive({
+    pattern, trackId: activeTrack.id, tracks: allTracks,
+    soloPatternPlayId: soloPlayId, soloPatternVariationId: soloVarId,
+    liveStepsMap: varMap, canUseLiveVariation: true,
+  });
+  const baseSteps: any[] = resolvedBase.steps.length > 0
+    ? resolvedBase.steps
+    : (parent && varMap?.[parent.id]) || (master && varMap?.[master.id]) || pattern.activeSteps || [];
 
   if (!isCombineGroup) return { pattern, activePlayingSteps: baseSteps };
 
@@ -72,9 +77,13 @@ export function resolveAoVivoPatternAndSteps(
   for (const c of groupTracks) {
     if (c.id === activeTrack.id || c.isBusFolder) continue;
     const ov = c.patternOverrides?.[measure];
-    const cPat = ov !== undefined && ov !== null ? findById(ov) : null;
-    const cSteps = varMap?.[c.id] || cPat?.activeSteps;
-    if (!cSteps) continue;
+    const cPat = soloPlayId !== null && soloPlayId !== undefined ? findById(soloPlayId) : (ov !== undefined && ov !== null ? findById(ov) : null);
+    const cSteps = resolveEffectivePatternStepsForSoloOrLive({
+      pattern: cPat, trackId: c.id, tracks: allTracks,
+      soloPatternPlayId: soloPlayId, soloPatternVariationId: soloVarId,
+      liveStepsMap: varMap, canUseLiveVariation: true,
+    }).steps;
+    if (!cSteps || cSteps.length === 0) continue;
     for (let i = 0; i < Math.max(combined.length, cSteps.length); i++) {
       const mVal = combined[i];
       const cVal = cSteps[i];

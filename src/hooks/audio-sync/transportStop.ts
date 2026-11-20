@@ -63,7 +63,10 @@ export function executeTransportStop(ctx: TransportStopContext, opts?: { resetTo
   if ((store as any).clearQueuedMeasure) (store as any).clearQueuedMeasure();
   if (ctx.isLoopExitRequestedRef) ctx.isLoopExitRequestedRef.current = false;
   if (ctx.currentLoopIterationRef) ctx.currentLoopIterationRef.current = 1;
-  if (ctx.soloPatternPlayIdRef.current !== null) ctx.setSoloPatternPlayId(null);
+  if (ctx.soloPatternPlayIdRef.current !== null || useTransportStore.getState().soloPatternVariationId !== null) {
+    ctx.soloPatternPlayIdRef.current = null;
+    useTransportStore.getState().setSoloPatternPlayback(null, null);
+  }
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
   activeEngine?.stopAllBarulho(); activeEngine?.releaseVoicePitch(); activeEngine?.releaseAllVoices(); activeEngine?.stop();

@@ -3,6 +3,7 @@ import { buildMeasureStepGrid } from './measureStepGridHelper';
 import { resolveActivePattern, resolvePatternVariation } from './patternResolver';
 import { attachCompiledTrackIds, extractCompiledTrackIds } from './compiledTrackIdResolver';
 import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
+import { getVariationSculptArrays, isSpecificSoloVariationId } from '../../utils/soloVariationMatcher';
 import {
   normalizeStrokeKey,
   computeStepVolume,
@@ -48,25 +49,26 @@ export function buildFlatSongSchedule(
       let effectiveVolumes = activePattern.volumes;
       let effectiveDecays = activePattern.decays;
       let effectiveMicrotimings = activePattern.microtimings;
+      let effectiveBeatRes = activePattern.beatResolutions;
 
-      const shouldUseStaticSoloVariation = Boolean(
-        isSoloPlayActive && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble'
-      );
+      const shouldUseStaticSoloVariation = Boolean(isSoloPlayActive && isSpecificSoloVariationId(soloPatternVariationId));
       const matchedVariation = shouldUseStaticSoloVariation
         ? resolvePatternVariation(
             activePattern, isSoloPlayActive, soloPatternPlayId, soloPatternVariationId,
-            currentPlayCount, measureIdx, isolateBaseOnly, nextRandom
+            currentPlayCount, measureIdx, isolateBaseOnly, nextRandom, tracks
           )
         : null;
       if (matchedVariation) {
-        stepsToPlay = matchedVariation.steps;
-        if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
-        if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
-        if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
+        const sculpt = getVariationSculptArrays(activePattern, matchedVariation);
+        stepsToPlay = sculpt.steps;
+        effectiveVolumes = sculpt.volumes;
+        effectiveDecays = sculpt.decays;
+        effectiveMicrotimings = sculpt.microtimings;
+        effectiveBeatRes = sculpt.beatResolutions;
       }
 
       const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset } = buildMeasureStepGrid(
-        timeSig, activePattern, measureIdx
+        timeSig, { ...activePattern, beatResolutions: effectiveBeatRes }, measureIdx
       );
 
       for (let step = 0; step < effectiveStepCount; step++) {

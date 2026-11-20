@@ -13,6 +13,7 @@ import {
 } from './studioStrokeFactory';
 
 export { buildStudioCaixaStrokes } from './studioCaixaBankBuilder';
+export { buildStudioTimbalStrokes } from './studioTimbalBankBuilder';
 
 export type PendingStudioInstrumentId =
   | 'caixa'
@@ -26,7 +27,7 @@ export type PendingStudioInstrumentId =
 export const STUDIO_BANK_ENABLED: Record<PendingStudioInstrumentId, boolean> = {
   caixa: true,
   tarol: false,
-  timbal: false,
+  timbal: true,
   gongue: true,
   agbe: true,
   mineiro: true,
@@ -58,29 +59,6 @@ export function buildStudioSnareStrokes(prefix: 'Caixa' | 'Tarol'): StrokeMappin
     buildDedicatedStroke('X', buildStudioFiles(prefix, 'X', 4), ['X', 'x'], false),
     buildDedicatedStroke('C', buildStudioFiles(prefix, 'C', 4), ['C', 'c'], false),
     ...buildBarulhoStrokePair(`Mixdown/${prefix} B.ogg`),
-  ];
-}
-
-export function buildStudioTimbalStrokes(): StrokeMapping[] {
-  const fPool = buildStudioFiles('Timbal', 'F', 4);
-  const vPool = buildStudioFiles('Timbal', 'V', 4);
-  return [
-    buildDedicatedStroke('G', buildStudioFiles('Timbal', 'G', 6)),
-    buildDedicatedStroke('g', buildStudioFiles('Timbal', 'g_min', 6)),
-    buildDedicatedStroke('A', buildStudioFiles('Timbal', 'A', 6)),
-    buildDedicatedStroke('a', buildStudioFiles('Timbal', 'a_min', 6)),
-    buildDedicatedStroke('S', buildStudioFiles('Timbal', 'S', 6)),
-    buildDedicatedStroke('s', buildStudioFiles('Timbal', 's_min', 6)),
-    buildDedicatedStroke('D', buildStudioFiles('Timbal', 'D', 6)),
-    buildDedicatedStroke('d', buildStudioFiles('Timbal', 'd_min', 6)),
-    buildDedicatedStroke('P', buildStudioFiles('Timbal', 'P', 6)),
-    buildDedicatedStroke('p', buildStudioFiles('Timbal', 'p_min', 6)),
-    buildDedicatedStroke('F', fPool, ['F'], true),
-    buildVirtualWeakStroke('f', fPool),
-    buildDedicatedStroke('V', vPool, ['V'], true),
-    buildVirtualWeakStroke('v', vPool),
-    buildDedicatedStroke('C', buildStudioFiles('Timbal', 'C', 4), ['C', 'c'], false),
-    ...buildBarulhoStrokePair('Mixdown/Timbal B.ogg'),
   ];
 }
 

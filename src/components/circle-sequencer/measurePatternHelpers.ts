@@ -17,7 +17,8 @@ export const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]): 
       p.isHidden !== n.isHidden ||
       p.isMute !== n.isMute ||
       p.isSolo !== n.isSolo ||
-      p.radius !== n.radius
+      p.radius !== n.radius ||
+      p.patternOverrides !== n.patternOverrides
     ) {
       return false;
     }
@@ -25,7 +26,17 @@ export const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]): 
     for (let j = 0; j < p.patterns.length; j++) {
       const pp = p.patterns[j];
       const np = n.patterns[j];
-      if (pp.id !== np.id || pp.steps !== np.steps || pp.timeSignature !== np.timeSignature) return false;
+      if (
+        pp.id !== np.id ||
+        pp.steps !== np.steps ||
+        pp.timeSignature !== np.timeSignature ||
+        pp.activeSteps !== np.activeSteps ||
+        pp.variations !== np.variations ||
+        pp.beatResolutions !== np.beatResolutions ||
+        pp.measureAllowVariations !== np.measureAllowVariations
+      ) {
+        return false;
+      }
       if (pp.measureAssignments.length !== np.measureAssignments.length) return false;
       for (let m = 0; m < pp.measureAssignments.length; m++) {
         if (pp.measureAssignments[m] !== np.measureAssignments[m]) return false;

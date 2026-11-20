@@ -31,7 +31,13 @@ export function serveMixdownPlugin(rootDir: string): Plugin {
                   return;
                 }
                 if (fs.statSync(realPath).isFile()) {
-                  res.setHeader('Content-Type', 'audio/ogg');
+                  const ext = path.extname(realPath).toLowerCase();
+                  const mime =
+                    ext === '.m4a' ? 'audio/mp4'
+                    : ext === '.wav' ? 'audio/wav'
+                    : ext === '.mp3' ? 'audio/mpeg'
+                    : 'audio/ogg';
+                  res.setHeader('Content-Type', mime);
                   const stream = fs.createReadStream(realPath);
                   stream.on('error', (err) => {
                     console.error('Stream error:', err);
@@ -47,7 +53,7 @@ export function serveMixdownPlugin(rootDir: string): Plugin {
             } catch (err) {
               console.error('Error reading mixdown file:', err);
             }
-            if (/\.(ogg|wav|mp3)$/i.test(decodedUrl)) {
+            if (/\.(ogg|m4a|wav|mp3)$/i.test(decodedUrl)) {
               res.statusCode = 404;
               res.end('404 Not Found: Audio file missing');
               return;

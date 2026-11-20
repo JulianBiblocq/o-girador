@@ -53,13 +53,15 @@ function collectMatrixSymbols(spec: StrokeDockMatrixSpec): string[] {
   assert.equal(getWheelNuanceState('R', 'down', 'caixa', 'hands', 'fr', false), 'r');
 }
 
-// 3. Timbal : 7 colonnes directionnelles + Clap/Palma + Barulho 4 touches
+// 3. Timbal : 8 colonnes directionnelles (Slap F. + Slap O. / Tapa Ab.) + Clap/Palma + Barulho 4 touches
 {
   const tbBr = buildStrokeDockMatrix('timbal', 'hands', false, false);
-  assert.deepEqual(tbBr.directionalCols.map((c) => c.label), ['Grave', 'Aberto', 'Slap', 'Dedos', 'Preso', 'Fla', 'Fla Slap']);
+  const tbFr = buildStrokeDockMatrix('timbal', 'hands', true, false);
+  assert.deepEqual(tbBr.directionalCols.map((c) => c.label), ['Grave', 'Aberto', 'Slap F.', 'Tapa Ab.', 'Dedos', 'Preso', 'Fla', 'Fla Slap']);
+  assert.deepEqual(tbFr.directionalCols.map((c) => c.label), ['Basse', 'Aberto', 'Slap F.', 'Slap O.', 'Doigts', 'Pressé', 'Fla', 'Fla Slap']);
   assert.equal(tbBr.centralCols.length, 2);
   assert.equal(tbBr.centralCols[0].label, 'Palma');
-  assert.deepEqual(getStrokePairs('timbal', 'hands', 'pt', false).map((p) => p.id), ['G', 'A', 'S', 'D', 'P', 'F', 'V', 'C', 'B']);
+  assert.deepEqual(getStrokePairs('timbal', 'hands', 'pt', false).map((p) => p.id), ['G', 'A', 'S', 'T', 'D', 'P', 'F', 'V', 'C', 'B']);
 }
 
 // 4. Gonguê (Grave/Aigu), Agbê (cohérence Gaucher E/D) & Mineiro (Pousser/Tirer) & Apito

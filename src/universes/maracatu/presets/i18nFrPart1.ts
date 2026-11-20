@@ -41,6 +41,7 @@ export const i18nFrPart1 = {
   legendTimbalBaixo: "Grave / Basse (Centre de la peau)",
   legendTimbalAberto: "Ton ouvert / Aberto (Bord de la peau)",
   legendTimbalSlap: "Claqué / Slap",
+  legendTimbalTapaAberto: "Slap ouvert / Tapa aberto",
   legendTimbalDedilhado: "Doigts / Fantôme (Ponta de dedos)",
   legendTimbalPreso: "Pressé / Fermé",
   legendTimbalFlaAberto: "Fla ouvert",

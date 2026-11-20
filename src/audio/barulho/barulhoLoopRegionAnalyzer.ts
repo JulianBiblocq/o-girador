@@ -31,7 +31,7 @@ const bakedBufferCache = new WeakMap<AudioBuffer, Map<string, { version: number;
 
 export function isBarulhoSamplePath(path: string): boolean {
   if (!path) return false;
-  return /(?:^|[/\s_-])B\.(?:ogg|m4a|wav)(?:\?.*)?$/i.test(path.trim()) || /apito\s+l\.(?:ogg|m4a|wav)/i.test(path.trim());
+  return /(?:^|[/\s_-])B(?:\s+\d+)?\.(?:ogg|m4a|wav)(?:\?.*)?$/i.test(path.trim()) || /apito\s+l\.(?:ogg|m4a|wav)/i.test(path.trim());
 }
 
 function computeWindowRmsDb(pcm: Float32Array, start: number, len: number): number {
@@ -103,7 +103,7 @@ export function resolveBarulhoLoopRegion(pcm: Float32Array, sampleRate: number, 
     const r = analyzeBarulhoLoopRegion(pcm, sr);
     return { loopStartMs: r.bodyStartSec * 1000, loopEndMs: r.bodyEndSec * 1000, crossfadeMs: (r.xfadeFrames / sr) * 1000, softEntryMs: r.bodyStartSec * 1000 + 150 };
   };
-  const inferredTier = pathOrInstId && /(?:apito\s+w\s+long|(?:^|\/)caixa\s+b\.)/i.test(pathOrInstId.trim()) ? 'legacy' : (pathOrInstId && /caixa\s+studio\s+b\./i.test(pathOrInstId) ? 'studio' : undefined);
+  const inferredTier = pathOrInstId && /(?:apito\s+w\s+long|(?:^|\/)(?:caixa|timbal)\s+b\.)/i.test(pathOrInstId.trim()) ? 'legacy' : (pathOrInstId && /(?:caixa|timbal)\s+studio\s+b(?:\s+\d+)?\./i.test(pathOrInstId) ? 'studio' : undefined);
   const pts = getEffectiveBarulhoLoopPoints(instId, durMs, inferredTier, autoFallback());
   return buildBarulhoRegionFromPointsMs(pts, pcm.length, sr);
 }

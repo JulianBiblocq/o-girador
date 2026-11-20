@@ -4,6 +4,8 @@
  * with automatic purge of stale IndexedDB & SW CacheStorage audio entries on startup (< 135 lignes).
  */
 
+import { normalizeCanonicalSampleKey } from './engine/sampleFetchUtils';
+
 export interface CachedPcmSample {
   id: string;
   path: string;
@@ -15,7 +17,7 @@ export interface CachedPcmSample {
   timestamp: number;
 }
 
-export const SAMPLE_CACHE_VERSION = 6;
+export const SAMPLE_CACHE_VERSION = 7;
 const DB_NAME = 'OGirador_AudioCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio_sample_cache';
@@ -72,7 +74,7 @@ function getDB(): Promise<IDBDatabase | null> {
 }
 
 export function getSampleCacheKey(path: string, sampleRate: number): string {
-  return `v${SAMPLE_CACHE_VERSION}_${path}_${sampleRate}`;
+  return `v${SAMPLE_CACHE_VERSION}_${normalizeCanonicalSampleKey(path)}_${sampleRate}`;
 }
 
 export async function getCachedPcmSample(path: string, sampleRate: number): Promise<CachedPcmSample | null> {
@@ -92,8 +94,9 @@ export async function getCachedPcmSample(path: string, sampleRate: number): Prom
   } catch (_) { return null; }
 }
 
-export async function saveCachedPcmSample(path: string, audioBuffer: AudioBuffer): Promise<void> {
+export async function saveCachedPcmSample(rawPath: string, audioBuffer: AudioBuffer): Promise<void> {
   try {
+    const path = normalizeCanonicalSampleKey(rawPath);
     const db = await getDB();
     if (!db) return;
     const numberOfChannels = audioBuffer.numberOfChannels;

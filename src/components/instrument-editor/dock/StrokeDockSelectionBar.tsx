@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { CheckSquare, Square, CopyPlus, Copy, Scissors, ClipboardPaste, Trash2, MoreHorizontal, ChevronUp } from 'lucide-react';
+import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { getPasteDisabledReason } from '../../../utils/patternPasteNormalizer';
 import { StrokeDockActionsPopover } from './StrokeDockActionsPopover';
 
 export interface StrokeDockSelectionBarProps {
@@ -30,6 +32,8 @@ export const StrokeDockSelectionBar: React.FC<StrokeDockSelectionBarProps> = Rea
 }) => {
   const isSelectionModeActive = isMultiSelectActive || selectionCount > 1;
   const hasSteps = selectionCount > 0;
+  const hasRangeClipboard = useSequencerStore((s) => Boolean(s.stepRangeClipboard?.steps?.length));
+  const sourceRangeInst = useSequencerStore((s) => s.stepRangeClipboard?.sourceInstId || '');
   const actionsBtnRef = useRef<HTMLButtonElement | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
@@ -58,10 +62,14 @@ export const StrokeDockSelectionBar: React.FC<StrokeDockSelectionBarProps> = Rea
     );
   }
 
+  const pasteTitle = canPasteRange
+    ? (isFr ? 'Coller [Ctrl+V]' : 'Colar [Ctrl+V]')
+    : (getPasteDisabledReason(hasRangeClipboard, canPasteRange, isFr ? 'fr' : 'pt', sourceRangeInst) || (isFr ? 'Coller [Ctrl+V]' : 'Colar [Ctrl+V]'));
+
   const inlineActions = [
     { id: 'copy', label: isFr ? 'Copier' : 'Copiar', title: isFr ? 'Copier [Ctrl+C]' : 'Copiar [Ctrl+C]', icon: Copy, ok: hasSteps, cls: BTN_ENABLED, run: onCopyRange },
     { id: 'cut', label: isFr ? 'Couper' : 'Cortar', title: isFr ? 'Couper [Ctrl+X]' : 'Cortar [Ctrl+X]', icon: Scissors, ok: hasSteps, cls: BTN_ENABLED, run: onCutRange },
-    { id: 'paste', label: isFr ? 'Coller' : 'Colar', title: isFr ? 'Coller [Ctrl+V]' : 'Colar [Ctrl+V]', icon: ClipboardPaste, ok: canPasteRange, cls: BTN_ENABLED, run: onPasteRange },
+    { id: 'paste', label: isFr ? 'Coller' : 'Colar', title: pasteTitle, icon: ClipboardPaste, ok: canPasteRange, cls: BTN_ENABLED, run: onPasteRange },
     { id: 'clear', label: isFr ? 'Vider' : 'Limpar', title: isFr ? 'Vider [Suppr]' : 'Limpar [Del]', icon: Trash2, ok: hasSteps, cls: BTN_DANGER, run: onClearRange },
   ];
 
@@ -102,7 +110,7 @@ export const StrokeDockSelectionBar: React.FC<StrokeDockSelectionBarProps> = Rea
       ) : (
         <>
           {showDirectPaste && (
-            <button type="button" onClick={onPasteRange} className={`${BTN_BASE} ${BTN_ENABLED}`} title={isFr ? 'Coller les pas [Ctrl+V]' : 'Colar passos [Ctrl+V]'}>
+            <button type="button" disabled={!canPasteRange} onClick={onPasteRange} className={`${BTN_BASE} ${canPasteRange ? BTN_ENABLED : BTN_DISABLED}`} title={pasteTitle}>
               <ClipboardPaste size={13} className="shrink-0" />
               <span>{isFr ? 'Coller' : 'Colar'}</span>
             </button>
@@ -119,7 +127,7 @@ export const StrokeDockSelectionBar: React.FC<StrokeDockSelectionBarProps> = Rea
           </button>
           {anchorRect && (
             <StrokeDockActionsPopover
-              isFr={isFr} hasSteps={hasSteps} canPasteRange={canPasteRange}
+              isFr={isFr} hasSteps={hasSteps} canPasteRange={canPasteRange} pasteTitle={pasteTitle}
               anchorRect={anchorRect} triggerRef={actionsBtnRef}
               onCopyRange={onCopyRange} onCutRange={onCutRange}
               onPasteRange={onPasteRange} onClearRange={onClearRange}

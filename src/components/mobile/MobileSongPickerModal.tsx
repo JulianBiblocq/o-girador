@@ -36,7 +36,7 @@ export const MobileSongPickerModal: React.FC<Props> = ({
           <span className="font-cactus font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]">
             {lang === 'pt' ? 'Escolher uma música' : 'Choisir un morceau'}
           </span>
-          <button onClick={onClose} className="p-1 text-[var(--cordel-text)] hover:text-[#b94a2c]" aria-label="Fermer">
+          <button onClick={onClose} className="p-1 text-[var(--cordel-text)] hover:text-[var(--cordel-accent-readable)]" aria-label="Fermer">
             <X size={16} />
           </button>
         </div>
@@ -55,6 +55,7 @@ export const MobileSongPickerModal: React.FC<Props> = ({
             defaultPresetId={project.groupDefaultPresetId}
             canSetDefaultPreset={project.canSetDefaultPreset}
             canEdit={project.isEditor}
+            canToggleDraftPreset={project.canTogglePresetDraft}
             onSetDefaultPreset={project.handleSetDefaultPreset}
             onToggleDraft={project.handleToggleDraft}
             onSelectPreset={(val) => { onPresetChange(val); onClose(); }}

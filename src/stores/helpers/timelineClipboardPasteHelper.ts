@@ -1,8 +1,16 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 import { isToadaBus } from './trackVisibilityHelpers';
 import { cloneTracksForTimeline } from './timelineGridExpandHelper';
 import { TimelineClipboard } from './timelineClipboardTypes';
+import {
+  canPasteTimelineClipboard,
+  ensureTimelinePatternOnDestTrack,
+  assignPatternAtMeasure,
+} from './timelineCrossTrackPatternHelper';
+
+export { canPasteTimelineClipboard };
 
 export const pasteTimelineClipboardState = (
   curr: {
@@ -10,112 +18,105 @@ export const pasteTimelineClipboardState = (
     activeTimelineCell: any;
     selectedTimelineCells: any[];
     tracksVersion: number;
+    totalMeasures?: number;
+    lang?: string;
     [key: string]: any;
   },
   clipboard: TimelineClipboard,
   targetM: number
 ): Record<string, any> => {
-  const uniqueCopiedTracks = Array.from(new Set(clipboard.entries.map(e => e.trackId)));
+  const uniqueCopiedTracks = Array.from(new Set(clipboard.entries.map((e) => e.trackId)));
   const isSingleTrackClipboard = uniqueCopiedTracks.length === 1;
+  const activeTargetId = curr.activeTimelineCell?.trackId ?? curr.selectedTimelineCells?.[0]?.trackId ?? null;
 
-  let singleTrackTargetId: number | null = null;
-  if (isSingleTrackClipboard && curr.activeTimelineCell) {
-    const sourceTrackId = uniqueCopiedTracks[0];
-    const sourceTrack = curr.tracks.find(t => t.id === sourceTrackId);
-    const activeTrack = curr.tracks.find(t => t.id === curr.activeTimelineCell.trackId);
+  if (!canPasteTimelineClipboard(curr.tracks, clipboard, activeTargetId)) return {};
 
-    const isSameInstrument = Boolean(
-      sourceTrack && activeTrack && (
-        sourceTrack.instrumentIdx === activeTrack.instrumentIdx ||
-        instrumentsConfig[sourceTrack.instrumentIdx]?.id === instrumentsConfig[activeTrack.instrumentIdx]?.id
-      )
-    );
-    singleTrackTargetId = isSameInstrument && activeTrack ? activeTrack.id : sourceTrackId;
-  }
-
-  const updatedTracks = cloneTracksForTimeline(curr.tracks);
-  const newPuxTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-  const newCoroTrack = updatedTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+  const singleTrackTargetId = isSingleTrackClipboard ? (activeTargetId ?? uniqueCopiedTracks[0]) : null;
+  let updatedTracks = cloneTracksForTimeline(curr.tracks);
+  const newPuxTrack = updatedTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+  const newCoroTrack = updatedTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
   const pastedCellCoords: Array<{ trackId: number; mIdx: number }> = [];
+  const clonedMapsByTrack = new Map<number, Map<number, number>>();
+  const touchedMasterIds = new Set<number>();
+  const totalMeasures = Math.max(curr.totalMeasures || 4, targetM + clipboard.spanMeasures);
+  const lang = curr.lang || 'fr';
+
+  const getMap = (tId: number) => {
+    if (!clonedMapsByTrack.has(tId)) clonedMapsByTrack.set(tId, new Map());
+    return clonedMapsByTrack.get(tId)!;
+  };
 
   for (const entry of clipboard.entries) {
     const destM = targetM + entry.relativeM;
-    const targetTrackId = isSingleTrackClipboard && singleTrackTargetId !== null
-      ? singleTrackTargetId
-      : entry.trackId;
-
-    const destTrack = updatedTracks.find(t => t.id === targetTrackId);
+    const targetTrackId = isSingleTrackClipboard && singleTrackTargetId !== null ? singleTrackTargetId : entry.trackId;
+    const destTrack = updatedTracks.find((t) => t.id === targetTrackId);
     if (!destTrack) continue;
 
     pastedCellCoords.push({ trackId: targetTrackId, mIdx: destM });
-
     const isToada = isToadaBus(destTrack);
     const isVoicePux = Boolean(newPuxTrack && destTrack.id === newPuxTrack.id);
     const isVoiceCoro = Boolean(newCoroTrack && destTrack.id === newCoroTrack.id);
-    const isVoice = isToada || isVoicePux || isVoiceCoro;
     const isSlave = Boolean(destTrack.linkedToTrackId && !destTrack.isLinkFolder && !destTrack.isLinkMaster);
 
     if (isSlave) {
       const overrides = { ...(destTrack.patternOverrides || {}) };
-      if (entry.overridePatternId === null || entry.overridePatternId === undefined) {
-        delete overrides[destM];
-      } else {
-        overrides[destM] = entry.overridePatternId;
-      }
+      const rawOvId = entry.overridePatternId !== undefined ? entry.overridePatternId : entry.patternId;
+      const effOvId = ensureTimelinePatternOnDestTrack(destTrack, rawOvId ?? null, entry.sourcePattern, updatedTracks, totalMeasures, lang, getMap(destTrack.id));
+      if (effOvId === null) delete overrides[destM]; else overrides[destM] = effOvId;
       destTrack.patternOverrides = overrides;
       continue;
     }
 
-    if (isVoice) {
-      if (isToada) {
-        const isPuxPtn = newPuxTrack?.patterns.some(p => p.id === entry.patternId);
-        const isCoroPtn = newCoroTrack?.patterns.some(p => p.id === entry.patternId);
+    if (isToada) {
+      if (entry.isToadaBusEntry) {
         if (newPuxTrack) {
-          newPuxTrack.patterns.forEach(p => {
-            while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-            p.measureAssignments[destM] = Boolean(isPuxPtn && p.id === entry.patternId);
-          });
+          const puxId = ensureTimelinePatternOnDestTrack(newPuxTrack, entry.puxPatternId ?? null, entry.puxSourcePattern, updatedTracks, totalMeasures, lang, getMap(newPuxTrack.id));
+          assignPatternAtMeasure(newPuxTrack, puxId, destM);
         }
         if (newCoroTrack) {
-          newCoroTrack.patterns.forEach(p => {
-            while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-            p.measureAssignments[destM] = Boolean(isCoroPtn && p.id === entry.patternId);
-          });
+          const coroId = ensureTimelinePatternOnDestTrack(newCoroTrack, entry.coroPatternId ?? null, entry.coroSourcePattern, updatedTracks, totalMeasures, lang, getMap(newCoroTrack.id));
+          assignPatternAtMeasure(newCoroTrack, coroId, destM);
         }
-      } else if (isVoicePux && newPuxTrack) {
-        newPuxTrack.patterns.forEach(p => {
-          while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-          p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
-        });
-      } else if (isVoiceCoro && newCoroTrack) {
-        newCoroTrack.patterns.forEach(p => {
-          while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-          p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
-        });
+      } else {
+        const isCoroSrc = entry.sourceInstId === 'coro' || Boolean(newCoroTrack?.patterns.some((p) => p.id === entry.patternId));
+        const voiceTarget = isCoroSrc ? newCoroTrack : newPuxTrack;
+        if (voiceTarget) {
+          const vId = ensureTimelinePatternOnDestTrack(voiceTarget, entry.patternId, entry.sourcePattern, updatedTracks, totalMeasures, lang, getMap(voiceTarget.id));
+          assignPatternAtMeasure(voiceTarget, vId, destM);
+        }
       }
-    } else {
-      destTrack.patterns.forEach(p => {
-        while (p.measureAssignments.length <= destM) p.measureAssignments.push(false);
-        p.measureAssignments[destM] = Boolean(entry.patternId !== null && p.id === entry.patternId);
-        const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
-        if (nextVariations && entry.allowVariations !== undefined && p.id === entry.patternId) {
-          while (nextVariations.length <= destM) nextVariations.push(true);
-          nextVariations[destM] = entry.allowVariations;
-        }
-        p.measureAllowVariations = nextVariations;
-      });
+      continue;
     }
+
+    if (isVoicePux && newPuxTrack) {
+      const srcPtn = entry.isToadaBusEntry ? (entry.puxSourcePattern || entry.sourcePattern) : entry.sourcePattern;
+      const rawId = entry.isToadaBusEntry && entry.puxPatternId !== undefined ? entry.puxPatternId : entry.patternId;
+      const effId = ensureTimelinePatternOnDestTrack(newPuxTrack, rawId ?? null, srcPtn, updatedTracks, totalMeasures, lang, getMap(newPuxTrack.id));
+      assignPatternAtMeasure(newPuxTrack, effId, destM);
+      continue;
+    }
+
+    if (isVoiceCoro && newCoroTrack) {
+      const srcPtn = entry.isToadaBusEntry ? (entry.coroSourcePattern || entry.sourcePattern) : entry.sourcePattern;
+      const rawId = entry.isToadaBusEntry && entry.coroPatternId !== undefined ? entry.coroPatternId : entry.patternId;
+      const effId = ensureTimelinePatternOnDestTrack(newCoroTrack, rawId ?? null, srcPtn, updatedTracks, totalMeasures, lang, getMap(newCoroTrack.id));
+      assignPatternAtMeasure(newCoroTrack, effId, destM);
+      continue;
+    }
+
+    const effId = ensureTimelinePatternOnDestTrack(destTrack, entry.patternId, entry.sourcePattern, updatedTracks, totalMeasures, lang, getMap(destTrack.id));
+    assignPatternAtMeasure(destTrack, effId, destM, entry.allowVariations);
+    if (destTrack.isLinkMaster === true && !destTrack.isBusFolder && !destTrack.isLinkFolder) touchedMasterIds.add(destTrack.id);
   }
 
-  const nextActiveCell = pastedCellCoords[0]
-    ? { trackId: pastedCellCoords[0].trackId, measureIdx: pastedCellCoords[0].mIdx }
-    : curr.activeTimelineCell;
+  touchedMasterIds.forEach((mId) => { updatedTracks = syncMasterPatternsToLinkedFamily(updatedTracks, mId).tracks; });
+  const nextActiveCell = pastedCellCoords[0] ? { trackId: pastedCellCoords[0].trackId, measureIdx: pastedCellCoords[0].mIdx } : curr.activeTimelineCell;
 
   return {
     tracks: updatedTracks,
     selectedTimelineCells: pastedCellCoords,
     selectionAnchorCell: pastedCellCoords[0] || null,
     activeTimelineCell: nextActiveCell,
-    tracksVersion: curr.tracksVersion + 1
+    tracksVersion: curr.tracksVersion + 1,
   };
 };

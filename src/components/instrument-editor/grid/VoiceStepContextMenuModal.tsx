@@ -1,6 +1,7 @@
-
 import React from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
+import { canTransferPatterns } from '../../../utils/instrumentCompatibility';
+import { getPasteDisabledReason } from '../../../utils/patternPasteNormalizer';
 import { CordelContextMenu } from '../../ui/CordelContextMenu';
 
 export interface VoiceStepContextMenuState {
@@ -29,10 +30,16 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
 }) => {
   if (!contextMenu) return null;
 
+  const state = useSequencerStore.getState();
   const hasClipboardSteps = Boolean(
-    useSequencerStore.getState().voiceStepsClipboard?.steps?.length ||
-    useSequencerStore.getState().vocalNotesClipboard?.length
+    state.voiceStepsClipboard?.steps?.length ||
+    state.vocalNotesClipboard?.length
   );
+  const targetTrack = state.tracks.find((t) => t.id === trackId || String(t.id) === String(trackId));
+  const sourceVoiceInst = state.voiceStepsClipboard?.sourceInstrumentType || state.voiceStepsClipboard?.sourceInstId || 'puxador';
+  const isCompatible = Boolean(hasClipboardSteps && targetTrack && canTransferPatterns(sourceVoiceInst, targetTrack, state.tracks));
+  const canPasteVoice = hasClipboardSteps && isCompatible;
+  const pasteReason = getPasteDisabledReason(hasClipboardSteps, isCompatible, lang, sourceVoiceInst);
 
   const title = contextMenu.isPreRoll
     ? lang === 'fr'
@@ -70,8 +77,8 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
           id: 'paste-voice-steps',
           icon: '',
           label: lang === 'fr' ? 'Coller (Ctrl+V)' : 'Colar (Ctrl+V)',
-          disabled: !hasClipboardSteps,
-          disabledReason: lang === 'fr' ? 'Aucun pas dans le presse-papier' : 'Nenhum passo na área de transferência',
+          disabled: !canPasteVoice,
+          disabledReason: pasteReason,
           onClick: () => {
             useSequencerStore.getState().pasteVoiceSteps(trackId, patternId, contextMenu.isPreRoll, contextMenu.stepIdx, false);
             onClose();
@@ -81,8 +88,8 @@ export const VoiceStepContextMenuModal: React.FC<VoiceStepContextMenuModalProps>
           id: 'paste-notes-only',
           icon: '',
           label: lang === 'fr' ? 'Coller les notes seules (Ctrl+Shift+V)' : 'Colar somente as notas (Ctrl+Shift+V)',
-          disabled: !hasClipboardSteps,
-          disabledReason: lang === 'fr' ? 'Aucune note mélodique dans le presse-papier' : 'Nenhuma nota melódica na área de transferência',
+          disabled: !canPasteVoice,
+          disabledReason: pasteReason,
           onClick: () => {
             useSequencerStore.getState().pasteVoiceSteps(trackId, patternId, contextMenu.isPreRoll, contextMenu.stepIdx, true);
             onClose();

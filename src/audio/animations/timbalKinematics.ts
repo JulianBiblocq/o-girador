@@ -13,7 +13,7 @@ export function getTimbalImpactPoseTransform(stroke: string, isLeftSide: boolean
   const { anatomy, strokes, wristWhipDeg } = CONFIG_TIMBAL_HANDS;
   const sign = isLeftSide ? 1 : -1, hs = anatomy.handScale, sUp = stroke.toUpperCase(), mobY = getEffectiveMobileOffset('timbal').reachDeltaY;
   if (sUp === 'C' || sUp === 'X') return buildTransform(sign * strokes.clapConvergeX, strokes.clapImpactY + mobY, hs * strokes.clapProfileScaleX, hs * 1.15, sign * strokes.clapVerticalTiltDeg);
-  if (sUp === 'S' || sUp === 'V') { const sc = hs * strokes.slapImpactScaleZ; return buildTransform(sign * strokes.slapConvergeX, strokes.slapImpactY + mobY, sc * 1.05, sc, sign * (wristWhipDeg + strokes.slapHandRotateDeg)); }
+  if (sUp === 'S' || sUp === 'T' || sUp === 'V') { const sc = hs * strokes.slapImpactScaleZ; return buildTransform(sign * strokes.slapConvergeX, strokes.slapImpactY + mobY, sc * 1.05, sc, sign * (wristWhipDeg + strokes.slapHandRotateDeg)); }
   if (sUp === 'A' || sUp === 'F' || sUp === 'B' || stroke === '~') { const sc = hs * strokes.abertoImpactScaleZ; return buildTransform(sign * strokes.abertoConvergeX, strokes.abertoImpactY + mobY, sc, sc * strokes.abertoFingerFlex, sign * wristWhipDeg * 0.7); }
   if (sUp === 'P') { const sc = hs * strokes.graveImpactScaleZ; return buildTransform(sign * strokes.slapConvergeX, strokes.slapImpactY + mobY, sc * strokes.gravePalmSquash, sc, sign * wristWhipDeg * 0.8); }
   if (sUp === 'D') return buildTransform(sign * strokes.abertoConvergeX, strokes.abertoImpactY - strokes.ghostAmplitudePx + mobY, hs * 0.96, hs * 0.96, sign * 1.5);
@@ -42,7 +42,7 @@ function resolveZoneTarget(sym: string, sign: number): { tx: number; ty: number 
   const mobY = getEffectiveMobileOffset('timbal').reachDeltaY;
   const up = (sym || 'A').toUpperCase();
   if (up === 'G') return { tx: sign * strokes.graveConvergeX, ty: strokes.graveImpactY + mobY };
-  if (up === 'S' || up === 'P' || up === 'V') return { tx: sign * strokes.slapConvergeX, ty: strokes.slapImpactY + mobY };
+  if (up === 'S' || up === 'T' || up === 'P' || up === 'V') return { tx: sign * strokes.slapConvergeX, ty: strokes.slapImpactY + mobY };
   if (up === 'C' || up === 'X') return { tx: sign * strokes.clapConvergeX, ty: strokes.clapImpactY + mobY };
   return { tx: sign * strokes.abertoConvergeX, ty: strokes.abertoImpactY + mobY };
 }
@@ -60,7 +60,7 @@ function resolveTimbalZonePrepTransform(
   const { tx, ty } = resolveZoneTarget(nextSymbol, sign);
   const ratio = transitions.zoneAnticipationRatio ?? 0.85;
   const nUp = nextSymbol.toUpperCase();
-  const slapOut = nUp === 'S' && !isNextWeak ? -sign * strokes.slapEntryOutsideX * 0.35 : 0;
+  const slapOut = (nUp === 'S' || nUp === 'T') && !isNextWeak ? -sign * strokes.slapEntryOutsideX * 0.35 : 0;
   const endX = curX + (tx - curX) * ratio + slapOut;
   const endY = ty + (isNextWeak ? transitions.stayLowAfterStrongY : transitions.liftHighAfterWeakY);
   const endSc = hs * (isNextWeak ? transitions.stayLowScaleZ : transitions.liftHighScaleZ);
@@ -95,7 +95,7 @@ export function generateTimbalPredictiveKeyframes(
   const { anatomy, strokes, transitions, attackSpeed, wristWhipDeg } = CONFIG_TIMBAL_HANDS;
   const sign = isLeftSide ? 1 : -1, hs = anatomy.handScale, sUp = stroke.toUpperCase();
   if (sUp === 'B' || stroke === '~') return generateTimbalBarulhoLoopFrames(isLeftSide, stroke === 'b' ? 0.6 : 1);
-  const isWeakStroke = ['g', 'a', 's', 'd', 'p', 'D'].includes(stroke) || flaRole === 'grace';
+  const isWeakStroke = ['g', 'a', 's', 't', 'd', 'p', 'D'].includes(stroke) || flaRole === 'grace';
   const amp = isWeakStroke ? strokes.weakStrokeRatio : 1;
   const graceDelay = flaRole === 'main' ? Math.min(0.28, strokes.flaGraceDelayMs / Math.max(60, stepDurationMs)) : 0;
   const atkOff = Math.min(0.52, Math.max(0.06, (flaRole === 'grace' ? attackSpeed * 0.72 : attackSpeed) + graceDelay));
@@ -122,9 +122,8 @@ export function generateTimbalPredictiveKeyframes(
     const holdOff = Math.min(0.84, atkOff + strokes.presoHoldMs / Math.max(70, stepDurationMs)), impTr = getTimbalImpactPoseTransform('P', isLeftSide);
     return [{ transform: startTr, offset: 0 }, { transform: impTr, offset: atkOff }, { transform: impTr, offset: holdOff, easing: riseEase }, { transform: endTr, offset: 1 }];
   }
-  if (sUp === 'S') {
-    const iSc = hs * strokes.slapImpactScaleZ;
-    const snapOff = Math.min(0.76, atkOff + strokes.slapSnapBackMs / Math.max(70, stepDurationMs));
+  if (sUp === 'S' || sUp === 'T') {
+    const iSc = hs * strokes.slapImpactScaleZ, snapOff = Math.min(0.76, atkOff + strokes.slapSnapBackMs / Math.max(70, stepDurationMs));
     const impTr = buildTransform(curX, curY, iSc * 1.05, iSc, sign * (wristWhipDeg + strokes.slapHandRotateDeg) * amp);
     const snapTr = buildTransform(curX, curY + 12, iSc * 1.06, iSc * 1.06, sign * wristWhipDeg * 0.35);
     const kf: Keyframe[] = [{ transform: startTr, offset: 0, easing: 'cubic-bezier(0.18, 0.92, 0.28, 1)' }];

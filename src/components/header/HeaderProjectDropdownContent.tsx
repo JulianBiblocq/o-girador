@@ -7,6 +7,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { i18n } from '../../data';
 import { getActiveCloudPresetId } from '../../utils/cloudPresetState';
+import { canMutatePreset, isMestreOrAdminProfile } from '../../utils/presetPermissions';
 import type { HeaderProjectDropdownContentProps } from './headerProjectDropdownTypes';
 
 export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContentProps> = ({
@@ -23,6 +24,7 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
   defaultPresetId,
   canSetDefaultPreset,
   canEdit,
+  canToggleDraftPreset,
   onSetDefaultPreset,
   onToggleDraft,
   onPresetChange,
@@ -32,10 +34,17 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
   onCloseMenu,
   isMobileMenu = false,
 }) => {
-  const { isAdmin, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const isPracticeMode = useSequencerStore((s) => s.isPracticeMode);
   const showStudioActions = !isPracticeMode || isMobileMenu;
   const t = (key: string) => (i18n[lang] as any)[key] || key;
+
+  const activeCloudId = getActiveCloudPresetId();
+  const activeCloudPreset = activeCloudId
+    ? [...privateCloudPresets, ...publicCloudPresets].find((p) => p.id === activeCloudId)
+    : undefined;
+  const canUpdateActivePreset = Boolean(activeCloudId && activeCloudPreset && canMutatePreset(activeCloudPreset, userProfile));
+  const isMestreOrAdmin = isMestreOrAdminProfile(userProfile);
 
   return (
     <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-2.5">
@@ -62,7 +71,8 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
         localPresets={localPresets} isCloudPresetsLoading={isCloudPresetsLoading}
         showGroupCatalogue={showGroupCatalogue} groupLabel={groupLabel} groupLogo={groupLogo}
         defaultPresetId={defaultPresetId} canSetDefaultPreset={canSetDefaultPreset}
-        onSetDefaultPreset={onSetDefaultPreset} canEdit={canEdit} onToggleDraft={onToggleDraft}
+        onSetDefaultPreset={onSetDefaultPreset} canEdit={canEdit}
+        canToggleDraftPreset={canToggleDraftPreset} onToggleDraft={onToggleDraft}
         onSelectPreset={(val) => { onPresetChange(val); onCloseMenu(); }}
         className="mt-0.5"
       />
@@ -105,14 +115,14 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
           >
             <Save className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">
-              {Boolean(getActiveCloudPresetId())
+              {canUpdateActivePreset
                 ? (lang === 'pt' ? 'Atualizar música' : 'Mettre à jour le morceau')
                 : (lang === 'pt' ? 'Salvar música' : 'Sauvegarder le morceau')}
             </span>
           </button>
         )}
 
-        {showStudioActions && (isAdmin || userProfile?.role === 'mestre') && (
+        {showStudioActions && isMestreOrAdmin && (
           <div className="col-span-2 mt-0.5">
             <BoutonExportDanse />
           </div>

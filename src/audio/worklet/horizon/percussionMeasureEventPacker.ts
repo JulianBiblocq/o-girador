@@ -5,7 +5,7 @@
  */
 import { instrumentsConfig } from '../../../data';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
-import { GlobalSwing, Track } from '../../../types';
+import { GlobalSwing, Pattern, PatternVariation, Track } from '../../../types';
 import { getRodaStepDurationTicks } from '../../../utils/rodaTimeSigGeometry';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
@@ -20,6 +20,7 @@ export interface PackMeasureEventsParams {
   seqId: number; timing: MeasureTimingTable; measureStartTick: number; tracks: Track[];
   soloPatternPlayId: number | null; globalSwing: GlobalSwing; flatCompiledSchedule: Float64Array | null;
   variedTrackIds: Set<number>; variationNotes: ArrayLike<number>; engineDeps: HorizonPackerEngineDeps;
+  variedPatternsByTrackId?: Map<number, { pattern: Pattern; variation: PatternVariation }>;
   sampleRate: number; currentFrame: number; minRebuildFrame: number;
   previousEmittedNoteFrames?: Map<number, number>; lookaheadPoints?: readonly BarulhoLookaheadPoint[];
 }
@@ -52,7 +53,9 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     const decayPct = (packedData >> 2) & 0x7F, isTuplet = ((packedData >> 1) & 1) === 1, isSecondStroke = (packedData & 1) === 1;
     const tickDurSec = timing.instantTickDurSec[tickInMeasure];
     const baseStepAudioSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure];
-    const activePattern = resolveActivePatternForMeasure(liveTrack, tracks, timing.measureIdx, soloPatternPlayId);
+    const rawPattern = resolveActivePatternForMeasure(liveTrack, tracks, timing.measureIdx, soloPatternPlayId);
+    const varBeatRes = p.variedPatternsByTrackId?.get(liveTrack.id)?.variation?.beatResolutions;
+    const activePattern = rawPattern && varBeatRes ? { ...rawPattern, beatResolutions: varBeatRes } : rawPattern;
     const stepDurationSec = tickDurSec * getRodaStepDurationTicks(timing.timeSig, activePattern, circleStepIdx);
     const swingJitter = (((((seqId * 31 + tickInMeasure) * 17 + liveTrack.id) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
     const swingSec = computePercussionNoteSwing({

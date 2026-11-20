@@ -28,6 +28,7 @@ export interface TransportState {
   setGlobalSwing: (globalSwing: GlobalSwing) => void;
   setSoloPatternPlayId: (soloPatternPlayId: number | null) => void;
   setSoloPatternVariationId: (soloPatternVariationId: string | null) => void;
+  setSoloPatternPlayback: (soloPatternPlayId: number | null, soloPatternVariationId?: string | null) => void;
   setPreRollSettings: (settings: Partial<PreRollSettings> | ((prev: PreRollSettings) => PreRollSettings)) => void;
 }
 
@@ -51,6 +52,11 @@ export const useTransportStore = create<TransportState>((set) => ({
   setGlobalSwing: (globalSwing) => set({ globalSwing }),
   setSoloPatternPlayId: (soloPatternPlayId) => set({ soloPatternPlayId }),
   setSoloPatternVariationId: (soloPatternVariationId) => set({ soloPatternVariationId }),
+  setSoloPatternPlayback: (soloPatternPlayId, soloPatternVariationId = null) =>
+    set({
+      soloPatternPlayId,
+      soloPatternVariationId: soloPatternPlayId === null ? null : (soloPatternVariationId ?? 'ensemble'),
+    }),
   setPreRollSettings: (settings) =>
     set((state) => {
       const next =

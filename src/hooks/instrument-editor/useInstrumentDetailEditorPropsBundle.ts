@@ -70,7 +70,8 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     onSelectTool: editorState.setActiveTool, isExpandedLayout: ctrl.isExpandedLayout,
     patternId: activePatternId, patterns: displayedPatterns,
     canPaste: clipboard.canPaste, balancoPresets, onSelectPattern: (pId: number) => editorState.setSelectedPatternId(pId),
-    onAddPattern: patternOps.onAddPattern, onCopyPattern: () => sequencer.handleCopyPattern(activePattern),
+    onAddPattern: patternOps.onAddPattern,
+    onCopyPattern: () => sequencer.handleCopyPattern(activePattern, effectiveEditTrackId),
     onPastePattern: () => sequencer.handlePastePattern(effectiveEditTrackId, activePatternId),
     onSavePattern: () => {
       cloud.setSaveModalPatternId(activePatternId);

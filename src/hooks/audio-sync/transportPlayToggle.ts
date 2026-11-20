@@ -40,8 +40,9 @@ export async function handleTogglePlay(
     if (Tone.start) {
       try { await Tone.start(); } catch (_) {}
     }
-    if (ctx.soloPatternPlayIdRef.current !== null) {
-      ctx.setSoloPatternPlayId(null);
+    if (ctx.soloPatternPlayIdRef.current !== null || useTransportStore.getState().soloPatternVariationId !== null) {
+      ctx.soloPatternPlayIdRef.current = null;
+      useTransportStore.getState().setSoloPatternPlayback(null, null);
     }
 
     if (!ctx.isPlayingRef.current) {

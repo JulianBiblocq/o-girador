@@ -1,6 +1,9 @@
 import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useTransportStore } from '../../stores/useTransportStore';
+import { computeMeasurePatternStepOffset } from '../../utils/rodaTimeSigGeometry';
 import { areStepValuesEqual, resolveSlaveStepOpacity, SlaveFocusContext } from '../../utils/slaveStepOpacityResolver';
+import { resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
 import { DawStepCell } from './DawStepCell';
 import { resolveStepVisual } from './dawStepVisualResolver';
 import { resolveDawPedagogicalClick } from './resolveDawPedagogicalClick';
@@ -16,10 +19,20 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
   isGhostStep, isLeftHanded, tracks, currentMeasure, sequencer, onSelectPedagogyTarget, registerStepRef,
 }) => {
   const st = useSequencerStore.getState();
+  const soloPatternPlayId = useTransportStore((s) => s.soloPatternPlayId);
+  const soloPatternVariationId = useTransportStore((s) => s.soloPatternVariationId);
   const focusCtx: SlaveFocusContext = {
     isFocusActive: st.isFocusActive, focusTrackId: st.focusTrackId, referenceTrackId: st.referenceTrackId,
     activeAoVivoTrackId: st.activeAoVivoTrackId, editingTrackId: st.editingTrackId, mobileViewMode: st.mobileViewMode,
   };
+  const curPat = isGhostStep ? masterActivePattern : activePattern;
+  const totalVisibleSteps = beatGroups.reduce((acc, g) => acc + g.length, 0);
+  const stepOffset = computeMeasurePatternStepOffset(curPat, totalVisibleSteps, currentMeasure);
+  const { steps: effectiveLiveSteps } = resolveEffectivePatternStepsForSoloOrLive({
+    pattern: curPat, trackId: effectiveTrack.id, tracks,
+    soloPatternPlayId, soloPatternVariationId,
+    liveStepsMap: sequencer.activeVariationsRef?.current, canUseLiveVariation: true,
+  });
 
   return (
     <div onContextMenu={(e) => e.preventDefault()} className="flex items-center flex-grow pl-4 pr-3 h-full transition-all duration-200">
@@ -38,19 +51,18 @@ export const DawStepGrid: React.FC<DawStepGridProps> = ({
               style={group.length === 0 ? EMPTY_GROUP_STYLE : undefined}
             >
               {group.map((stepIdx, indexInGroup) => {
-                const activePlayingSteps = sequencer.activeVariationsRef?.current?.[effectiveTrack.id];
-                const baseVal = isGhostStep ? (masterActivePattern?.activeSteps?.[stepIdx] ?? 0) : (activePattern?.activeSteps?.[stepIdx] ?? 0);
-                const val = isGhostStep ? baseVal : (activePlayingSteps ? (activePlayingSteps[stepIdx] ?? baseVal) : baseVal);
-                const isVariationStep = Boolean(activePlayingSteps && !areStepValuesEqual(val, baseVal));
+                const actualIdx = stepOffset + stepIdx;
+                const baseVal = isGhostStep ? (masterActivePattern?.activeSteps?.[actualIdx] ?? 0) : (activePattern?.activeSteps?.[actualIdx] ?? 0);
+                const val = isGhostStep ? baseVal : (effectiveLiveSteps?.[actualIdx] ?? baseVal);
+                const isVariationStep = Boolean(!isGhostStep && !areStepValuesEqual(val, baseVal));
                 const isActiveCell = val !== 0 && val !== '';
-                const curPat = isGhostStep ? masterActivePattern : activePattern;
 
                 const stepOpacity = isVariationStep
                   ? 1.0
                   : resolveSlaveStepOpacity({
-                      track: effectiveTrack, allTracks: tracks, measureIdx: currentMeasure,
-                      stepIdx, ownStepVal: val, focusCtx, activeVariationsMap: sequencer.activeVariationsRef?.current,
-                    });
+                    track: effectiveTrack, allTracks: tracks, measureIdx: currentMeasure,
+                    stepIdx, ownStepVal: val, focusCtx, activeVariationsMap: sequencer.activeVariationsRef?.current,
+                  });
 
                 const visual = resolveStepVisual({
                   stepIdx, val, isActiveCell, isGhostStep, curPat, inst, track,

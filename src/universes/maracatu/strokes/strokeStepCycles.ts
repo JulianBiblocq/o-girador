@@ -44,7 +44,9 @@ export function getNextStepValue(
     if (norm === 'a') return 'A';
     if (norm === 'A') return 's';
     if (norm === 's') return 'S';
-    if (norm === 'S') return 'd';
+    if (norm === 'S') return 't';
+    if (norm === 't') return 'T';
+    if (norm === 'T') return 'd';
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'p';
     if (norm === 'p') return 'P';

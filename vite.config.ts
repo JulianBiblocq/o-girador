@@ -14,7 +14,7 @@ const pwaRuntimeCaching = [
     options: {
       cacheName: 'audio-samples-cache',
       expiration: {
-        maxEntries: 200,
+        maxEntries: 500,
         maxAgeSeconds: 30 * 24 * 60 * 60,
       },
       cacheableResponse: { statuses: [0, 200] },

@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom';
 import { usePortalRoot, useWindow } from '../../contexts/WindowContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { instrumentsConfig } from '../../data';
-import { canTransferPatterns, getInstrumentFamily } from '../../utils/instrumentCompatibility';
+import {
+  canTransferPatterns,
+  getInstrumentFamily,
+  resolveTrackInstrumentId,
+} from '../../utils/instrumentCompatibility';
 import { InstrumentHeaderContextMenuItems } from './menu/InstrumentHeaderContextMenuItems';
 
 export interface InstrumentHeaderContextMenuProps {
@@ -20,6 +24,7 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
   const hostWin = useWindow();
   const portalRoot = usePortalRoot();
   const lang = useSequencerStore((state) => state.lang);
+  const tracks = useSequencerStore((state) => state.tracks);
   const track = useSequencerStore((state) => state.tracks.find((t) => t.id === trackId || String(t.id) === String(trackId)));
   const clipboard = useSequencerStore((state) => state.instrumentPatternsClipboard);
 
@@ -48,8 +53,9 @@ export const InstrumentHeaderContextMenu: React.FC<InstrumentHeaderContextMenuPr
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const instName = track.customName || inst?.name || 'Instrument';
-  const targetFamily = getInstrumentFamily(inst?.id || '');
-  const isCompatible = clipboard ? canTransferPatterns(clipboard, track) : false;
+  const resolvedTargetInstId = resolveTrackInstrumentId(track, tracks);
+  const targetFamily = getInstrumentFamily(resolvedTargetInstId);
+  const isCompatible = clipboard ? canTransferPatterns(clipboard, track, tracks) : false;
 
   const menuWidth = 240;
   const menuHeight = 180;
