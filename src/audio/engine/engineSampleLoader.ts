@@ -5,8 +5,8 @@
 import type * as ToneType from 'tone';
 import { getTone } from '../../ToneLoader';
 import { instrumentAudioConfigs, InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
-import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from '../audioSampleCache';
-import { fetchAndDecodeAudioSample, normalizeCanonicalSampleKey } from './sampleFetchUtils';
+import { getCachedSampleBuffer } from '../audioSampleCache';
+import { normalizeCanonicalSampleKey } from './sampleFetchUtils';
 
 function findBackingStroke(config: InstrumentAudioConfig, strokeSymbol: string): StrokeMapping | undefined {
   const norm = strokeSymbol.trim();
@@ -31,22 +31,12 @@ export class EngineSampleLoader {
       promise = (async () => {
         const Tone = getTone();
         try {
-          const cachedPcm = await getCachedPcmSample(path, audioContext.sampleRate);
-          if (cachedPcm) {
-            const audioBuffer = reconstructAudioBuffer(audioContext, cachedPcm);
-            const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-            this.bufferPool.set(path, toneBuffer);
-            this.onSampleDecoded?.(path, audioBuffer);
-            return;
-          }
-
-          const audioBuffer = await fetchAndDecodeAudioSample(audioContext, path);
+          const audioBuffer = await getCachedSampleBuffer(audioContext, path);
           if (!audioBuffer) return;
 
           const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
           this.bufferPool.set(path, toneBuffer);
           this.onSampleDecoded?.(path, audioBuffer);
-          saveCachedPcmSample(path, audioBuffer).catch(() => {});
         } catch (err) {
           console.error(`AudioEngine: Failed to load sample: ${path}`, err);
         } finally {

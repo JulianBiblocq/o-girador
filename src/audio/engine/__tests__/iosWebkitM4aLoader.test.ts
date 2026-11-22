@@ -29,14 +29,14 @@ function makeMockAudioBuffer(sampleRate = 48000, length = 480): AudioBuffer {
   } as unknown as AudioBuffer;
 }
 
-// 1. Clé canonique `.ogg` & version de cache PCM incrémentée (v10)
+// 1. Clé canonique `.ogg` & version de cache PCM incrémentée (v11)
 {
-  assert.equal(SAMPLE_CACHE_VERSION, 10);
+  assert.equal(SAMPLE_CACHE_VERSION, 11);
   assert.equal(normalizeCanonicalSampleKey('Mixdown/Timbal studio T D 1.m4a'), 'Mixdown/Timbal studio T D 1.ogg');
   assert.equal(normalizeCanonicalSampleKey('Mixdown/Timbal studio T D 1.ogg'), 'Mixdown/Timbal studio T D 1.ogg');
   assert.equal(
     getSampleCacheKey('Mixdown/Timbal studio T D 1.m4a', 48000),
-    'v10_Mixdown/Timbal studio T D 1.ogg_48000'
+    'v11_Mixdown/Timbal studio T D 1.ogg_48000'
   );
 }
 
