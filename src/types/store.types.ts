@@ -14,6 +14,10 @@ export interface SectionPlayerPlacement {
   x: number;
   y: number;
   detuneCents?: number;
+  /** Niveau individuel du musicien dans le pupitre (0..100, défaut 75 = 0.0 dB). */
+  volumeVal?: number;
+  /** Panoramique individuel (-100..+100), synchronisé avec `x` (`panVal = (x - 50) * 2`). */
+  panVal?: number;
 }
 
 export interface TrackGroup {
@@ -68,7 +72,7 @@ export interface TrackGroup {
   phaseInverted?: boolean;
   /** Compresseur VCA de sous-groupe (`isBusFolder`, `isLinkFolder`, bus vocal Toada). */
   busCompressor?: BusCompressorSettings;
-  /** Escouade spatiale par piste dans le cône 120° de La Place (`1..5` Marcante, `1..4` autres percussions). */
+  /** Escouade spatiale par piste dans le cône 140° de La Place (`1..5` Marcante, `1..4` autres percussions). */
   sectionPlayers?: SectionPlayerPlacement[];
 }
 

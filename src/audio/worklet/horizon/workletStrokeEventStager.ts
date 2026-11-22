@@ -1,5 +1,5 @@
 /**
- * workletStrokeEventStager.ts — Résolution de sample, escouade spatiale `(baseIdx + k) % M`, Barulho décorrélé et tuple SOA (< 138 lignes).
+ * workletStrokeEventStager.ts — Résolution de sample anti-collision d'escouade, Barulho décorrélé et tuple SOA (< 138 lignes).
  */
 import {
   BarulhoLookaheadPoint, DEFAULT_BARULHO_DOT_STOP_SEC, findBarulhoLookaheadIndex,
@@ -51,11 +51,16 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
 
   const trigTimeSec = triggerFrame / sampleRate;
   const spatial = engineDeps.getTrackSpatialProfile?.(trackId);
-  const synthCount = spatial && !spatial.isNeutralSolo ? spatial.synthesizedCount : 1;
-  const useIndexedRR = synthCount > 1 && typeof engineDeps.selectRoundRobinFileIndex === 'function';
+  const rawSynthCount = spatial && !spatial.isNeutralSolo ? spatial.synthesizedCount : 1;
+  const synthCount = stroke.isBarulho ? rawSynthCount : Math.min(rawSynthCount, Math.max(1, stroke.files.length));
+  const hasSquadRR = typeof engineDeps.selectRoundRobinSquadIndices === 'function';
+  const useIndexedRR = !hasSquadRR && synthCount > 1 && typeof engineDeps.selectRoundRobinFileIndex === 'function';
 
+  let squadIndices = hasSquadRR ? engineDeps.selectRoundRobinSquadIndices!(instId, stroke, trigTimeSec, synthCount, trackId) : undefined;
   let baseIdx = useIndexedRR ? engineDeps.selectRoundRobinFileIndex!(instId, stroke, trigTimeSec, trackId) : -1;
-  let firstPath = baseIdx >= 0 ? selectSquadPlayerFile(stroke.files, baseIdx, 0) : engineDeps.selectRoundRobinFile(instId, stroke, trigTimeSec, trackId);
+  let firstPath = squadIndices
+    ? (stroke.files[squadIndices[0]] || stroke.files[0] || '')
+    : baseIdx >= 0 ? selectSquadPlayerFile(stroke.files, baseIdx, 0) : engineDeps.selectRoundRobinFile(instId, stroke, trigTimeSec, trackId);
   let firstSampleId = engineDeps.getSampleId(firstPath, Boolean(stroke.isBarulho));
   let isFallback80ms = false;
 
@@ -63,8 +68,11 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
     const fbE = EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, instId, 'e');
     if (fbE) {
       stroke = fbE; isFallback80ms = true;
+      squadIndices = hasSquadRR ? engineDeps.selectRoundRobinSquadIndices!(instId, fbE, trigTimeSec, synthCount, trackId) : undefined;
       baseIdx = useIndexedRR ? engineDeps.selectRoundRobinFileIndex!(instId, fbE, trigTimeSec, trackId) : -1;
-      firstPath = baseIdx >= 0 ? selectSquadPlayerFile(fbE.files, baseIdx, 0) : engineDeps.selectRoundRobinFile(instId, fbE, trigTimeSec, trackId);
+      firstPath = squadIndices
+        ? (fbE.files[squadIndices[0]] || fbE.files[0] || '')
+        : baseIdx >= 0 ? selectSquadPlayerFile(fbE.files, baseIdx, 0) : engineDeps.selectRoundRobinFile(instId, fbE, trigTimeSec, trackId);
       firstSampleId = engineDeps.getSampleId(firstPath);
     }
   }
@@ -89,20 +97,20 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
   const { chokeMode, voiceClass } = resolveTrackPhysicsSpec(instId, strokeSymbol, barOp !== BARULHO_OP_NONE);
 
   const rimStroke = stroke.compositeRimSymbol ? EngineVirtualStrokes.resolveStroke(engineDeps.strokesMaps, instId, stroke.compositeRimSymbol) : undefined;
+  const rimIndices = rimStroke && hasSquadRR ? engineDeps.selectRoundRobinSquadIndices!(instId, rimStroke, trigTimeSec, synthCount, trackId) : undefined;
   const rimBaseIdx = rimStroke && useIndexedRR ? engineDeps.selectRoundRobinFileIndex!(instId, rimStroke, trigTimeSec, trackId) : undefined;
   const prevLen = stagedEvents.length;
   const stepSeed = measureIdx * 64 + circleStepIdx * 2 + (isSecondStroke ? 1 : 0);
 
   for (let k = 0; k < synthCount; k++) {
-    const sampleId = k === 0
-      ? firstSampleId
-      : engineDeps.getSampleId(baseIdx >= 0 ? selectSquadPlayerFile(stroke.files, baseIdx, k) : firstPath, Boolean(stroke.isBarulho));
+    const pathK = squadIndices ? (stroke.files[squadIndices[k] ?? squadIndices[0]] || firstPath) : (baseIdx >= 0 ? selectSquadPlayerFile(stroke.files, baseIdx, k) : firstPath);
+    const sampleId = k === 0 ? firstSampleId : engineDeps.getSampleId(pathK, Boolean(stroke.isBarulho));
     if (sampleId < 0) { stagedEvents.length = prevLen; return 'uncovered'; }
 
     let trigFrameK = triggerFrame;
     if (spatial && !spatial.isNeutralSolo) {
       const pSpec = spatial.players[k] || spatial.players[0];
-      const jitter = barOp !== BARULHO_OP_NONE ? 0 : computeDeterministicStrokeJitterSec(trackId, k, stepSeed, synthCount);
+      const jitter = barOp !== BARULHO_OP_NONE ? 0 : computeDeterministicStrokeJitterSec(trackId, k, stepSeed, synthCount, instId);
       const barSpread = barOp !== BARULHO_OP_NONE ? computeBarulhoPartnerEntrySpreadSec(k, synthCount) : 0;
       trigFrameK = Math.max(triggerFrame, Math.round((swungTimeSec + pSpec.baseDelaySec + jitter + barSpread) * sampleRate));
     }
@@ -115,7 +123,7 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
     if (stroke.compositeRimSymbol) {
       const rimRes = stageCompositeRimLayerIfAny({
         seqId, trackId, slot, instId, primaryStroke: stroke, triggerFrame: trigFrameK, trigTimeSec,
-        finalVel, metaOrDecay, isCalibrated, engineDeps, stagedEvents, playerIdx: k, rimBaseIdx,
+        finalVel, metaOrDecay, isCalibrated, engineDeps, stagedEvents, playerIdx: k, rimBaseIdx, rimIndices,
       });
       if (rimRes === 'uncovered') { stagedEvents.length = prevLen; return 'uncovered'; }
     }

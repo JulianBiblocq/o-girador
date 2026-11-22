@@ -30,7 +30,7 @@ export interface StudioMasterBusConfig {
 export const DEFAULT_STUDIO_MASTER_BUS_CONFIG: Required<StudioMasterBusConfig> = {
   bassMonoEnabled: true, bassMonoCrossoverHz: 110,
   transientAttackDb: 0, transientSustainDb: 0,
-  duckingDb: 1.5, scHpfHz: 95,
+  duckingDb: 1.5, scHpfHz: 130,
   attackMs: 15, releaseMs: 120, kneeDb: 6, makeupDb: 0, compMixPct: 75,
   softClipEnabled: true, softClipDriveDb: 1.2, ceilingDb: -0.3,
   toadaSlapbackMode: 'off', toadaSlapbackWet: 0, compPresetId: 'natural_glue',
@@ -78,7 +78,7 @@ export interface StudioCompressorPresetPayload extends Partial<StudioMasterBusCo
 export const STUDIO_COMPRESSOR_PRESETS: StudioModulePreset<StudioCompressorPresetPayload>[] = [
   {
     id: 'natural_glue', labelFr: 'Colle Naturelle', labelPt: 'Cola Natural',
-    settings: { threshold: -6, ratio: 2, scHpfHz: 95, attackMs: 18, releaseMs: 160, kneeDb: 6, makeupDb: 0.5, compMixPct: 100, duckingDb: 1.5, compPresetId: 'natural_glue' },
+    settings: { threshold: -6, ratio: 2, scHpfHz: 130, attackMs: 18, releaseMs: 160, kneeDb: 6, makeupDb: 0.5, compMixPct: 100, duckingDb: 1.5, compPresetId: 'natural_glue' },
   },
   {
     id: 'street_punch', labelFr: 'Impact Cortège', labelPt: 'Impacto de Rua',

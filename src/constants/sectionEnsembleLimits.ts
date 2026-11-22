@@ -1,12 +1,14 @@
 /**
- * sectionEnsembleLimits.ts — Quotas officiels d'escouade spatiale par piste (« La Place ») (< 100 lignes).
+ * sectionEnsembleLimits.ts — Quotas officiels d'escouade spatiale par piste (« La Place ») (< 140 lignes).
  * - `marcante` : 1..5 joueurs.
  * - `meiao`, `repique`, `caixa`, `tarol`, `timbal`, `gongue`, `agbe`, `mineiro` : 1..4 joueurs.
  * - `apito` et pistes `voice` (`puxador`, `coro`, `toada`) : 1 joueur max (pas de multiplication).
+ * - Detune symétrique ultra-sobre borné à `±2.5 cents` (zéro battement chorus/flanger sur le ring).
  */
 import type { SectionPlayerPlacement } from '../types/store.types';
 
 export const MAX_SECTION_PLAYERS = 5;
+export const MAX_SQUAD_DETUNE_CENTS = 2.5;
 
 export const SECTION_ENSEMBLE_LIMITS: Readonly<Record<string, number>> = {
   marcante: 5,
@@ -44,10 +46,10 @@ export const DEFAULT_SOLO_PLAYER_PLACEMENT: Readonly<SectionPlayerPlacement> = {
 
 const DETUNE_SPREAD_BY_COUNT: Readonly<Record<number, readonly number[]>> = {
   1: [0],
-  2: [-3, 3],
-  3: [-4, 0, 4],
-  4: [-5, -2, 2, 5],
-  5: [-6, -2, 0, 3, 6],
+  2: [-1.5, 1.5],
+  3: [-2.0, 0, 2.0],
+  4: [-2.5, -0.8, 0.8, 2.5],
+  5: [-2.5, -1.2, 0, 1.2, 2.5],
 };
 
 export function getMaxSectionPlayers(
@@ -88,7 +90,11 @@ export function isNeutralDefaultSectionPlayers(
   if (!players || players.length === 0) return true;
   if (players.length > 1) return false;
   const p = players[0];
+  const hasVolTrim = typeof p.volumeVal === 'number' && Number.isFinite(p.volumeVal) && Math.abs(p.volumeVal - 75) >= 0.05;
+  const hasPanTrim = typeof p.panVal === 'number' && Number.isFinite(p.panVal) && Math.abs(p.panVal) >= 0.05;
   return (
+    !hasVolTrim &&
+    !hasPanTrim &&
     Math.abs((Number.isFinite(p.x) ? p.x : 50) - 50) < 0.05 &&
     Math.abs((Number.isFinite(p.y) ? p.y : 90) - 90) < 0.05 &&
     (!p.detuneCents || Math.abs(p.detuneCents) < 0.05)
@@ -104,12 +110,25 @@ export function sanitizeSectionPlayers(
   const maxN = getMaxSectionPlayers(instrumentId, instrumentType);
   if (maxN <= 1) return undefined;
   const sliced = players.slice(0, maxN);
-  return sliced.map((p, idx) => ({
-    id: typeof p.id === 'string' && p.id.trim() ? p.id : `p${idx + 1}`,
-    x: Math.max(0, Math.min(100, Number.isFinite(p.x) ? p.x : 50)),
-    y: Math.max(0, Math.min(100, Number.isFinite(p.y) ? p.y : 90)),
-    detuneCents: typeof p.detuneCents === 'number' && Number.isFinite(p.detuneCents)
-      ? (sliced.length <= 1 ? 0 : Math.max(-12, Math.min(12, p.detuneCents)))
-      : resolveDefaultPlayerDetuneCents(idx, sliced.length, instrumentId),
-  }));
+  return sliced.map((p, idx) => {
+    const hasExplicitPan = typeof p.panVal === 'number' && Number.isFinite(p.panVal);
+    const clampedPan = hasExplicitPan ? Math.max(-100, Math.min(100, Math.round(p.panVal!))) : undefined;
+    const rawX = Number.isFinite(p.x) ? p.x : (clampedPan !== undefined ? 50 + clampedPan * 0.5 : 50);
+    const x = Math.max(0, Math.min(100, rawX));
+    const y = Math.max(0, Math.min(100, Number.isFinite(p.y) ? p.y : 90));
+    const detuneCents = typeof p.detuneCents === 'number' && Number.isFinite(p.detuneCents)
+      ? (sliced.length <= 1 ? 0 : Math.max(-MAX_SQUAD_DETUNE_CENTS, Math.min(MAX_SQUAD_DETUNE_CENTS, p.detuneCents)))
+      : resolveDefaultPlayerDetuneCents(idx, sliced.length, instrumentId);
+    const out: SectionPlayerPlacement = {
+      id: typeof p.id === 'string' && p.id.trim() ? p.id : `p${idx + 1}`,
+      x,
+      y,
+      detuneCents,
+    };
+    if (typeof p.volumeVal === 'number' && Number.isFinite(p.volumeVal)) {
+      out.volumeVal = Math.max(0, Math.min(100, p.volumeVal));
+    }
+    if (clampedPan !== undefined) out.panVal = clampedPan;
+    return out;
+  });
 }

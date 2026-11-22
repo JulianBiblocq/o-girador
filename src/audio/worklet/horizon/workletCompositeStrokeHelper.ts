@@ -30,6 +30,7 @@ export interface StageCompositeRimLayerArgs {
   stagedEvents: number[];
   playerIdx?: number;
   rimBaseIdx?: number;
+  rimIndices?: readonly number[];
 }
 
 export function stageCompositeRimLayerIfAny(a: StageCompositeRimLayerArgs): 'ok' | 'uncovered' {
@@ -40,7 +41,10 @@ export function stageCompositeRimLayerIfAny(a: StageCompositeRimLayerArgs): 'ok'
   if (!rimStroke) return 'ok';
 
   const pIdx = a.playerIdx ?? 0;
-  const rimFilePath = a.rimBaseIdx !== undefined && a.rimBaseIdx >= 0
+  const explicitRimIdx = a.rimIndices && pIdx < a.rimIndices.length ? a.rimIndices[pIdx] : undefined;
+  const rimFilePath = explicitRimIdx !== undefined && explicitRimIdx >= 0
+    ? (rimStroke.files[explicitRimIdx] || rimStroke.files[0] || '')
+    : a.rimBaseIdx !== undefined && a.rimBaseIdx >= 0
     ? selectSquadPlayerFile(rimStroke.files, a.rimBaseIdx, pIdx)
     : a.engineDeps.selectRoundRobinFile(a.instId, rimStroke, a.trigTimeSec, a.trackId);
   const rimSampleId = a.engineDeps.getSampleId(rimFilePath);

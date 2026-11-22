@@ -1,11 +1,11 @@
 /**
- * sectionTemperament.ts — Tempérament Automatique Déterministe de Section (« Effet Vraie Troupe ») (< 95 lignes).
- * - Regroupement par rôle d'instrument physique (`instrumentIdx`), indépendant des fûts d'autres rôles liés à un dossier.
+ * sectionTemperament.ts — Tempérament Automatique Déterministe de Section Zéro-Phase (< 120 lignes).
  * - Rang 0 (piste maîtresse ou 1re piste du pupitre) : `0.0 ms` d'étalement et `100 %` (`1.0`) du Balanço.
- * - Rang k >= 1 : étalement déterministe sans collision dans `[+2.5 ms, +6.5 ms]` et adhérence Balanço `[0.95, 1.05]`
- *   équilibrée autour de `1.00`, en parité stricte Live Worklet SOA + Main Thread + Bounce WAV.
+ * - Rang k >= 1 : cône de phase constructive strict sans « fla » (`<= 0.40 ms` sur Caixa/Tarol,
+ *   `<= 0.80 ms` sur Alfaias/Timbal/Gonguê, `8..16 ms` sur shakers Sementes), adhérence Balanço `[0.95, 1.05]`.
  */
 
+import { SEMENTES_INSTRUMENTS } from '../../constants/sectionEnsembleLimits';
 import { instrumentsConfig } from '../../data';
 import { TrackGroup } from '../../types';
 
@@ -21,9 +21,6 @@ export const NEUTRAL_SECTION_TEMPERAMENT: SectionTrackTemperament = {
   balancoAdherence: 1.0,
 };
 
-const MIN_SPREAD_SEC = 0.0025; // +2.5 ms
-const MAX_SPREAD_SEC = 0.0065; // +6.5 ms
-const SPREAD_SPAN_SEC = MAX_SPREAD_SEC - MIN_SPREAD_SEC; // 4.0 ms
 const GOLDEN_CONJUGATE = 0.6180339887498949;
 
 function hashTrackIdNorm(trackId: number | string): number {
@@ -36,19 +33,30 @@ function hashTrackIdNorm(trackId: number | string): number {
   return ((h >>> 0) % 997) / 997;
 }
 
-export function computePartnerTemperament(rank: number, trackId: number | string): SectionTrackTemperament {
+function resolveSpreadWindowSec(instrumentId?: string): { minSec: number; spanSec: number } {
+  const norm = (instrumentId || '').trim().toLowerCase();
+  if (SEMENTES_INSTRUMENTS.has(norm)) return { minSec: 0.0080, spanSec: 0.0080 };
+  if (norm === 'caixa' || norm === 'tarol') return { minSec: 0.00010, spanSec: 0.00028 };
+  return { minSec: 0.00018, spanSec: 0.00060 };
+}
+
+export function computePartnerTemperament(
+  rank: number,
+  trackId: number | string,
+  instrumentId?: string
+): SectionTrackTemperament {
   if (rank <= 0) return NEUTRAL_SECTION_TEMPERAMENT;
   const h = hashTrackIdNorm(trackId);
+  const { minSec, spanSec } = resolveSpreadWindowSec(instrumentId);
 
-  // Séquence de Weyl (nombre d'or) par rang + micro-signature bornée par trackId -> 0 collision entre partenaires
+  // Séquence de Weyl (nombre d'or) par rang + micro-signature bornée par trackId -> 0 collision
   const basePos = (rank * GOLDEN_CONJUGATE) % 1;
   const microNudge = (h - 0.5) * 0.05;
   const u = Math.max(0, Math.min(1, basePos + microNudge));
-  const attackSpreadSec = Number((MIN_SPREAD_SEC + u * SPREAD_SPAN_SEC).toFixed(6));
+  const attackSpreadSec = Number((minSec + u * spanSec).toFixed(6));
 
-  // Modulation équilibrée [0.95 .. 1.05] alternant sous / sur 1.00 selon la parité du rang
   const sign = rank % 2 === 1 ? -1 : 1;
-  const mag = 0.016 + (((rank * 0.38196601125 + h * 0.24) % 1) * 0.034); // [0.016 .. 0.050]
+  const mag = 0.016 + (((rank * 0.38196601125 + h * 0.24) % 1) * 0.034);
   const balancoAdherence = Number(Math.max(0.95, Math.min(1.05, 1.0 + sign * mag)).toFixed(5));
 
   return { rank, attackSpreadSec, balancoAdherence };
@@ -76,7 +84,8 @@ export function computeSectionTemperamentMap(tracks: readonly TrackGroup[]): Map
     group.push(t);
   }
 
-  for (const group of byInstrumentIdx.values()) {
+  for (const [instIdx, group] of byInstrumentIdx.entries()) {
+    const instId = instrumentsConfig[instIdx]?.id;
     const masterIdx = group.findIndex((t) => t.isLinkMaster === true);
     const ordered = masterIdx > 0
       ? [group[masterIdx], ...group.slice(0, masterIdx), ...group.slice(masterIdx + 1)]
@@ -84,7 +93,7 @@ export function computeSectionTemperamentMap(tracks: readonly TrackGroup[]): Map
 
     for (let rank = 0; rank < ordered.length; rank++) {
       const t = ordered[rank];
-      map.set(Number(t.id), rank === 0 ? NEUTRAL_SECTION_TEMPERAMENT : computePartnerTemperament(rank, t.id));
+      map.set(Number(t.id), rank === 0 ? NEUTRAL_SECTION_TEMPERAMENT : computePartnerTemperament(rank, t.id, instId));
     }
   }
 

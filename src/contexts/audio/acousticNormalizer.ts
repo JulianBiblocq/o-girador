@@ -67,7 +67,6 @@ export function normalizePresetAcousticsOnLoad(rawPreset: any): any {
     p.tracks.forEach((t: any) => {
       if (!t) return;
       if (Array.isArray(t.patterns)) t.patterns.forEach(recalibrateFlatStepVelocities);
-      if (t.isBusFolder) return;
 
       const rawVol = t.volumeVal !== undefined ? t.volumeVal : t.volume;
       if (rawVol !== undefined) {

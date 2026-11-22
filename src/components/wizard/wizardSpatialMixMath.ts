@@ -33,8 +33,7 @@ export function computeWizardSpatialMix(x: number, y: number, instrumentType: st
 
   const depthRatio = Math.max(0, Math.min(1, (100 - safeY) / 88));
   const roleTrimDb = ROLE_NOMINAL_TRIM_DB[instrumentType] ?? -1.5;
-  const depthDb = -depthRatio * 5.5;
-  const targetDb = Math.max(-14, Math.min(0, roleTrimDb + depthDb));
+  const targetDb = Math.max(-14, Math.min(0, roleTrimDb));
 
   const faderPos = Math.round(dbToFaderPosition(targetDb));
   const reverbSend = Math.round(8 + depthRatio * 34);

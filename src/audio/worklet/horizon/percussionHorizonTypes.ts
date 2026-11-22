@@ -16,6 +16,7 @@ export interface HorizonPackerEngineDeps {
   getSampleId(filePath: string, isLoop?: boolean): number;
   selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string;
   selectRoundRobinFileIndex?(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): number;
+  selectRoundRobinSquadIndices?(instId: string, stroke: StrokeMapping, timeSec: number, count: number, trackId: number): number[];
   strokesMaps: Map<string, Map<string, StrokeMapping>>;
   configMap: Map<string, InstrumentAudioConfig>;
 }

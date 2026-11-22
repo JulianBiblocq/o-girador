@@ -116,9 +116,9 @@ function stepDsp(nBlocks: number, startFrame: number, q: WorkletEventQueue, p: W
   assert.equal(r0.balancoAdherence, 1.0);
   const partnerDelays: number[] = [];
   for (const r of [r1, r2, r3]) {
-    assert.ok(r.attackSpreadSec >= 0.0025 && r.attackSpreadSec <= 0.0065);
+    assert.ok(r.attackSpreadSec >= 0.00018 && r.attackSpreadSec <= 0.00080, 'Alfaia partner spread must stay inside <= 0.80 ms constructive phase cone');
     assert.ok(r.balancoAdherence >= 0.95 && r.balancoAdherence <= 1.05);
-    for (const prev of partnerDelays) assert.ok(Math.abs(r.attackSpreadSec - prev) >= 0.0004);
+    for (const prev of partnerDelays) assert.ok(Math.abs(r.attackSpreadSec - prev) >= 0.00005);
     partnerDelays.push(r.attackSpreadSec);
   }
   assert.equal(resolveActivePatternForMeasure(tracks[2], tracks as any, 1, null)?.id, 'p1');

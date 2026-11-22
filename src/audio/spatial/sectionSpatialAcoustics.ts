@@ -1,19 +1,24 @@
 /**
- * sectionSpatialAcoustics.ts — Traduction acoustique 2D « La Place » Zéro-GC (< 130 lignes).
- * Parité stricte Worklet SOA + Fallback Web Audio + Export WAV Offline.
+ * sectionSpatialAcoustics.ts — Traduction acoustique 2D « La Place » Zéro-Phase & Zéro-GC (< 140 lignes).
+ * - Fader = 100 % maître du volume (`MAX_CONE_DEPTH_DB = 0`, 0 dB caché sur Y).
+ * - Cône de phase constructive strict : `<= 0.40 ms` Caixa/Tarol, `<= 0.80 ms` Alfaias/Timbal/Gonguê, 0 retard lié à Y.
+ * - Compensation énergétique `1 / sqrt(N)` à volume nominal + trim individuel `volumeVal` / `panVal` du Mini-Mixeur.
  */
 import type { SectionPlayerPlacement, TrackGroup } from '../../types/store.types';
 import {
   getMaxSectionPlayers,
   isNeutralDefaultSectionPlayers,
+  MAX_SQUAD_DETUNE_CENTS,
   resolveDefaultPlayerDetuneCents,
   SEMENTES_INSTRUMENTS,
   SKIN_DETUNE_INSTRUMENTS,
 } from '../../constants/sectionEnsembleLimits';
+import { faderPositionToGain } from '../../utils/audio-math/faderMath';
 
 export const MAX_ACOUSTIC_PAN = 0.72;
-export const MAX_CONE_DEPTH_DB = -8.5;
+export const MAX_CONE_DEPTH_DB = 0;
 const SEMENTES_ANTI_COMB_SEC = [0, 0.011, 0.019, 0.027, 0.034] as const;
+const SNARE_DRUMS = new Set<string>(['caixa', 'tarol']);
 
 export interface SectionPlayerAcousticSpec {
   playerIdx: number;
@@ -39,17 +44,18 @@ export interface SectionSpatialProfile {
 
 const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 
-export function computePlayerDistanceDb(y: number): number {
-  const safeY = clamp(Number.isFinite(y) ? y : 90, 0, 100);
-  return safeY >= 95 ? 0 : MAX_CONE_DEPTH_DB * ((95 - safeY) / 95);
+export function computePlayerDistanceDb(_y: number): number {
+  return 0;
 }
 
-export function computePlayerCombinedPan(x: number, trackPanVal?: number | null): number {
-  const safeX = clamp(Number.isFinite(x) ? x : 50, 0, 100);
-  const xPan = ((safeX - 50) / 50) * MAX_ACOUSTIC_PAN;
+export function computePlayerCombinedPan(x: number, trackPanVal?: number | null, playerPanVal?: number | null): number {
+  const basePct = typeof playerPanVal === 'number' && Number.isFinite(playerPanVal)
+    ? clamp(playerPanVal, -100, 100)
+    : (clamp(Number.isFinite(x) ? x : 50, 0, 100) - 50) * 2;
   const rawTrim = Number.isFinite(trackPanVal as number) ? Number(trackPanVal) : 0;
-  const normTrim = Math.abs(rawTrim) <= 1 && rawTrim !== 0 ? rawTrim : clamp(rawTrim, -100, 100) / 100;
-  return clamp(xPan + normTrim * MAX_ACOUSTIC_PAN, -MAX_ACOUSTIC_PAN, MAX_ACOUSTIC_PAN);
+  const trimPct = Math.abs(rawTrim) <= 1 && rawTrim !== 0 ? rawTrim * 100 : clamp(rawTrim, -100, 100);
+  const combinedPct = clamp(basePct + trimPct, -100, 100);
+  return (combinedPct / 100) * MAX_ACOUSTIC_PAN;
 }
 
 export function computeConstantPowerPanGains(pan: number): { gainL: number; gainR: number } {
@@ -61,12 +67,14 @@ export function computeDeterministicStrokeJitterSec(
   trackId: number,
   playerIdx: number,
   stepSeed: number,
-  synthesizedCount: number
+  synthesizedCount: number,
+  instrumentId?: string
 ): number {
-  if (synthesizedCount <= 1) return 0;
+  if (synthesizedCount <= 1 || playerIdx <= 0) return 0;
   let h = (Math.imul((trackId | 0) + 17, 374761393) ^ Math.imul(playerIdx + 1, 668265263) ^ Math.imul((stepSeed | 0) + 3, 2147483647)) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  return ((((h ^ (h >>> 16)) >>> 0) / 4294967295) * 2 - 1) * 0.0025;
+  const maxJitter = instrumentId && SNARE_DRUMS.has(instrumentId) ? 0.00006 : 0.00008;
+  return ((((h ^ (h >>> 16)) >>> 0) / 4294967295) * 2 - 1) * maxJitter;
 }
 
 export function resolveTrackSectionSpatialProfile(
@@ -92,31 +100,28 @@ export function resolveTrackSectionSpatialProfile(
   const activeSlice = bounded.slice(0, synthLimit);
   const trimPan = panValOverride !== undefined ? panValOverride : (track?.panVal ?? track?.pan ?? 0);
 
-  const rawGains = new Float64Array(synthLimit);
-  let maxG = 0;
-  for (let k = 0; k < synthLimit; k++) {
-    const g = Math.pow(10, computePlayerDistanceDb(activeSlice[k].y) / 20);
-    rawGains[k] = g;
-    if (g > maxG) maxG = g;
-  }
+  const energyComp = synthLimit <= 1 ? 1.0 : 1 / Math.sqrt(synthLimit);
+  const isSementes = SEMENTES_INSTRUMENTS.has(normInst);
+  const isSkin = SKIN_DETUNE_INSTRUMENTS.has(normInst);
+  const maxConeDelaySec = SNARE_DRUMS.has(normInst) ? 0.00032 : 0.00068;
 
-  let normSumSq = 0;
-  const denom = maxG > 1e-6 ? maxG : 1;
-  for (let k = 0; k < synthLimit; k++) { const w = rawGains[k] / denom; normSumSq += w * w; }
-  const energyComp = synthLimit <= 1 ? 1.0 : 1 / Math.pow(Math.max(1, normSumSq), 0.38);
-  const isSementes = SEMENTES_INSTRUMENTS.has(normInst), isSkin = SKIN_DETUNE_INSTRUMENTS.has(normInst);
-
-  const players: SectionPlayerAcousticSpec[] = activeSlice.map((p, k) => {
-    const safeX = clamp(Number.isFinite(p.x) ? p.x : 50, 0, 100), safeY = clamp(Number.isFinite(p.y) ? p.y : 90, 0, 100);
-    const distDb = computePlayerDistanceDb(safeY), pan = computePlayerCombinedPan(safeX, trimPan);
+  const players: SectionPlayerAcousticSpec[] = activeSlice.map((p: SectionPlayerPlacement, k: number) => {
+    const safeX = clamp(Number.isFinite(p.x) ? p.x : 50, 0, 100);
+    const safeY = clamp(Number.isFinite(p.y) ? p.y : 90, 0, 100);
+    const pan = computePlayerCombinedPan(safeX, trimPan, p.panVal);
     const { gainL: pL, gainR: pR } = computeConstantPowerPanGains(pan);
-    const gainScalar = rawGains[k] * energyComp, depthRatio = safeY >= 95 ? 0 : (100 - safeY) / 100;
+    const playerVolGain = typeof p.volumeVal === 'number' && Number.isFinite(p.volumeVal) ? faderPositionToGain(p.volumeVal) : 1.0;
+    const gainScalar = playerVolGain * energyComp;
     const baseDelaySec = isSementes && synthLimit >= 2
-      ? (SEMENTES_ANTI_COMB_SEC[k] ?? 0.027) + depthRatio * 0.008
-      : depthRatio * 0.011 + (synthLimit > 1 && k > 0 ? (k / (synthLimit - 1)) * 0.004 : 0);
-    const cents = synthLimit <= 1 || !isSkin ? 0 : (typeof p.detuneCents === 'number' && Number.isFinite(p.detuneCents) ? clamp(p.detuneCents, -12, 12) : resolveDefaultPlayerDetuneCents(k, synthLimit, normInst));
+      ? (SEMENTES_ANTI_COMB_SEC[k] ?? 0.027)
+      : (synthLimit > 1 && k > 0 ? (k / (synthLimit - 1)) * maxConeDelaySec : 0);
+    const cents = synthLimit <= 1 || !isSkin
+      ? 0
+      : (typeof p.detuneCents === 'number' && Number.isFinite(p.detuneCents)
+        ? clamp(p.detuneCents, -MAX_SQUAD_DETUNE_CENTS, MAX_SQUAD_DETUNE_CENTS)
+        : resolveDefaultPlayerDetuneCents(k, synthLimit, normInst));
     return {
-      playerIdx: k, x: safeX, y: safeY, pan, distDb, gainScalar,
+      playerIdx: k, x: safeX, y: safeY, pan, distDb: 0, gainScalar,
       gainL: gainScalar * pL, gainR: gainScalar * pR, baseDelaySec,
       detuneCents: cents, pitchMul: cents === 0 ? 1.0 : Math.pow(2, cents / 1200),
     };

@@ -1,5 +1,5 @@
 /**
- * baqueBounceStrokeScheduler.ts — Planification hors-ligne d'une frappe et de son escouade spatiale (< 138 lignes).
+ * baqueBounceStrokeScheduler.ts — Planification hors-ligne d'une frappe et de son escouade spatiale Zéro-Phase (< 138 lignes).
  */
 import { getCachedPcmSample, reconstructAudioBuffer } from '../audio/audioSampleCache';
 import { packBarulhoOriginCoord } from '../audio/barulho/barulhoRampPlanner';
@@ -9,7 +9,7 @@ import { EngineTuning } from '../audio/engine/engineTuning';
 import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { fetchAndDecodeAudioSample, normalizeCanonicalSampleKey } from '../audio/engine/sampleFetchUtils';
-import { computeBarulhoPartnerEntrySpreadSec, selectSquadPlayerFile } from '../audio/spatial/sectionBarulhoPhaseHelper';
+import { computeBarulhoPartnerEntrySpreadSec } from '../audio/spatial/sectionBarulhoPhaseHelper';
 import { computeDeterministicStrokeJitterSec, resolveTrackSectionSpatialProfile } from '../audio/spatial/sectionSpatialAcoustics';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../audio/worklet/horizon/workletCompositeStrokeHelper';
 import { InstrumentAudioConfig, StrokeMapping } from '../data/audioConfig';
@@ -60,23 +60,26 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
   let stroke = EngineVirtualStrokes.resolveStroke(strokesMaps, instId, strokeSymbol);
   if (!stroke || !stroke.files.length) return;
 
+  const hasPanAuto = !isAutomationBypassed(track, 'pan', globalAutomationBypass) && hasActiveTrackAutomation(track, 'pan') && Boolean(track.measurePans?.length);
+  const spatial = resolveTrackSectionSpatialProfile(track, instId, isEcoMode, hasPanAuto ? 0 : (track.panVal ?? track.pan ?? 0));
+  const rawSynthCount = spatial.isNeutralSolo ? 1 : spatial.synthesizedCount;
+  let synthCount = stroke.isBarulho ? rawSynthCount : Math.min(rawSynthCount, Math.max(1, stroke.files.length));
+
   const isCalibrated = Boolean(instCfg?.calibratedStudioBank);
-  let baseIdx = offlineRR.selectFileIndex(instId, stroke, triggerSec, track.id);
-  let firstBuf = await decodeSampleForOffline(offlineCtx, selectSquadPlayerFile(stroke.files, baseIdx, 0), sampleCache);
+  let squadIndices = offlineRR.selectSquadFileIndices(instId, stroke, triggerSec, synthCount, track.id);
+  let firstBuf = await decodeSampleForOffline(offlineCtx, stroke.files[squadIndices[0]] || stroke.files[0], sampleCache);
   let forceShort80ms = false;
   if (!firstBuf && ALFAIA_INSTRUMENTS.has(instId) && (strokeSymbol === 'A' || strokeSymbol === 'a')) {
     const fbE = EngineVirtualStrokes.resolveStroke(strokesMaps, instId, 'e');
     if (fbE) {
       stroke = fbE; forceShort80ms = true;
-      baseIdx = offlineRR.selectFileIndex(instId, fbE, triggerSec, track.id);
-      firstBuf = await decodeSampleForOffline(offlineCtx, selectSquadPlayerFile(fbE.files, baseIdx, 0), sampleCache);
+      synthCount = Math.min(rawSynthCount, Math.max(1, fbE.files.length));
+      squadIndices = offlineRR.selectSquadFileIndices(instId, fbE, triggerSec, synthCount, track.id);
+      firstBuf = await decodeSampleForOffline(offlineCtx, fbE.files[squadIndices[0]] || fbE.files[0], sampleCache);
     }
   }
   if (!firstBuf) return;
 
-  const hasPanAuto = !isAutomationBypassed(track, 'pan', globalAutomationBypass) && hasActiveTrackAutomation(track, 'pan') && Boolean(track.measurePans?.length);
-  const spatial = resolveTrackSectionSpatialProfile(track, instId, isEcoMode, hasPanAuto ? 0 : (track.panVal ?? track.pan ?? 0));
-  const synthCount = spatial.isNeutralSolo ? 1 : spatial.synthesizedCount;
   const basePitch = EngineTuning.calculatePitch(instId, instCfg, track as any, undefined, allTracks as any, chorusAmount);
   const isSecondStroke = (packed & 1) === 1;
   const stepSeed = mIdx * 64 + circleStepIdx * 2 + (isSecondStroke ? 1 : 0);
@@ -105,12 +108,13 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
   const finalStepVol = isLegacyRufada ? stepVol * 0.88 : stepVol;
   const decayNorm = ((packed >>> 2) & 0x7F) / 100;
   const rimStroke = stroke.compositeRimSymbol ? EngineVirtualStrokes.resolveStroke(strokesMaps, instId, stroke.compositeRimSymbol) : null;
-  const rimBaseIdx = rimStroke ? offlineRR.selectFileIndex(instId, rimStroke, triggerSec, track.id) : 0;
+  const rimIndices = rimStroke ? offlineRR.selectSquadFileIndices(instId, rimStroke, triggerSec, synthCount, track.id) : null;
 
   for (let k = 0; k < synthCount; k++) {
-    const bufK = k === 0 ? firstBuf : (await decodeSampleForOffline(offlineCtx, selectSquadPlayerFile(stroke.files, baseIdx, k), sampleCache) || firstBuf);
+    const fileK = stroke.files[squadIndices[k] ?? squadIndices[0]] || stroke.files[0];
+    const bufK = k === 0 ? firstBuf : (await decodeSampleForOffline(offlineCtx, fileK, sampleCache) || firstBuf);
     const pSpec = spatial.isNeutralSolo ? undefined : spatial.players[k];
-    const jitter = pSpec ? computeDeterministicStrokeJitterSec(track.id, k, stepSeed, synthCount) : 0;
+    const jitter = pSpec ? computeDeterministicStrokeJitterSec(track.id, k, stepSeed, synthCount, instId) : 0;
     const trigK = Math.max(0, triggerSec + (pSpec ? pSpec.baseDelaySec + jitter : 0));
     const pitchMul = pSpec?.pitchMul ?? 1.0;
 
@@ -119,8 +123,8 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
       isStudioCalibrated: isCalibrated, forceShort80ms, strokeBaseGain: stroke.baseGain ?? 1.0, playerIdx: k, playerSpec: pSpec,
     });
 
-    if (rimStroke) {
-      const rimBuf = await decodeSampleForOffline(offlineCtx, selectSquadPlayerFile(rimStroke.files, rimBaseIdx, k), sampleCache);
+    if (rimStroke && rimIndices) {
+      const rimBuf = await decodeSampleForOffline(offlineCtx, rimStroke.files[rimIndices[k] ?? rimIndices[0]] || rimStroke.files[0], sampleCache);
       if (rimBuf) {
         scheduleOfflineStrokeHit(offlineCtx, graph, track, instId, rimStroke.symbol, rimBuf, basePitch * pitchMul, trigK, finalStepVol * COMPOSITE_RIM_LAYER_VELOCITY_SCALE, decayNorm, totalDurationSec, {
           isStudioCalibrated: isCalibrated, strokeBaseGain: rimStroke.baseGain ?? 1.0, playerIdx: k, playerSpec: pSpec,

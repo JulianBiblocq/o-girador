@@ -26,7 +26,7 @@ export const DEFAULT_MASTER_BUS_DSP_PARAMS: MasterBusDspParams = {
   bassMonoEnabled: true, bassMonoCrossoverHz: 110,
   transientAttackDb: 0, transientSustainDb: 0,
   duckingDb: 0,
-  compressorEnabled: true, scHpfHz: 95, thresholdDb: -6, ratio: 2,
+  compressorEnabled: true, scHpfHz: 130, thresholdDb: -6, ratio: 2,
   attackMs: 15, releaseMs: 150, kneeDb: 6, makeupDb: 0, compMixPct: 100,
   softClipEnabled: true, softClipDriveDb: 1.2, ceilingDb: -0.3,
   ecoBypassAesthetic: false,

@@ -14,7 +14,7 @@ export const BUS_COMPRESSOR_ARCHETYPES: Readonly<Record<BusCompressorPresetArche
   /** Cola Alfaias */
   alfaias_glue: { thresholdDb: -16, ratio: 3.0, attackMs: 22, releaseMs: 110, kneeDb: 6, sidechainHpfHz: 115, makeupDb: 1.5, mixPct: 75 },
   /** Tapete Caixas */
-  caixas_carpet: { thresholdDb: -18, ratio: 4.0, attackMs: 8, releaseMs: 65, kneeDb: 6, sidechainHpfHz: 140, makeupDb: 2.0, mixPct: 75 },
+  caixas_carpet: { thresholdDb: -18, ratio: 4.0, attackMs: 8, releaseMs: 45, kneeDb: 6, sidechainHpfHz: 220, makeupDb: 2.0, mixPct: 75 },
   /** Controle Sementes */
   sementes_control: { thresholdDb: -17, ratio: 3.5, attackMs: 3, releaseMs: 50, kneeDb: 6, sidechainHpfHz: 220, makeupDb: 1.0, mixPct: 70 },
   /** Presença Toada */

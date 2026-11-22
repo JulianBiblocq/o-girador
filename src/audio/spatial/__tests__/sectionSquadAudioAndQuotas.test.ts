@@ -41,9 +41,10 @@ describe('Escouades Spatiales par Piste — Quotas, Round-Robin & Barulho Décor
     expect(full.synthesizedCount).toBe(5);
     expect(eco.synthesizedCount).toBe(2);
     expect(track.sectionPlayers).toHaveLength(5);
-    expect(full.energyComp).toBeGreaterThan(0.45);
+    expect(full.energyComp).toBeCloseTo(1 / Math.sqrt(5), 4);
     expect(full.energyComp).toBeLessThan(0.85);
     expect(new Set(full.players.map((p) => p.detuneCents)).size).toBe(5);
+    expect(full.players.every((p) => Math.abs(p.detuneCents) <= 2.5)).toBe(true);
 
     const agbe = resolveTrackSectionSpatialProfile(
       { sectionPlayers: [0, 1, 2, 3].map((k) => ({ id: `a${k}`, x: 25 + k * 15, y: 98 })) },
