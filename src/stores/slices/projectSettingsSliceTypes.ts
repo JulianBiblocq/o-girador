@@ -1,6 +1,7 @@
 import { Language, PresetMetadata } from '../../types';
 import { EcoConfig } from '../helpers/ecoModeDetector';
 import { SelectedStepRange } from './clipboardSliceTypes';
+import type { SubscriptionModalReason, VisitorModalReason } from '../../utils/userAccessPolicy';
 
 export interface EditorDeepLinkTarget {
   trackId: number;
@@ -31,8 +32,11 @@ export interface ProjectSettingsSlice {
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
   hasFullPlaybackAccess: boolean;
+  isUserTrialExpired: boolean;
   isVisitorAuthModalOpen: boolean;
+  visitorAuthModalReason: VisitorModalReason;
   isSubscriptionModalOpen: boolean;
+  subscriptionModalReason: SubscriptionModalReason;
   isMobileStudioMode: boolean;
   mobileViewMode: 'danse' | 'percussion' | 'editeur' | 'complet';
   isTouchLocked: boolean;
@@ -44,9 +48,7 @@ export interface ProjectSettingsSlice {
   setRodaSweepMode: (mode: 'sweep6h' | 'fullMeasure') => void;
   toggleRodaSweepMode: () => void;
   handleExtractLyrics: () => void;
-  /** Palier 1 : bascule l'affichage allege. La desactivation restaure 100 % de l'audio et du visuel. */
   toggleEcoMode: () => void;
-  /** Palier 2 : bascule groupee `disableFx` + `disableEq` (active le Palier 1 si necessaire). */
   toggleStrictAudioEco: () => void;
   setEditingTrackId: (id: number | null) => void;
   openInstrumentDetailAt: (payload: EditorDeepLinkTarget) => void;
@@ -62,13 +64,14 @@ export interface ProjectSettingsSlice {
   toggleTracksCollapsed: () => void;
   setIsPreviewMode: (val: boolean) => void;
   setHasFullPlaybackAccess: (val: boolean) => void;
+  setIsUserTrialExpired: (val: boolean) => void;
   setIsMobileStudioMode: (val: boolean) => void;
   toggleMobileStudioMode: () => void;
   setMobileViewMode: (mode: 'danse' | 'percussion' | 'editeur' | 'complet') => void;
   setIsTouchLocked: (val: boolean) => void;
   toggleTouchLock: () => void;
-  openVisitorAuthModal: () => void;
+  openVisitorAuthModal: (reason?: VisitorModalReason) => void;
   closeVisitorAuthModal: () => void;
-  openSubscriptionModal: () => void;
+  openSubscriptionModal: (reason?: SubscriptionModalReason) => void;
   closeSubscriptionModal: () => void;
 }

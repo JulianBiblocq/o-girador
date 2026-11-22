@@ -57,7 +57,8 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
     const L = mMax - mMin + 1;
     const maxTargetIdx = mMax + L;
 
-    if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
+    if (state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
+      state.openSubscriptionModal(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
       notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
       return;
     }

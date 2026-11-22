@@ -29,7 +29,7 @@ export function useDeepLinkLoader({ audio, sequencer, authLoading }: UseDeepLink
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.has('trainingId') || searchParams.has('tocarJunto')) return;
 
-    const loadPresetId = searchParams.get('loadPreset');
+    const loadPresetId = searchParams.get('loadPreset') || searchParams.get('presetId');
     const loadSectionId = searchParams.get('loadSection');
     const editPatternId = searchParams.get('editPatternId');
     const loadToadaId = searchParams.get('loadToadaId');

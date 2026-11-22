@@ -37,9 +37,9 @@ export const TimelineInsertMeasuresModal: React.FC<TimelineInsertMeasuresModalPr
     if (!isNaN(amount) && amount > 0) {
       const idx = targetIdx ?? totalMeasures;
       const newTotal = Math.min(64, totalMeasures + amount);
-      const hasFullPlayback = useSequencerStore.getState().hasFullPlaybackAccess;
-      if (newTotal > 30 && !hasAccess('mestre') && !hasFullPlayback) {
-        useSequencerStore.getState().openSubscriptionModal();
+      const st = useSequencerStore.getState();
+      if (st.maxMeasuresAllowed !== null && newTotal > st.maxMeasuresAllowed) {
+        st.openSubscriptionModal(st.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
       } else {
         onInsertMeasure?.(idx, newTotal - totalMeasures);
       }

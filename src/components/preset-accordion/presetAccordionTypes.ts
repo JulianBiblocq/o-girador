@@ -1,13 +1,11 @@
-/**
- * Types pour le sélecteur d'accordéon de presets (< 35 lignes).
- */
+import type { CatalogAccordionPresetItem } from './presetAccordionTiers';
 
 export interface PresetAccordionSelectorProps {
   lang: 'pt' | 'fr';
   activePreset: string;
   currentSongTitle?: string;
-  publicCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean; ownerId?: string; audioUrl?: string | null }>;
-  privateCloudPresets: Array<{ id: string; name: string; visibility?: string; isDraft?: boolean; ownerId?: string; audioUrl?: string | null }>;
+  publicCloudPresets: CatalogAccordionPresetItem[];
+  privateCloudPresets: CatalogAccordionPresetItem[];
   localPresets?: string[];
   isCloudPresetsLoading: boolean;
   showGroupCatalogue: boolean;
@@ -19,6 +17,7 @@ export interface PresetAccordionSelectorProps {
   canEdit?: boolean;
   canToggleDraftPreset?: (preset: { id: string; ownerId?: string }) => boolean;
   onToggleDraft?: (presetId: string, currentDraft: boolean) => Promise<void> | void;
+  onToggleShowcase?: (presetId: string, currentShowcase: boolean) => Promise<void> | void;
   onSelectPreset: (presetValue: string, cloudId?: string) => void;
   className?: string;
 }

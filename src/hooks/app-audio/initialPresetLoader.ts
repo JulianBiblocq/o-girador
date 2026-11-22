@@ -1,10 +1,19 @@
 import LZString from 'lz-string';
-import { ASSETS_BASE_URL, instrumentsConfig } from '../../data';
+import { ASSETS_BASE_URL } from '../../data';
 import { getDefaultGroupPresetId } from '../../cloudGroups';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { resolveEffectiveStartupGroupId } from '../../services/cloud-common/cloudTenantAuthGuard';
 
-export async function tryLoadInitialPresetFromUrlOrHash(audio: any, sequencer: any): Promise<boolean> {
+let coldVisitorFallbackActive = false;
+export function wasColdVisitorFallbackLoaded(): boolean {
+  return coldVisitorFallbackActive;
+}
+export function clearColdVisitorFallbackFlag(): void {
+  coldVisitorFallbackActive = false;
+}
+
+export async function tryLoadInitialPresetFromUrlOrHash(audio: any, _sequencer: any): Promise<boolean> {
   const urlParams = new URLSearchParams(window.location.search);
   const fileUrl = urlParams.get('file');
   if (fileUrl) {
@@ -31,12 +40,12 @@ export async function tryLoadInitialPresetFromUrlOrHash(audio: any, sequencer: a
     }
   }
 
-  if (urlParams.has('trainingId') || urlParams.has('loadPreset') || urlParams.has('loadSection') || urlParams.has('editPatternId')) {
+  if (urlParams.has('trainingId') || urlParams.has('loadPreset') || urlParams.has('presetId') || urlParams.has('loadSection') || urlParams.has('editPatternId')) {
     return true;
   }
 
   const hash = window.location.hash;
-  if (hash && hash.length > 1) {
+  if (hash && hash.length > 1 && hash !== '#legal') {
     try {
       const b64 = hash.substring(1);
       const decodedStr = decodeURIComponent(escape(window.atob(b64)));
@@ -54,6 +63,7 @@ export async function loadInitialPresetPipeline(
   userProfile: any,
   setPresetFiles: (files: string[]) => void
 ): Promise<void> {
+  coldVisitorFallbackActive = false;
   const loadedFromUrl = await tryLoadInitialPresetFromUrlOrHash(audio, sequencer);
   let restored = loadedFromUrl;
 
@@ -97,8 +107,7 @@ export async function loadInitialPresetPipeline(
     const files: string[] = await res.json();
     setPresetFiles(files);
     if (files.length > 0 && !restored) {
-      const isOtherGroup = Boolean(userProfile?.groupId && !userProfile.groupId.toLowerCase().includes('samambaia'));
-      const groupId = isOtherGroup ? userProfile?.groupId : 'Samambaia';
+      const groupId = resolveEffectiveStartupGroupId(userProfile?.groupId);
       if (groupId) {
         try {
           const defaultPresetId = await getDefaultGroupPresetId(groupId);
@@ -113,11 +122,13 @@ export async function loadInitialPresetPipeline(
           }
         } catch (_) {}
       }
-      audio.setActivePresetName(files[0]);
-      audio.loadFallbackPreset(files[0]);
+      coldVisitorFallbackActive = !groupId;
+      const defaultEmbedded = files.includes('Vou vadiar carnaval.json') ? 'Vou vadiar carnaval.json' : files[0];
+      audio.setActivePresetName(defaultEmbedded);
+      await audio.loadFallbackPreset(defaultEmbedded);
     }
-  } catch (_) {}
-  finally {
+  } catch (_) {
+  } finally {
     vocalEngineService.rehydrateVocalBuffers(useSequencerStore.getState().tracks).catch(() => {});
   }
 }

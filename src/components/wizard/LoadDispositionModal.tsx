@@ -49,7 +49,7 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
   const userUid = userProfile?.uid || currentUser?.uid || 'local';
   const groupId = userProfile?.groupId ? String(userProfile.groupId).trim().toLowerCase() : null;
   const isMestreOrAdmin = isAdmin || userProfile?.role === 'mestre' || (userProfile as any)?.dbRole === 'mestre';
-  const isSamambaiaMember = isLegacySamambaiaGroup(groupId) || (!groupId && Boolean((userProfile as any)?.canWriteSequenciador));
+  const isSamambaiaMember = isLegacySamambaiaGroup(groupId) || (!groupId && userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1');
 
   const filteredDispositions = useFilteredDispositions({
     dispositions, activeTab, userUid, groupId, isSamambaiaMember,

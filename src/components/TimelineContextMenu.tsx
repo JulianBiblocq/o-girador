@@ -52,8 +52,7 @@ export const TimelineContextMenu: React.FC = () => {
   const inst = targetTrack ? instrumentsConfig[targetTrack.instrumentIdx] : null;
   const cardInst = effOwner ? instrumentsConfig[effOwner.instrumentIdx] : inst;
   const trackTitle = targetTrack?.customName || inst?.name || (lang === 'fr' ? 'Piste' : 'Faixa');
-  const isSlave = Boolean(targetTrack?.linkedToTrackId && !targetTrack.isLinkFolder && !targetTrack.isLinkMaster);
-  const isOverridden = isSlave && targetTrack?.patternOverrides?.[menuData.measureIdx] !== undefined;
+  const isOverridden = false;
   const hasMulti = selectedCells.length > 1;
   const isToada = Boolean(targetTrack && (isToadaBus(targetTrack) || isToadaChild(targetTrack, tracks) || instrumentsConfig[targetTrack.instrumentIdx]?.id === 'puxador' || instrumentsConfig[targetTrack.instrumentIdx]?.id === 'coro' || String(targetTrack.id) === 'toada'));
   const hasClipEntries = Boolean(clipboard && clipboard.entries.length > 0);

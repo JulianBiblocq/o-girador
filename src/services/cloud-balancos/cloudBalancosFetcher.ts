@@ -1,8 +1,8 @@
-
 import { db } from '../../firebase/config';
 import { collection, getDocs, query, limit, where, orderBy } from 'firebase/firestore';
 import { BalancoPreset } from '../../types';
 import { resolveCloudGroupMestreId, isSamambaiaGroupHelper } from '../cloud-common/cloudMestreResolver';
+import { buildTenantGroupQueryVariants, isTenantScopedDocAuthorized } from '../cloud-common/cloudTenantAuthGuard';
 
 export const CLOUD_BALANCOS_COLLECTION = 'balancos';
 
@@ -30,16 +30,10 @@ export async function fetchCloudBalancos(
       promises.push(getDocs(query(balancosRef, where('ownerId', '==', userUid), limit(100))));
       promises.push(getDocs(query(balancosRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
 
-      const effectiveGroup = groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null);
-      if (effectiveGroup) {
-        const norm = effectiveGroup.trim().toLowerCase();
-        const isSam = norm.includes('samambaia') || norm.includes('sammbia') || canWriteSequenciador;
-        const groupIdVariants = Array.from(new Set([
-          effectiveGroup, norm, ...(isSam ? ['samambaia', 'Samambaia', 'SAMAMBAIA'] : [effectiveGroup, norm])
-        ]));
-        promises.push(getDocs(query(balancosRef, where('groupId', 'in', groupIdVariants), limit(100))));
-
-        if (isSam) {
+      const { variants, includeLegacySamambaiaOwners } = buildTenantGroupQueryVariants(groupId, isSamambaiaGroup);
+      if (variants.length > 0) {
+        promises.push(getDocs(query(balancosRef, where('groupId', 'in', variants), limit(100))));
+        if (includeLegacySamambaiaOwners) {
           promises.push(getDocs(query(balancosRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
         }
       }
@@ -59,27 +53,7 @@ export async function fetchCloudBalancos(
 
     uniqueDocs.forEach((docSnap) => {
       const data = docSnap.data();
-      const isOwner = data.ownerId === userUid;
-      const isAdminGlobal = data.visibility === 'admin_global';
-      const isPublic = data.visibility === 'public';
-      const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase().trim();
-      const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase().trim();
-
-      const isSamambaiaBalanco =
-        dataGroupIdNorm.includes('samambaia') ||
-        dataGroupIdNorm.includes('sammbia') ||
-        data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-        data.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2';
-
-      const matchesGroup = Boolean(
-        (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
-        ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && isSamambaiaBalanco)
-      );
-      const matchesMestre = myGroupMestreId && data.ownerId === myGroupMestreId;
-      const isMemberOrEleve = userRole === 'eleve' || userRole === 'membre' || userRole === 'mestre' || userRole === 'admin';
-      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup || isSamambaiaBalanco);
-
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre || ((isSamambaiaGroup || isMemberOrEleve) && isSamambaiaBalanco)) {
+      if (isTenantScopedDocAuthorized({ data, userUid, userRole, myGroupMestreId, groupId, isSamambaiaGroup })) {
         balancos.push({
           id: docSnap.id,
           name: data.name,
@@ -92,7 +66,7 @@ export async function fetchCloudBalancos(
           offsets: data.offsets || [0, 8, -29, -58],
           isFactory: false,
           createdAt: data.createdAt,
-          updatedAt: data.updatedAt
+          updatedAt: data.updatedAt,
         });
       }
     });
@@ -100,7 +74,7 @@ export async function fetchCloudBalancos(
     balancos.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   } catch (err) {
     if (!(err && ((err as any).code === 'permission-denied' || String(err).includes('permission')))) {
-      console.error("Erreur lors de la récupération des balanços cloud:", err);
+      console.error('Erreur lors de la récupération des balanços cloud:', err);
     }
   }
 

@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { X, GraduationCap } from 'lucide-react';
-import { XiloLightning } from '../XiloIcons';
+import { XiloLightning, XiloLock } from '../XiloIcons';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 
 export type SpeedTrainerTab = 'speedTrainer' | 'mestreChallenges';
 
@@ -53,31 +54,33 @@ export const SpeedTrainerHeader: React.FC<SpeedTrainerHeaderProps> = ({
         </button>
       </div>
 
-      {isMestre && (
-        <div className="flex border-b-2 border-[#1a1a1a] bg-[#ebe2cb] px-3 pt-2 gap-2 overflow-x-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab('speedTrainer')}
-            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'speedTrainer' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
-            }`}
-          >
-            <XiloLightning size={14} />
-            {t('speedTrainerTabSpeed')}
-          </button>
+      <div className="flex border-b-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-surface)] px-3 pt-2 gap-2 overflow-x-auto shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('speedTrainer')}
+          className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[var(--cordel-border-strong)] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'speedTrainer' ? 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] -mb-[2px] pb-2' : 'bg-[var(--cordel-surface)] text-[var(--cordel-text-muted)] hover:text-[var(--cordel-text)]'
+          }`}
+        >
+          <XiloLightning size={14} />
+          {t('speedTrainerTabSpeed')}
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('mestreChallenges')}
-            className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[#1a1a1a] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeTab === 'mestreChallenges' ? 'bg-[#f4ecd8] text-[#1a1a1a] -mb-[2px] pb-2 shadow-[0px_-2px_0px_#1a1a1a]' : 'bg-[#ebe2cb] text-[#666] hover:text-[#1a1a1a] hover:bg-[#dfd5bc]'
-            }`}
-          >
-            <GraduationCap size={14} />
-            {t('speedTrainerTabMestreChallenges')}
-          </button>
-        </div>
-      )}
+        <button
+          type="button"
+          onClick={() => {
+            if (!isMestre && !guardFeatureWithModal('speed_trainer_create')) return;
+            setActiveTab('mestreChallenges');
+          }}
+          className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase tracking-wide border-t-2 border-x-2 border-[var(--cordel-border-strong)] rounded-t-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            activeTab === 'mestreChallenges' ? 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] -mb-[2px] pb-2' : 'bg-[var(--cordel-surface)] text-[var(--cordel-text-muted)] hover:text-[var(--cordel-text)]'
+          }`}
+        >
+          <GraduationCap size={14} />
+          <span>{t('speedTrainerTabMestreChallenges')}</span>
+          {!isMestre && <XiloLock size={12} className="shrink-0 opacity-70" />}
+        </button>
+      </div>
 
       {isActive && activeTab === 'speedTrainer' && (
         <div className="bg-amber-500/15 border-b-2 border-amber-600/50 p-2.5 px-4 flex items-center justify-between text-xs font-bold text-amber-900 shrink-0">

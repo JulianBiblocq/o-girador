@@ -6,6 +6,7 @@ import { useSequencerStore } from '../../stores/useSequencerStore';
 import { SongSection, CatalogVisibility } from '../../types';
 import { saveSectionToCloud, fetchCloudSections } from '../../cloudSections';
 import { useCloudAudioBounce } from '../../hooks/useCloudAudioBounce';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 import { extractSectionData } from './sectionDataExtractor';
 
 interface UseSaveSectionParams {
@@ -25,8 +26,8 @@ export function useSaveSectionAction({ section, onClose, lang }: UseSaveSectionP
 
   const handleSave = async () => {
     if (!name.trim()) return;
-    if (!userProfile) {
-      useSequencerStore.getState().openVisitorAuthModal();
+    if (!guardFeatureWithModal('cloud_library', userProfile) || !userProfile) {
+      onClose();
       return;
     }
     setIsSaving(true);

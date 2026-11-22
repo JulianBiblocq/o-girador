@@ -29,7 +29,8 @@ export const duplicateSectionBlockState = (
   const totalNewMeasures = copiesCount * blockSize;
   const newTotalMeasures = Math.max(state.totalMeasures, targetIdx + totalNewMeasures);
 
-  if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && newTotalMeasures > (state.maxMeasuresAllowed ?? Infinity)) {
+  if (state.maxMeasuresAllowed !== null && newTotalMeasures > (state.maxMeasuresAllowed ?? Infinity)) {
+    state.openSubscriptionModal?.(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
     notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
     return state;
   }

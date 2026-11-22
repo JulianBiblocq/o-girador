@@ -2,6 +2,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { SongSection } from '../../types';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 import { useSaveSectionAction } from './useSaveSectionAction';
 
 interface SaveSectionModalProps {
@@ -23,6 +24,12 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
     busy,
     userProfile,
   } = useSaveSectionAction({ section, onClose, lang });
+
+  React.useEffect(() => {
+    if (!guardFeatureWithModal('cloud_library', userProfile)) {
+      onClose();
+    }
+  }, [userProfile, onClose]);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>

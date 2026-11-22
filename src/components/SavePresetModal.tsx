@@ -17,26 +17,11 @@ interface SavePresetModalProps {
 export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
   const { onClose, lang } = props;
   const {
-    name,
-    setName,
-    isSaving,
-    autoGenerateAudio,
-    setAutoGenerateAudio,
-    isBouncingCloud,
-    handleSave,
-    userProfile,
-    groupDisplayName,
-    progress,
-    stepLabel,
-    isExistingPreset,
-    isLocked,
-    isMestre,
-    canUpdate,
-    isForeignActivePreset,
-    hasMestreNameConflict,
-    isDraft,
-    setIsDraft,
-    isSavedOnCloud,
+    name, setName, isSaving, autoGenerateAudio, setAutoGenerateAudio, isBouncingCloud,
+    handleSave, userProfile, groupDisplayName, progress, stepLabel, isExistingPreset,
+    isLocked, isMestre, canUpdate, isForeignActivePreset, hasMestreNameConflict,
+    isDraft, setIsDraft, isSavedOnCloud, isSuperAdmin, isShowcase, setIsShowcase,
+    keepInGroup, setKeepInGroup, canPublishToGroup, canUploadAudio, ownedPrivateCount, maxPrivateCloudPresets,
   } = useSavePresetToCloud(props);
 
   const busy = isSaving || isBouncingCloud;
@@ -74,14 +59,13 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = (props) => {
         )}
 
         <SavePresetFields
-          name={name}
-          setName={setName}
-          disabled={busy}
-          groupDisplayName={groupDisplayName}
-          autoGenerateAudio={autoGenerateAudio}
-          setAutoGenerateAudio={setAutoGenerateAudio}
-          isDraft={isDraft}
-          setIsDraft={setIsDraft}
+          name={name} setName={setName} disabled={busy} groupDisplayName={groupDisplayName}
+          canPublishToGroup={canPublishToGroup} canUploadAudio={canUploadAudio}
+          autoGenerateAudio={autoGenerateAudio} setAutoGenerateAudio={setAutoGenerateAudio}
+          isDraft={isDraft} setIsDraft={setIsDraft} isSuperAdmin={isSuperAdmin}
+          isShowcase={isShowcase} setIsShowcase={setIsShowcase}
+          keepInGroup={keepInGroup} setKeepInGroup={setKeepInGroup}
+          ownedPrivateCount={ownedPrivateCount} maxPrivateCloudPresets={maxPrivateCloudPresets}
           lang={lang}
         />
 

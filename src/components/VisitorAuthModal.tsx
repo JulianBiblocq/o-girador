@@ -1,17 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSequencerStore } from '../stores/useSequencerStore';
+import { getVisitorModalCopy } from '../utils/subscriptionModalCopy';
+import type { VisitorModalReason } from '../utils/userAccessPolicy';
 import { LegalNoticeModal } from './legal/LegalNoticeModal';
+import { XiloClose, XiloInfo } from './XiloIcons';
 
 interface VisitorAuthModalProps {
   onClose: () => void;
   lang: 'fr' | 'pt';
-  isMandatory?: boolean;
+  reason?: VisitorModalReason;
 }
 
-export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lang, isMandatory = false }) => {
+export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({
+  onClose,
+  lang,
+  reason = 'default',
+}) => {
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const { signInWithGoogle } = useAuth();
+  const setLang = useSequencerStore((s) => s.setLang);
+  const copy = getVisitorModalCopy(lang, reason);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isLegalOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [onClose, isLegalOpen]);
 
   const handleSignIn = async () => {
     await signInWithGoogle();
@@ -21,100 +43,92 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
   const modalRoot = (typeof document !== 'undefined' && (document.getElementById('modal-root') || document.body)) || null;
 
   const content = (
-    <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-3 sm:p-4 overflow-y-auto" 
-      onClick={!isMandatory ? onClose : undefined}
+    <div
+      data-wizard-submodal="true"
+      data-testid="visitor-auth-modal"
+      className="fixed inset-0 bg-black/65 backdrop-blur-xs z-[100050] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+      onClick={onClose}
     >
-      <div 
-        className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-5 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_rgba(0,0,0,1)] sm:shadow-[12px_12px_0px_rgba(0,0,0,1)] flex flex-col gap-4 sm:gap-6 relative my-auto max-h-[95dvh] overflow-y-auto" 
-        onClick={e => e.stopPropagation()}
+      <div
+        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border-strong)] p-5 sm:p-7 max-w-md w-full shadow-[8px_8px_0px_var(--cordel-shadow-color)] flex flex-col gap-4 relative my-auto max-h-[95dvh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
       >
-        {!isMandatory && (
-          <button 
-            onClick={onClose} 
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 text-2xl font-bold text-[#1a1a1a] hover:text-[#8b2a1a] cursor-pointer"
+        <div className="flex items-center justify-between gap-2 border-b-2 border-[var(--cordel-border)] pb-2.5">
+          <div className="inline-flex items-center border-2 border-[var(--cordel-border-strong)] font-mono text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => setLang('fr')}
+              className={`px-2 py-0.5 cursor-pointer transition-colors ${lang === 'fr' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)]'}`}
+            >
+              FR
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang('pt')}
+              className={`px-2 py-0.5 border-l border-[var(--cordel-border)] cursor-pointer transition-colors ${lang === 'pt' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)]'}`}
+            >
+              BR
+            </button>
+          </div>
+          <button
+            type="button"
+            data-testid="visitor-auth-close-btn"
+            aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center border-2 border-[var(--cordel-border)] bg-[var(--cordel-surface)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] transition-colors cursor-pointer"
           >
-            ×
+            <XiloClose size={15} />
           </button>
-        )}
-        
-        <div className="text-center flex flex-col gap-1 sm:gap-2 mt-2 sm:mt-4">
-          <span className="text-4xl sm:text-5xl mb-1 sm:mb-2"></span>
-          <h2 className="font-cactus text-2xl sm:text-3xl font-black text-[#1a1a1a] uppercase leading-tight sm:leading-none">
-            {lang === 'fr' ? 'La suite est réservée aux membres !' : 'O resto é reservado para membros!'}
-          </h2>
         </div>
-        
-        <div className="bg-[#eaddcf] border-2 border-[#1a1a1a] p-3 sm:p-4 text-[#1a1a1a]">
-          <p className="font-bold mb-2 sm:mb-3 text-center text-sm sm:text-base">
-            {lang === 'fr' 
-              ? 'Créez un compte gratuit pour :' 
-              : 'Crie uma conta gratuita para:'}
-          </p>
-          <ul className="text-xs sm:text-sm flex flex-col gap-2 text-left font-semibold">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5"></span> {lang === 'fr' ? 'Écouter ce morceau en entier' : 'Ouvir esta música na íntegra'}
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5"></span> {lang === 'fr' ? 'Tester le séquenceur et créer vos rythmes' : 'Testar o sequenciador e criar seus ritmos'}
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5"></span> {lang === 'fr' ? 'Ajouter votre groupe sur la carte du monde' : 'Adicionar seu grupo no mapa mundial'}
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5"></span> {lang === 'fr' ? 'Découvrir nos applications de gestion' : 'Descobrir nossos aplicativos de gestão'}
-            </li>
+
+        <h2 className="font-cactus text-2xl sm:text-3xl font-black text-[var(--cordel-text)] uppercase leading-tight text-center">
+          {copy.title}
+        </h2>
+
+        {copy.contextBanner && (
+          <div className="p-2.5 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] text-xs font-semibold flex items-start gap-2 leading-snug">
+            <XiloInfo size={16} className="shrink-0 mt-0.5 text-[var(--cordel-accent-readable)]" />
+            <span>{copy.contextBanner}</span>
+          </div>
+        )}
+
+        <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] p-3.5 sm:p-4 text-[var(--cordel-text)]">
+          <p className="font-bold mb-2.5 text-sm font-cactus uppercase tracking-wide">{copy.intro}</p>
+          <ul className="text-xs sm:text-sm flex flex-col gap-2.5 text-left font-semibold leading-snug">
+            {copy.benefits.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <svg viewBox="0 0 12 12" className="w-3 h-3 shrink-0 mt-1 text-[var(--cordel-accent-readable)]" fill="currentColor" aria-hidden="true">
+                  <path d="M6 1 L11 6 L6 11 L1 6 Z" />
+                </svg>
+                <span>{item}</span>
+              </li>
+            ))}
           </ul>
         </div>
 
-        <div className="flex flex-col items-center gap-2 mt-1 sm:mt-2">
+        <div className="flex flex-col items-center gap-2 mt-1">
           <button
+            type="button"
             onClick={handleSignIn}
-            className="w-full py-3.5 sm:py-4 bg-[#8b2a1a] text-[#f4ecd8] font-black text-base sm:text-lg tracking-widest uppercase text-center border-2 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-[#6b1e11] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
+            className="w-full py-3.5 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] font-cactus font-bold text-sm sm:text-base tracking-wider uppercase text-center border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0px_var(--cordel-shadow-color)] hover:bg-[var(--cordel-accent)] transition-all cursor-pointer"
           >
-            {lang === 'fr' ? 'Se connecter' : 'Conectar-se'}
+            {copy.cta}
           </button>
-          <p className="text-[11px] text-[#1a1a1a]/70 text-center leading-tight mt-1 font-serif">
-            {lang === 'fr' ? (
-              <>
-                En vous connectant, vous acceptez nos{' '}
-                <a
-                  href="#legal"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsLegalOpen(true);
-                  }}
-                  className="underline hover:text-[#8b2a1a] font-semibold cursor-pointer"
-                >
-                  CGU et Politique de Confidentialité
-                </a>.
-              </>
-            ) : (
-              <>
-                Ao entrar, você concorda com nossos{' '}
-                <a
-                  href="#legal"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsLegalOpen(true);
-                  }}
-                  className="underline hover:text-[#8b2a1a] font-semibold cursor-pointer"
-                >
-                  Termos de Uso e Política de Privacidade
-                </a>.
-              </>
-            )}
+          <p className="text-[11px] text-[var(--cordel-text-muted)] text-center leading-tight mt-1 font-serif">
+            {lang === 'fr' ? 'En vous connectant, vous acceptez nos ' : 'Ao entrar, você concorda com nossos '}
+            <a
+              href="#legal"
+              onClick={(e) => { e.preventDefault(); setIsLegalOpen(true); }}
+              className="underline hover:text-[var(--cordel-accent-readable)] font-semibold cursor-pointer"
+            >
+              {lang === 'fr' ? 'CGU et Politique de Confidentialité' : 'Termos de Uso e Política de Privacidade'}
+            </a>.
           </p>
         </div>
       </div>
-      <LegalNoticeModal
-        isOpen={isLegalOpen}
-        onClose={() => setIsLegalOpen(false)}
-        lang={lang}
-      />
+      <LegalNoticeModal isOpen={isLegalOpen} onClose={() => setIsLegalOpen(false)} lang={lang} />
     </div>
   );
 
-  if (!modalRoot) return content;
-  return createPortal(content, modalRoot);
+  return modalRoot ? createPortal(content, modalRoot) : content;
 };

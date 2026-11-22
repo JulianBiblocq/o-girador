@@ -79,8 +79,10 @@ export async function syncOfflineDraftsIfOnline(): Promise<number> {
         undefined,
         undefined,
         undefined,
+        false,
         true,
-        true
+        undefined,
+        { skipVocalUpload: true }
       );
       syncedCount++;
     } catch (_) {

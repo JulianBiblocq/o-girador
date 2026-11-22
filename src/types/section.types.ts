@@ -77,6 +77,7 @@ export interface CloudPreset {
   isFavorite?: boolean;
   audioUrl?: string | null;
   isDraft?: boolean;
+  isShowcase?: boolean;
   updatedAt?: number | null;
   alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
 }

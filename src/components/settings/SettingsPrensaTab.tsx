@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, Printer, FileText } from 'lucide-react';
 import { exportTablatureFile, printTablature, printLegendOnly } from '../../utils/exportTablature';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 import { SettingsPrensaMetadata } from './SettingsPrensaMetadata';
 import { SettingsPrensaPreview } from './SettingsPrensaPreview';
 import { usePrensaGenerator } from './usePrensaGenerator';
@@ -89,7 +90,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => exportTablatureFile(liveText, selectedAnnexTracks, undefined, undefined, metadata)}
+                onClick={() => { if (guardFeatureWithModal('pdf_press')) exportTablatureFile(liveText, selectedAnnexTracks, undefined, undefined, metadata); }}
                 disabled={!liveText}
                 className="px-3 py-2 text-xs bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] font-cactus font-bold uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
@@ -98,7 +99,7 @@ export const SettingsPrensaTab: React.FC<SettingsPrensaTabProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => printTablature(liveText, selectedAnnexTracks, undefined, undefined, metadata, undefined, undefined, undefined, bodyFontSize)}
+                onClick={() => { if (guardFeatureWithModal('pdf_press')) printTablature(liveText, selectedAnnexTracks, undefined, undefined, metadata, undefined, undefined, undefined, bodyFontSize); }}
                 disabled={!liveText}
                 className="px-3 py-2 text-xs bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-accent)] border-2 border-[var(--cordel-border-strong)] font-cactus font-bold uppercase cursor-pointer shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >

@@ -4,6 +4,7 @@ import { useWizardStore } from '../../../stores/useWizardStore';
 import { useDispositionStore } from '../../../stores/useDispositionStore';
 import { DispositionVisibility, PlacedInstrumentConfig } from '../../../types/disposition.types';
 import { isLegacySamambaiaGroup } from '../../../utils/tenantGroupHelpers';
+import { guardFeatureWithModal } from '../../../utils/cloudWriteGuard';
 
 interface UseSaveDispositionParams {
   lang: 'fr' | 'pt';
@@ -35,6 +36,10 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardFeatureWithModal('cloud_library', userProfile, Boolean(currentUser || userProfile?.uid))) {
+      onClose();
+      return;
+    }
     const trimmedName = name.trim();
     if (!trimmedName) {
       setErrorMsg(lang === 'fr' ? 'Veuillez donner un nom à la disposition.' : 'Por favor, dê um nome à disposição.');
@@ -60,8 +65,8 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
       const canWrite = Boolean((userProfile as any)?.canWriteSequenciador);
       const rawGroupId = userProfile?.groupId ? String(userProfile.groupId).trim() : null;
       const groupId = rawGroupId
-        ? (isLegacySamambaiaGroup(rawGroupId) ? 'samambaia' : rawGroupId)
-        : (canWrite ? 'samambaia' : null);
+        ? (isLegacySamambaiaGroup(rawGroupId) ? 'samambaia' : rawGroupId.toLowerCase())
+        : null;
 
       await addDisposition(
         {

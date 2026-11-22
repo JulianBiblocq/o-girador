@@ -55,8 +55,10 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => 
   const setEditingTrackId = useSequencerStore((state) => state.setEditingTrackId);
   const tempRecording = useAudioStore((state) => state.tempRecording);
   const isVisitorAuthModalOpen = useSequencerStore((state) => state.isVisitorAuthModalOpen);
+  const visitorAuthModalReason = useSequencerStore((state) => state.visitorAuthModalReason);
   const closeVisitorAuthModal = useSequencerStore((state) => state.closeVisitorAuthModal);
   const isSubscriptionModalOpen = useSequencerStore((state) => state.isSubscriptionModalOpen);
+  const subscriptionModalReason = useSequencerStore((state) => state.subscriptionModalReason);
   const closeSubscriptionModal = useSequencerStore((state) => state.closeSubscriptionModal);
 
   const modalRoot = document.getElementById('modal-root') || document.body;
@@ -76,8 +78,12 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => 
             lang={sequencer.lang}
           />
         )}
-        {isVisitorAuthModalOpen && <VisitorAuthModal lang={sequencer.lang} onClose={closeVisitorAuthModal} />}
-        {isSubscriptionModalOpen && <SubscriptionModal lang={sequencer.lang} onClose={closeSubscriptionModal} />}
+        {isVisitorAuthModalOpen && (
+          <VisitorAuthModal lang={sequencer.lang} reason={visitorAuthModalReason} onClose={closeVisitorAuthModal} />
+        )}
+        {isSubscriptionModalOpen && (
+          <SubscriptionModal lang={sequencer.lang} reason={subscriptionModalReason} onClose={closeSubscriptionModal} />
+        )}
         {props.sectionToSave && <SaveSectionModal section={props.sectionToSave} onClose={() => props.setSectionToSave(null)} lang={sequencer.lang} />}
         {props.loadSectionInsertMeasure !== null && (
           <LoadSectionModal insertAtMeasure={props.loadSectionInsertMeasure} onClose={() => props.setLoadSectionInsertMeasure(null)} lang={sequencer.lang} />

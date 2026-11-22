@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { instrumentsConfig } from '../data';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { exportTablatureFile, printTablature, printLegendOnly } from '../utils/exportTablature';
+import { guardFeatureWithModal } from '../utils/cloudWriteGuard';
 
 interface UseAppExportTablatureParams {
   sequencer: any;
@@ -14,6 +15,7 @@ export function useAppExportTablature({ sequencer }: UseAppExportTablatureParams
   const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
 
   const handleExportTablature = useCallback(() => {
+    if (!guardFeatureWithModal('pdf_press')) return;
     const tracks = useSequencerStore.getState().tracks;
     const validTrackIds = tracks
       .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.type !== 'voice')

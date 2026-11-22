@@ -4,6 +4,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { TrainingProgram } from '../../types/trainings';
 import { generateTrainingStages } from '../../utils/trainingCalculator';
 import { fetchTrainingsByPreset } from '../../services/cloudTrainings';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
+import { resolveUserAccessPolicy } from '../../utils/userAccessPolicy';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 import { executeSaveMestreTraining, executeDeleteMestreTraining } from './mestreTrainingApiHelpers';
 
 export const useMestreTrainingLogic = (
@@ -13,10 +16,14 @@ export const useMestreTrainingLogic = (
   consolidationLaps: number, t: (key: string) => string,
   onApplySettings?: (training: TrainingProgram) => void
 ) => {
-  const { userProfile } = useAuth();
+  const { userProfile, currentUser, isAdmin } = useAuth();
   const isMestre = useMemo(() => {
-    return ['mestre', 'mestri', 'admin'].includes(userProfile?.role || '') || Boolean(userProfile?.canWriteSequenciador);
-  }, [userProfile?.role, userProfile?.canWriteSequenciador]);
+    const policy = resolveUserAccessPolicy(userProfile, {
+      hasAuthUser: Boolean(currentUser || userProfile?.uid),
+      isAdminFlag: isAdmin,
+    });
+    return policy.canCreateSpeedTrainerChallenges;
+  }, [userProfile, currentUser?.uid, isAdmin]);
 
   const defaultChallengeTitle = useMemo(() => {
     const songName = metadataToada?.trim() || '';
@@ -45,11 +52,9 @@ export const useMestreTrainingLogic = (
 
   const effectiveGroupId = useMemo(() => {
     const raw = (userProfile?.groupId || '').trim();
-    if (!raw) return 'samambaia';
-    const isSam = raw.toLowerCase().includes('samambaia') || raw.toLowerCase().includes('sammbia');
-    if (isSam) return 'samambaia';
-    return raw;
-  }, [userProfile?.groupId]);
+    if (!raw) return userProfile?.uid || '';
+    return isLegacySamambaiaGroup(raw) ? 'samambaia' : raw.toLowerCase();
+  }, [userProfile?.groupId, userProfile?.uid]);
 
   const loadTrainings = useCallback(async () => {
     if (!resolvedPresetId || !effectiveGroupId) {
@@ -106,6 +111,7 @@ export const useMestreTrainingLogic = (
 
   const handleSaveTraining = async () => {
     if (isSaving) return;
+    if (!guardFeatureWithModal('speed_trainer_create', userProfile, Boolean(currentUser || userProfile?.uid))) return;
     setIsSaving(true);
     try {
       const freshStages = generateTrainingStages(Math.min(startBpm, targetBpm), targetBpm, stagesCount, bpmStep, loopInterval, consolidationLaps);

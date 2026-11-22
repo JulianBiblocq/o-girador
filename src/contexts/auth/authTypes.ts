@@ -31,6 +31,11 @@ export interface UserProfile {
   groupId?: string;
   isSystemAdmin?: boolean;
   isPremium?: boolean;
+  subscriptionStatus?: string | null;
+  trialStartDate?: unknown;
+  trialStartDateMs?: number | null;
+  trialEndDate?: unknown;
+  trialEndDateMs?: number | null;
   lastSequenciadorMode?: 'danse' | 'percussion' | 'editeur' | 'complet';
 }
 
@@ -60,21 +65,6 @@ export const checkIsAdmin = (profile: UserProfile | null | undefined): boolean =
   );
 };
 
-export const checkHasFullPlaybackAccess = (userProfile: UserProfile | null | undefined, isAdmin?: boolean): boolean => {
-  if (!userProfile) return false;
-  const role = (userProfile.dbRole || userProfile.role || '').toLowerCase();
-  const groupId = (userProfile.groupId || '').trim().toLowerCase();
-  return Boolean(
-    isAdmin ||
-    userProfile.isSystemAdmin ||
-    userProfile.isPremium ||
-    role === 'mestre' ||
-    role === 'mestri' ||
-    role === 'admin' ||
-    role === 'super-admin' ||
-    role === 'membre' ||
-    groupId === 'samambaia' ||
-    Boolean(userProfile.groupId) ||
-    userProfile.canWriteSequenciador
-  );
+export const checkHasFullPlaybackAccess = (_userProfile?: UserProfile | null, _isAdmin?: boolean): boolean => {
+  return true;
 };

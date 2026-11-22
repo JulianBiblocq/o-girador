@@ -1,53 +1,106 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useSequencerStore } from '../stores/useSequencerStore';
+import { getSubscriptionModalCopy } from '../utils/subscriptionModalCopy';
+import type { SubscriptionModalReason } from '../utils/userAccessPolicy';
+import { XiloClose, XiloMestre } from './XiloIcons';
 
 interface SubscriptionModalProps {
   onClose: () => void;
   lang: 'fr' | 'pt';
+  reason?: SubscriptionModalReason;
 }
 
-export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, lang }) => {
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-8 max-w-md w-full shadow-[12px_12px_0px_rgba(0,0,0,1)] flex flex-col gap-6 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-2xl font-bold text-[#1a1a1a] hover:text-[#8b2a1a]">×</button>
-        
-        <div className="text-center flex flex-col gap-2">
-          <span className="text-5xl mb-2"></span>
-          <h2 className="font-cactus text-3xl font-black text-[#1a1a1a] uppercase leading-none">
-            {lang === 'fr' ? 'Limite Atteinte' : 'Limite Atingido'}
-          </h2>
-        </div>
-        
-        <div className="bg-[#eaddcf] border-2 border-[#1a1a1a] p-4 text-center font-bold text-[#1a1a1a] flex flex-col gap-2">
-          <p>
-            {lang === 'fr' 
-              ? 'Vous avez atteint la limite de 30 mesures de la version gratuite.' 
-              : 'Você atingiu o limite de 30 compassos da versão gratuita.'}
-          </p>
-          <p className="text-[#8b2a1a]">
-            {lang === 'fr'
-              ? 'Pour composer des morceaux complets sans limite de taille, devenez Mestre !'
-              : 'Para compor músicas completas sem limite de tamanho, torne-se Mestre!'}
-          </p>
+export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
+  onClose,
+  lang,
+  reason = 'measures_limit',
+}) => {
+  const setLang = useSequencerStore((s) => s.setLang);
+  const copy = getSubscriptionModalCopy(lang, reason);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [onClose]);
+
+  const modalRoot = (typeof document !== 'undefined' && (document.getElementById('modal-root') || document.body)) || null;
+  const mailtoHref = `mailto:contact@ogirador.com?subject=${encodeURIComponent(copy.mailSubject)}`;
+
+  const content = (
+    <div
+      data-wizard-submodal="true"
+      data-testid="subscription-modal"
+      className="fixed inset-0 bg-black/65 backdrop-blur-xs z-[100050] flex items-center justify-center p-4 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border-strong)] p-6 sm:p-7 max-w-md w-full shadow-[8px_8px_0px_var(--cordel-shadow-color)] flex flex-col gap-5 relative my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 border-b-2 border-[var(--cordel-border)] pb-2.5">
+          <div className="inline-flex items-center border-2 border-[var(--cordel-border-strong)] font-mono text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => setLang('fr')}
+              className={`px-2 py-0.5 cursor-pointer transition-colors ${lang === 'fr' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)]'}`}
+            >
+              FR
+            </button>
+            <button
+              type="button"
+              onClick={() => setLang('pt')}
+              className={`px-2 py-0.5 border-l border-[var(--cordel-border)] cursor-pointer transition-colors ${lang === 'pt' ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)]'}`}
+            >
+              BR
+            </button>
+          </div>
+          <button
+            type="button"
+            aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center border-2 border-[var(--cordel-border)] bg-[var(--cordel-surface)] text-[var(--cordel-text)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-on-accent)] transition-colors cursor-pointer"
+          >
+            <XiloClose size={15} />
+          </button>
         </div>
 
-        <div className="flex justify-center mt-2">
+        <div className="text-center flex flex-col items-center gap-2">
+          <XiloMestre size={28} className="text-[var(--cordel-accent-readable)]" />
+          <h2 className="font-cactus text-2xl sm:text-3xl font-black text-[var(--cordel-text)] uppercase leading-tight">
+            {copy.title}
+          </h2>
+        </div>
+
+        <div className="bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] p-4 text-center font-semibold text-sm text-[var(--cordel-text)] flex flex-col gap-2.5 leading-snug">
+          <p>{copy.primaryText}</p>
+          <p className="text-[var(--cordel-accent-readable)] font-bold">{copy.secondaryText}</p>
+        </div>
+
+        <div className="flex justify-center">
           <a
-            href="mailto:contact@ogirador.com?subject=Demande d'abonnement Mestre"
+            href={mailtoHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full py-4 bg-[#8b2a1a] text-[#f4ecd8] font-black text-lg tracking-widest uppercase text-center border-2 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-[#6b1e11] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all"
+            className="w-full py-3.5 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] font-cactus font-bold text-sm sm:text-base tracking-wider uppercase text-center border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0px_var(--cordel-shadow-color)] hover:bg-[var(--cordel-accent)] transition-all"
           >
-            {lang === 'fr' ? 'Devenir Mestre' : 'Tornar-se Mestre'}
+            {copy.ctaLabel}
           </a>
         </div>
-        
-        <p className="text-xs text-center font-bold text-[#666] mt-2">
-          {lang === 'fr'
-            ? 'Envoyez-nous un message pour activer votre compte Mestre annuel.'
-            : 'Envie-nos uma mensagem para ativar sua conta Mestre anual.'}
+
+        <p className="text-xs text-center font-semibold text-[var(--cordel-text-muted)]">
+          {copy.footerHint}
         </p>
       </div>
     </div>
   );
+
+  return modalRoot ? createPortal(content, modalRoot) : content;
 };

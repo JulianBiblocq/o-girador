@@ -7,6 +7,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../../db';
 import { scheduleAudioContextAutoSuspend } from '../audioContextSuspendManager';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 
 import { resolveRecordingContext, VocalRecordingDataHandler } from './vocalRecordingDataHandler';
 
@@ -18,6 +19,7 @@ export class VocalRecordingService {
   public static audioStream: MediaStream | null = null;
 
   public static async startRecording(patternId: number): Promise<void> {
+    if (!guardFeatureWithModal('vocal_cloud')) return;
     const store = useAudioStore.getState() as any;
     store.setTargetPatternId?.(patternId);
     store.setRecordingStatus?.('recording');

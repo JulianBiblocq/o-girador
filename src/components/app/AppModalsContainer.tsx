@@ -1,4 +1,3 @@
-
 import React, { Suspense } from 'react';
 import { WindowContext } from '../../contexts/WindowContext';
 import { TouchStrokeSelector } from '../TouchStrokeSelector';
@@ -17,12 +16,8 @@ const NewSongIntroModal = lazyWithRetry(
   () => import('../NewSongIntroModal').then((m) => ({ default: m.NewSongIntroModal })),
   'NewSongIntroModal'
 );
-const VisitorAuthModal = lazyWithRetry(
-  () => import('../VisitorAuthModal').then((m) => ({ default: m.VisitorAuthModal })),
-  'VisitorAuthModal'
-);
 
-interface AppModalsContainerProps {
+export interface AppModalsContainerProps {
   touchSelector: any;
   hoveredStroke: string | null;
   setTouchSelector: (val: any) => void;
@@ -33,7 +28,7 @@ interface AppModalsContainerProps {
   exportProps: any;
   modalLayoutProps: any;
   saveModalProps: any;
-  visitorAuthProps: any;
+  visitorAuthProps?: Record<string, unknown>;
   wallpaperProps: any;
   paperWorkshopProps: {
     isPaperWorkshopOpen: boolean;
@@ -50,7 +45,7 @@ interface AppModalsContainerProps {
 
 export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
   touchSelector, hoveredStroke, setTouchSelector, setHoveredStroke, isSavedIndicatorVisible,
-  lang, theme, modalLayoutProps, saveModalProps, visitorAuthProps, wallpaperProps,
+  lang, theme, modalLayoutProps, saveModalProps, wallpaperProps,
   paperWorkshopProps, mestreSignals, refreshMestreSignals, audio, sequencer, changeViewMode,
 }) => {
   const isIntroModalOpen = useWizardStore((state) => state.isIntroModalOpen);
@@ -100,10 +95,6 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
             }}
             lang={lang as any}
           />
-        )}
-
-        {visitorAuthProps.showMandatoryVisitorModal && (
-          <VisitorAuthModal lang={lang as any} onClose={() => visitorAuthProps.setShowMandatoryVisitorModal(false)} isMandatory={true} />
         )}
       </Suspense>
 

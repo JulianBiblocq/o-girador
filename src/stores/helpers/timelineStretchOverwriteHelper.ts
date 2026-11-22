@@ -29,7 +29,8 @@ export const stretchOverwriteModeState = (
   const targetStartM = origEnd + 1;
   const newTotalMeasures = Math.max(state.totalMeasures, newEndMeasure + 1);
 
-  if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && newTotalMeasures > (state.maxMeasuresAllowed ?? Infinity)) {
+  if (state.maxMeasuresAllowed !== null && newTotalMeasures > (state.maxMeasuresAllowed ?? Infinity)) {
+    state.openSubscriptionModal?.(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
     notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
     return state;
   }

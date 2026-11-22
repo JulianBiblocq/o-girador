@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { formatDispositionSummary } from '../../utils/dispositionUtils';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 import { SaveDispositionVisibilitySelector } from './save-disposition/SaveDispositionVisibilitySelector';
 import { useSaveDispositionAction } from './save-disposition/useSaveDispositionAction';
 
@@ -25,12 +26,16 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    if (!guardFeatureWithModal('cloud_library', userProfile)) {
+      onClose();
+      return;
+    }
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, userProfile]);
 
   if (!isOpen) return null;
 

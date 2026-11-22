@@ -15,11 +15,12 @@ interface UseCloudPresetsProps {
 }
 
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWriteSequenciador }: UseCloudPresetsProps) {
-  const isSamambaia = isLegacySamambaiaGroup(groupId) || userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+  const safeGroupId = userUid ? groupId : null;
+  const isSamambaia = Boolean(userUid && (isLegacySamambaiaGroup(safeGroupId) || userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'));
 
-  const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId?.trim() || null);
-  const effectiveMestreId = isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null);
-  const effectiveRole = isSamambaia && (userRole === 'visiteur' || !userRole) ? 'membre' : userRole;
+  const normalizedGroupId = isSamambaia ? 'Samambaia' : (safeGroupId?.trim() || null);
+  const effectiveMestreId = userUid ? (isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null)) : null;
+  const effectiveRole = userUid ? (isSamambaia && (userRole === 'visiteur' || !userRole) ? 'membre' : userRole) : 'visiteur';
 
   return useQuery<CloudPreset[]>({
     queryKey: ['cloudPresets', 'v4', userUid, normalizedGroupId, effectiveMestreId, effectiveRole, canWriteSequenciador],

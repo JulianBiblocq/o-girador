@@ -1,9 +1,9 @@
-
 import { db } from '../../firebase/config';
 import { collection, getDocs, query, limit, where, orderBy } from 'firebase/firestore';
 import { CloudPattern, SavedPattern } from '../../types';
 import LZString from 'lz-string';
 import { resolveCloudGroupMestreId, isSamambaiaGroupHelper } from '../cloud-common/cloudMestreResolver';
+import { buildTenantGroupQueryVariants, isTenantScopedDocAuthorized } from '../cloud-common/cloudTenantAuthGuard';
 
 export const CLOUD_PATTERNS_COLLECTION = 'patterns';
 
@@ -30,16 +30,10 @@ export async function fetchCloudPatterns(
       promises.push(getDocs(query(patternsRef, where('ownerId', '==', userUid), limit(100))));
       promises.push(getDocs(query(patternsRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
 
-      const effectiveGroup = groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null);
-      if (effectiveGroup) {
-        const norm = effectiveGroup.trim().toLowerCase();
-        const isSam = norm.includes('samambaia') || norm.includes('sammbia') || canWriteSequenciador;
-        const groupIdVariants = Array.from(new Set([
-          effectiveGroup, norm, ...(isSam ? ['samambaia', 'Samambaia', 'SAMAMBAIA'] : [effectiveGroup, norm])
-        ]));
-        promises.push(getDocs(query(patternsRef, where('groupId', 'in', groupIdVariants), limit(100))));
-
-        if (isSam) {
+      const { variants, includeLegacySamambaiaOwners } = buildTenantGroupQueryVariants(groupId, isSamambaiaGroup);
+      if (variants.length > 0) {
+        promises.push(getDocs(query(patternsRef, where('groupId', 'in', variants), limit(100))));
+        if (includeLegacySamambaiaOwners) {
           promises.push(getDocs(query(patternsRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
         }
       }
@@ -50,7 +44,7 @@ export async function fetchCloudPatterns(
     }
 
     const snapshots = await Promise.all(promises);
-    const uniqueDocs = new Map();
+    const uniqueDocs = new Map<string, any>();
 
     snapshots.forEach((snapshot) => {
       snapshot.forEach((docSnap: any) => {
@@ -60,28 +54,7 @@ export async function fetchCloudPatterns(
 
     uniqueDocs.forEach((docSnap) => {
       const data = docSnap.data();
-      const isOwner = data.ownerId === userUid;
-      const isAdminGlobal = data.visibility === 'admin_global';
-      const isPublic = data.visibility === 'public';
-      const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase().trim();
-      const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase().trim();
-
-      const isSamambaiaPattern =
-        dataGroupIdNorm.includes('samambaia') ||
-        dataGroupIdNorm.includes('sammbia') ||
-        data.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-        data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-        data.ownerId === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2';
-
-      const matchesGroup = Boolean(
-        (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
-        ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && isSamambaiaPattern)
-      );
-      const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
-      const isMemberOrEleve = userRole === 'eleve' || userRole === 'membre' || userRole === 'mestre' || userRole === 'admin';
-      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup || isSamambaiaPattern);
-
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre || ((isSamambaiaGroup || isMemberOrEleve) && isSamambaiaPattern)) {
+      if (isTenantScopedDocAuthorized({ data, userUid, userRole, myGroupMestreId, groupId, isSamambaiaGroup })) {
         const jsonStr = LZString.decompressFromBase64(data.data);
         if (jsonStr) {
           const parsedPattern = JSON.parse(jsonStr) as SavedPattern;
@@ -91,7 +64,7 @@ export async function fetchCloudPatterns(
             ownerId: data.ownerId,
             visibility: data.visibility,
             mestreId: data.mestreId,
-            audioUrl: data.audioUrl
+            audioUrl: data.audioUrl,
           });
         }
       }
@@ -100,7 +73,7 @@ export async function fetchCloudPatterns(
     patterns.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   } catch (err) {
     if (!(err && ((err as any).code === 'permission-denied' || String(err).includes('permission')))) {
-      console.error("Error fetching cloud patterns:", err);
+      console.error('Error fetching cloud patterns:', err);
     }
   }
 

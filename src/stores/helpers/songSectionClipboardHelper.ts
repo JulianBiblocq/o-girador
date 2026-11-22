@@ -63,7 +63,7 @@ export const pasteSongSectionState = (
   let newTotalMeasures: number | undefined = undefined;
   if (end >= totalMeasures) {
     const proposedTotal = end + 1;
-    if (!hasFullPlaybackAccess && maxMeasuresAllowed !== null && proposedTotal > maxMeasuresAllowed) {
+    if (maxMeasuresAllowed !== null && proposedTotal > maxMeasuresAllowed) {
       return { tracks, error: `Limite de ${maxMeasuresAllowed} mesures atteinte en version gratuite.` };
     }
     newTotalMeasures = proposedTotal;

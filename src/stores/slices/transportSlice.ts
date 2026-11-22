@@ -55,7 +55,8 @@ export const createTransportSlice: StateCreator<SequencerStore, [], [], Transpor
   setTimeSig: (sig) => set({ timeSig: sig }),
   setTotalMeasures: (updater, bypassLimit = false) => set(state => {
     const nextVal = typeof updater === 'function' ? updater(state.totalMeasures) : updater;
-    if (!bypassLimit && !state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && nextVal > state.maxMeasuresAllowed) {
+    if (!bypassLimit && state.maxMeasuresAllowed !== null && nextVal > state.maxMeasuresAllowed) {
+      state.openSubscriptionModal(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
       notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
       return state;
     }

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { getVocalRecording } from '../../db';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 
 export function useVocalInspectorActions(
   effectiveEditTrackId: number,
@@ -42,6 +43,10 @@ export function useVocalInspectorActions(
   }, [effectiveEditTrackId, selectedPatternId, firstPatternId]);
 
   const onImportAudio = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!guardFeatureWithModal('vocal_cloud')) {
+      e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     const pId = selectedPatternId ?? firstPatternId;

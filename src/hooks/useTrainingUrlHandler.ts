@@ -44,7 +44,7 @@ export function useTrainingUrlHandler({ audio, changeViewMode, alertAsync }: Use
     const roleParam = searchParams.get('role') || searchParams.get('targetTrack');
 
     const isTocarJuntoRequested = tocarJuntoParam === '1' || tocarJuntoParam === 'true' || Boolean(roleParam);
-    if (!trainingId && !isTocarJuntoRequested && (searchParams.has('loadPreset') || searchParams.has('loadSection') || searchParams.has('editPatternId'))) {
+    if (!trainingId && !isTocarJuntoRequested && (searchParams.has('loadPreset') || searchParams.has('presetId') || searchParams.has('loadSection') || searchParams.has('editPatternId'))) {
       return;
     }
     if (!trainingId && !presetId && !isTocarJuntoRequested) return;

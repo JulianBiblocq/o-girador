@@ -14,6 +14,7 @@ export {
 
 export { savePresetToCloud } from './services/cloud-presets/cloudPresetsSaver';
 export { fetchCloudPresets } from './services/cloud-presets/cloudPresetsFetcher';
+export { togglePresetShowcaseStatus } from './services/cloud-presets/presetShowcaseService';
 export {
   isMestreOrAdminProfile,
   canMutatePreset,

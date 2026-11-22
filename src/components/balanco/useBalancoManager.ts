@@ -4,6 +4,7 @@ import { useBalancoStore } from '../../stores/useBalancoStore';
 import { saveBalancoToCloud, deleteCloudBalanco } from '../../cloudBalancos';
 import { BalancoPreset } from '../../types/balanco.types';
 import { GlobalSwing, Language } from '../../types';
+import { resolveUserAccessPolicy } from '../../utils/userAccessPolicy';
 import { canManagePreset } from './balancoHelpers';
 
 export function useBalancoManager(
@@ -82,7 +83,8 @@ export function useBalancoManager(
     if (isEditingExisting) updateLocalPreset(targetId, { name: finalName, offsets: [...globalSwing.customOffsets] });
     else { addLocalPreset(presetData); setSelectedPresetId(targetId); }
 
-    if (userProfile?.uid) {
+    const policy = resolveUserAccessPolicy(userProfile, { hasAuthUser: Boolean(userProfile?.uid) });
+    if (userProfile?.uid && policy.canWriteCloudLibraries) {
       setIsSaving(true);
       try {
         const docIdToUpdate = isEditingExisting && !targetId.startsWith('custom-') ? targetId : undefined;

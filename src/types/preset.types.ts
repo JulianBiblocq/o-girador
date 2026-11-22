@@ -112,6 +112,7 @@ export interface Preset {
   mestreSignals?: CloudRhythmSignal[];
   defaultDisplayMeasure?: number;
   isDraft?: boolean;
+  isShowcase?: boolean;
   version?: number;
   audioScaleVersion?: number;
   rodaTrackOrder?: number[];

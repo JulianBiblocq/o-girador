@@ -15,6 +15,7 @@ export function isPresetAuthorized(
 
   // 1. Presets publics, globaux ou appartenant directement à l'utilisateur
   if (
+    data.isShowcase === true ||
     data.visibility === 'admin_global' ||
     data.visibility === 'public' ||
     (userUid && data.ownerId === userUid) ||

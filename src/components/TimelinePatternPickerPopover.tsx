@@ -26,11 +26,11 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
   const trackTitle = targetTrack?.customName || inst?.name || (lang === 'fr' ? 'Piste' : 'Faixa');
   const instColor = inst?.colors?.['D'] || inst?.color || inst?.mixerBg || '#e67e22';
 
-  const isSlave = isSlaveTrack(targetTrack, tracks);
+  const isSlave = false;
   const patternsList = resolvePatternsListForTrack(targetTrack, tracks);
   const resolved = resolveActivePatternForCell(trackId, measureIdx, null, tracks);
   const activePatternId = resolved.activePattern?.id ?? null;
-  const isFollowingMaster = isSlave && targetTrack?.patternOverrides?.[measureIdx] === undefined;
+  const isFollowingMaster = false;
 
   useLayoutEffect(() => {
     if (!popoverRef.current) return;

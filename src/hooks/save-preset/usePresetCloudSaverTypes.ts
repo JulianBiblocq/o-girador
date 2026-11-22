@@ -12,6 +12,8 @@ export interface ExecuteSaveParams {
   isMestre: boolean;
   visibility: CatalogVisibility;
   isDraft: boolean;
+  isShowcase?: boolean;
+  keepInGroup?: boolean;
   effectiveMestreId?: string | null;
   effectiveGroupId?: string;
   matchedPreset: CloudPreset | null;

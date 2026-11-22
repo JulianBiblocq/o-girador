@@ -7,6 +7,7 @@ import {
   getEligibleRodaSheetTracks,
 } from './rodaSheetDataBuilder';
 import { printRodaSheetA4 } from './printRodaSheetA4';
+import { guardFeatureWithModal } from '../../../utils/cloudWriteGuard';
 import { RodaSheetPrintView } from './RodaSheetPrintView';
 import { RodaSheetToolbar } from './RodaSheetToolbar';
 import { RodaSheetDensity, RodaSheetSelectionMode } from './rodaSheetTypes';
@@ -116,7 +117,7 @@ export const RodaSheetContainer: React.FC<RodaSheetContainerProps> = ({ lang, on
           </button>
         ) : <div />}
         <button
-          type="button" onClick={() => printRodaSheetA4(songTitle, density)}
+          type="button" onClick={() => { if (guardFeatureWithModal('pdf_press')) printRodaSheetA4(songTitle, density); }}
           disabled={items.length === 0 || selectedTracksOrdered.length === 0}
           className="px-5 py-2 text-sm bg-[#8b2a1a] !text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus flex items-center gap-2 disabled:opacity-50"
         >

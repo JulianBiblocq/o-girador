@@ -60,7 +60,8 @@ export const deleteMeasureState = (state: any, measureIdx: number): Record<strin
 };
 
 export const insertMeasureState = (state: any, measureIdx: number, amount: number = 1): Record<string, any> => {
-  if (!state.hasFullPlaybackAccess && state.maxMeasuresAllowed !== null && state.totalMeasures + amount > state.maxMeasuresAllowed) {
+  if (state.maxMeasuresAllowed !== null && state.totalMeasures + amount > state.maxMeasuresAllowed) {
+    state.openSubscriptionModal?.(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
     notifyToast(state.lang === 'pt' ? `Limite de ${state.maxMeasuresAllowed} compassos atingido na versão gratuita.` : `Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`, 'error');
     return state;
   }

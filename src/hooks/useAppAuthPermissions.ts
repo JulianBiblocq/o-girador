@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { checkHasFullPlaybackAccess, UserProfile } from '../contexts/AuthContext';
+import { useAuth, UserProfile } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useDesktopWorkspaceStore } from '../stores/useDesktopWorkspaceStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
@@ -7,8 +7,10 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { syncMobileViewModeWithProfile, hasDirectModeUrlParam } from '../utils/viewModeResolver';
 import { resolvePracticeModeForProfile } from '../stores/helpers/practiceModeHelpers';
 import { getStoredDesktopStartupMode } from '../utils/userPreferencesStorage';
+import { resolveUserAccessPolicy } from '../utils/userAccessPolicy';
 
 export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: boolean) {
+  const { currentUser } = useAuth();
   const initializedStudioUidRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -43,17 +45,26 @@ export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: 
   }, [userProfile?.uid, userProfile?.lastSequenciadorMode, userProfile?.role, userProfile?.instrument]);
 
   useEffect(() => {
-    const fullPlaybackAccess = checkHasFullPlaybackAccess(userProfile, isAdmin);
-    useSequencerStore.getState().setHasFullPlaybackAccess(fullPlaybackAccess);
-    useSequencerStore.getState().setMaxMeasuresAllowed(!fullPlaybackAccess ? 30 : null);
+    const applyPolicy = () => {
+      const policy = resolveUserAccessPolicy(userProfile, {
+        hasAuthUser: Boolean(currentUser || userProfile?.uid),
+        isAdminFlag: isAdmin,
+      });
+      const s = useSequencerStore.getState();
+      s.setHasFullPlaybackAccess(policy.hasFullPlaybackAccess);
+      s.setMaxMeasuresAllowed(policy.maxMeasuresAllowed);
+      s.setIsUserTrialExpired(policy.isTrialExpired);
+      s.setIsPreviewMode(false);
+      return policy;
+    };
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasSharedPreset = Boolean(
-      urlParams.get('loadPreset') || urlParams.get('presetId') || urlParams.get('file') ||
-      urlParams.get('sectionId') || urlParams.get('baque')
-    );
-    useSequencerStore.getState().setIsPreviewMode(!fullPlaybackAccess && (hasSharedPreset && !userProfile));
-  }, [userProfile, isAdmin]);
+    const policy = applyPolicy();
+    if (policy.isTrialActive && policy.trialEndMs) {
+      const delayMs = Math.max(500, Math.min(2_147_483_647, policy.trialEndMs - Date.now() + 250));
+      const timer = window.setTimeout(applyPolicy, delayMs);
+      return () => window.clearTimeout(timer);
+    }
+  }, [currentUser?.uid, userProfile, isAdmin]);
 
   useEffect(() => {
     vocalEngineService.rehydrateVocalBuffers().catch((err) => {

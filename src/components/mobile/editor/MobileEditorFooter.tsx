@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { usePaperVigilanceStore } from '../../../stores/usePaperVigilanceStore';
 import { saveDraftLocally, syncOfflineDraftsIfOnline } from '../../../utils/offlineDraftStorage';
+import { guardFeatureWithModal } from '../../../utils/cloudWriteGuard';
 import { tMobile } from '../../../i18n/mobileTranslations';
 import { CordelTransportTrio } from '../../transport/CordelTransportTrio';
 
@@ -21,6 +22,7 @@ export const MobileEditorFooter: React.FC<Props> = ({ isPlaying, onTogglePlay, o
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleSaveDraft = async () => {
+    if (!guardFeatureWithModal('mobile_draft')) return;
     const state = useSequencerStore.getState();
     const vigilance = usePaperVigilanceStore.getState().points;
     const name = state.metadata?.toada || 'Chantier Mobile';

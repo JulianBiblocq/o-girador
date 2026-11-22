@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useBalancoStore } from '../../stores/useBalancoStore';
 import { CloudPattern, CatalogVisibility, Pattern } from '../../types';
 import { canTransferPatterns, normalizeInstrumentId } from '../../utils/instrumentCompatibility';
+import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
 import { notifyToast } from '../../utils/toastHelper';
 
 export interface UseInstrumentEditorCloudActionsParams {
@@ -27,7 +28,11 @@ export function useInstrumentEditorCloudActions({
   const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
   const isGroupMember = Boolean(userProfile?.canWriteSequenciador || userProfile?.role === 'mestre');
   const [savePatternVisibility, setSavePatternVisibility] = useState<CatalogVisibility>(isGroupMember ? 'mestre_group' : 'private');
-  const [saveModalPatternId, setSaveModalPatternId] = useState<number | null>(null);
+  const [saveModalPatternId, rawSetSaveModalPatternId] = useState<number | null>(null);
+  const setSaveModalPatternId = useCallback((id: number | null) => {
+    if (id !== null && !guardFeatureWithModal('cloud_library', userProfile)) return;
+    rawSetSaveModalPatternId(id);
+  }, [userProfile]);
   const [savePatternName, setSavePatternName] = useState('');
   const [savePatternFolder, setSavePatternFolder] = useState('');
   const [autoGeneratePatternAudio, setAutoGeneratePatternAudio] = useState(true);
@@ -52,7 +57,7 @@ export function useInstrumentEditorCloudActions({
   const toggleFolder = (folder: string) => setExpandedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
 
   const handleSavePatternToLibrary = useCallback(async () => {
-    if (!userProfile) { setShowVisitorModal(true); return; }
+    if (!guardFeatureWithModal('cloud_library', userProfile) || !userProfile) { rawSetSaveModalPatternId(null); return; }
     if (saveModalPatternId === null || !savePatternName.trim()) return;
     const ptn = displayedPatterns.find((p) => p.id === saveModalPatternId);
     if (!ptn) return;

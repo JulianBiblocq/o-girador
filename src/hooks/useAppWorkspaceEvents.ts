@@ -1,9 +1,9 @@
 
 import { useState, useEffect } from 'react';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 export function useAppWorkspaceEvents(alertAsync: (msg: string) => Promise<any>, changeViewMode: (mode: any) => void, viewMode: string, handleSaveToLocal: () => void) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [showMandatoryVisitorModal, setShowMandatoryVisitorModal] = useState(false);
   const [isPaperWorkshopOpen, setIsPaperWorkshopOpen] = useState(false);
   const [paperWorkshopInitialTab, setPaperWorkshopInitialTab] = useState<'sheets' | 'scanner' | 'reserve'>('sheets');
 
@@ -39,7 +39,7 @@ export function useAppWorkspaceEvents(alertAsync: (msg: string) => Promise<any>,
   }, [changeViewMode, viewMode]);
 
   useEffect(() => {
-    const handleShowAuth = () => setShowMandatoryVisitorModal(true);
+    const handleShowAuth = () => useSequencerStore.getState().openVisitorAuthModal('default');
     window.addEventListener('show-visitor-auth-mandatory', handleShowAuth);
     return () => window.removeEventListener('show-visitor-auth-mandatory', handleShowAuth);
   }, []);
@@ -72,8 +72,6 @@ export function useAppWorkspaceEvents(alertAsync: (msg: string) => Promise<any>,
 
   return {
     toastMessage,
-    showMandatoryVisitorModal,
-    setShowMandatoryVisitorModal,
     isPaperWorkshopOpen,
     setIsPaperWorkshopOpen,
     paperWorkshopInitialTab,

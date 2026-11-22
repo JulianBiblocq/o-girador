@@ -1,5 +1,5 @@
-
 import React from 'react';
+import type { CatalogAccordionPresetItem } from './presetAccordionTiers';
 
 interface FallbackSelectProps {
   activePreset: string;
@@ -7,22 +7,18 @@ interface FallbackSelectProps {
   lang: 'pt' | 'fr';
   showGroupCatalogue: boolean;
   groupTitle: string;
-  publicTitle: string;
-  visiblePrivate: Array<{ id: string; name: string; isDraft?: boolean }>;
-  visiblePublic: Array<{ id: string; name: string; isDraft?: boolean }>;
+  showcaseTitle: string;
+  communityTitle: string;
+  canAccessCommunity: boolean;
+  groupItems: CatalogAccordionPresetItem[];
+  showcaseItems: CatalogAccordionPresetItem[];
+  communityItems: CatalogAccordionPresetItem[];
   onSelect: (val: string, cloudId?: string) => void;
 }
 
 export const PresetAccordionSelectFallback: React.FC<FallbackSelectProps> = ({
-  activePreset,
-  currentSongTitle,
-  lang,
-  showGroupCatalogue,
-  groupTitle,
-  publicTitle,
-  visiblePrivate,
-  visiblePublic,
-  onSelect,
+  activePreset, currentSongTitle, lang, showGroupCatalogue, groupTitle, showcaseTitle,
+  communityTitle, canAccessCommunity, groupItems, showcaseItems, communityItems, onSelect,
 }) => {
   return (
     <select
@@ -38,16 +34,23 @@ export const PresetAccordionSelectFallback: React.FC<FallbackSelectProps> = ({
       <option value="" disabled>{currentSongTitle || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}</option>
       {showGroupCatalogue && (
         <optgroup label={groupTitle}>
-          {visiblePrivate.map((p) => (
-            <option key={`og:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '' : ''}{p.name}</option>
+          {groupItems.map((p) => (
+            <option key={`og:${p.id}`} value={p.selectValue || `cloud:${p.id}`}>{p.name}</option>
           ))}
         </optgroup>
       )}
-      <optgroup label={publicTitle}>
-        {visiblePublic.map((p) => (
-          <option key={`op:${p.id}`} value={`cloud:${p.id}`}>{p.isDraft === true ? '' : ''}{p.name}</option>
+      <optgroup label={showcaseTitle}>
+        {showcaseItems.map((p) => (
+          <option key={`os:${p.id}`} value={p.selectValue || `cloud:${p.id}`}>{p.name}</option>
         ))}
       </optgroup>
+      {canAccessCommunity && communityItems.length > 0 && (
+        <optgroup label={communityTitle}>
+          {communityItems.map((p) => (
+            <option key={`oc:${p.id}`} value={p.selectValue || `cloud:${p.id}`}>{p.name}</option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 };

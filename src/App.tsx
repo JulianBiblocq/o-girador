@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, Suspense } from 'react';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
@@ -34,6 +33,8 @@ import { useAppAuthPermissions } from './hooks/useAppAuthPermissions';
 import { useIsMobileResponsive } from './hooks/useIsMobileResponsive';
 import { useScreenWakeLock } from './hooks/useScreenWakeLock';
 import { MobileRemoteRouter } from './components/mobile/MobileRemoteRouter';
+import { resolveUserAccessPolicy } from './utils/userAccessPolicy';
+import { isSuperAdminProfile } from './utils/userPreferencesStorage';
 
 const LandingPage = lazyWithRetry(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })), 'LandingPage');
 
@@ -46,7 +47,7 @@ export default function App() {
   const sequencer = useSequencer(), audio = useAudio();
   useScreenWakeLock(audio.isPlaying);
   useGlobalTransportShortcuts(audio.handleTogglePlay, audio.handleStop, audio.handleRewind, audio.handleStepExploreRoda);
-  const { hasAccess, userProfile, isAdmin, loading: authLoading } = useAuth();
+  const { hasAccess, currentUser, userProfile, isAdmin, loading: authLoading } = useAuth();
   useDeepLinkLoader({ audio, sequencer, authLoading });
   useAppAuthPermissions(userProfile, isAdmin); useAppSessionTracking(userProfile);
 
@@ -57,15 +58,19 @@ export default function App() {
 
   const [showSavePresetModal, setShowSavePresetModal] = useState(false), [presetDataToSave, setPresetDataToSave] = useState<any>(null);
   const handleSaveToLocal = React.useCallback(async () => {
+    const policy = resolveUserAccessPolicy(userProfile, { hasAuthUser: Boolean(currentUser || userProfile?.uid), isAdminFlag: isAdmin });
+    const store = useSequencerStore.getState();
+    if (!policy.isAuthenticated) { store.openVisitorAuthModal('save_cloud'); return; }
+    if (policy.isTrialExpired) { store.openSubscriptionModal('trial_expired'); return; }
     setPresetDataToSave(audio.getCurrentPresetData());
     setShowSavePresetModal(true);
-  }, [audio]);
+  }, [audio, currentUser, userProfile, isAdmin]);
 
-  const { toastMessage, showMandatoryVisitorModal, setShowMandatoryVisitorModal, isPaperWorkshopOpen, setIsPaperWorkshopOpen, paperWorkshopInitialTab, setPaperWorkshopInitialTab } = useAppWorkspaceEvents(sequencer.alertAsync, changeViewMode, viewMode, handleSaveToLocal);
+  const { toastMessage, isPaperWorkshopOpen, setIsPaperWorkshopOpen, paperWorkshopInitialTab, setPaperWorkshopInitialTab } = useAppWorkspaceEvents(sequencer.alertAsync, changeViewMode, viewMode, handleSaveToLocal);
 
   const { data: cloudPresetsData, isLoading: isCloudPresetsLoading } = useCloudPresets({
-    userUid: userProfile?.uid || null,
-    userRole: (userProfile?.role === 'admin' || userProfile?.canWriteSequenciador) ? 'admin' : (userProfile?.role || 'visiteur'),
+    userUid: currentUser?.uid || userProfile?.uid || null,
+    userRole: isSuperAdminProfile(userProfile) ? 'admin' : (userProfile?.role || 'visiteur'),
     mestreId: userProfile?.mestreId || null,
     groupId: userProfile?.groupId || userProfile?.groupName || (userProfile as any)?.association || null,
     groupName: userProfile?.groupName || null,
@@ -131,7 +136,7 @@ export default function App() {
             {viewMode !== 'admin' && <TransportBar viewMode={viewMode as any} />}
           </>
         )}
-        <AppModalsContainer touchSelector={touchSelector} hoveredStroke={hoveredStroke} setTouchSelector={setTouchSelector} setHoveredStroke={setHoveredStroke} isSavedIndicatorVisible={isSavedIndicatorVisible} lang={sequencer.lang} theme={theme} exportProps={exportProps} modalLayoutProps={{ showExportMenu: exportProps.showExportMenu, setShowExportMenu: exportProps.setShowExportMenu, selectedExportTracks: exportProps.selectedExportTracks, setSelectedExportTracks: exportProps.setSelectedExportTracks, selectedAnnexTracks: exportProps.selectedAnnexTracks, setSelectedAnnexTracks: exportProps.setSelectedAnnexTracks, executeExport: exportProps.executeExport, printLegendOnly: exportProps.printLegendOnly, customDialog: sequencer.customDialog, setCustomDialog: sequencer.setCustomDialog, sectionToSave, setSectionToSave, loadSectionInsertMeasure, setLoadSectionInsertMeasure, isMobile, mobileTab, viewMode, toastMessage, handleStepTouchStart }} saveModalProps={{ showSavePresetModal, setShowSavePresetModal, presetDataToSave }} visitorAuthProps={{ showMandatoryVisitorModal, setShowMandatoryVisitorModal }} wallpaperProps={wallpaperProps} paperWorkshopProps={{ isPaperWorkshopOpen, setIsPaperWorkshopOpen, paperWorkshopInitialTab, setPaperWorkshopInitialTab }} mestreSignals={mestreSignals} refreshMestreSignals={refreshMestreSignals} audio={audio} sequencer={sequencer} changeViewMode={changeViewMode} />
+        <AppModalsContainer touchSelector={touchSelector} hoveredStroke={hoveredStroke} setTouchSelector={setTouchSelector} setHoveredStroke={setHoveredStroke} isSavedIndicatorVisible={isSavedIndicatorVisible} lang={sequencer.lang} theme={theme} exportProps={exportProps} modalLayoutProps={{ showExportMenu: exportProps.showExportMenu, setShowExportMenu: exportProps.setShowExportMenu, selectedExportTracks: exportProps.selectedExportTracks, setSelectedExportTracks: exportProps.setSelectedExportTracks, selectedAnnexTracks: exportProps.selectedAnnexTracks, setSelectedAnnexTracks: exportProps.setSelectedAnnexTracks, executeExport: exportProps.executeExport, printLegendOnly: exportProps.printLegendOnly, customDialog: sequencer.customDialog, setCustomDialog: sequencer.setCustomDialog, sectionToSave, setSectionToSave, loadSectionInsertMeasure, setLoadSectionInsertMeasure, isMobile, mobileTab, viewMode, toastMessage, handleStepTouchStart }} saveModalProps={{ showSavePresetModal, setShowSavePresetModal, presetDataToSave }} wallpaperProps={wallpaperProps} paperWorkshopProps={{ isPaperWorkshopOpen, setIsPaperWorkshopOpen, paperWorkshopInitialTab, setPaperWorkshopInitialTab }} mestreSignals={mestreSignals} refreshMestreSignals={refreshMestreSignals} audio={audio} sequencer={sequencer} changeViewMode={changeViewMode} />
       </div>
     </>
   );

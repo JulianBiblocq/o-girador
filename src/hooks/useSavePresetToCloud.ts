@@ -10,6 +10,8 @@ import { useMatchedPresetFinder } from './save-preset/useMatchedPresetFinder';
 import { executeSavePresetToCloud } from './save-preset/usePresetCloudSaverAction';
 import { getActiveCloudPresetId } from '../utils/cloudPresetState';
 import { isMestreOrAdminProfile, OFFICIAL_MESTRE_UID } from '../utils/presetPermissions';
+import { isLegacySamambaiaGroup } from '../utils/tenantGroupHelpers';
+import { resolveUserAccessPolicy } from '../utils/userAccessPolicy';
 
 interface UseSavePresetOptions {
   presetData: Preset;
@@ -19,18 +21,25 @@ interface UseSavePresetOptions {
 }
 
 export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }: UseSavePresetOptions) {
-  const { userProfile, isAdmin } = useAuth();
+  const { currentUser, userProfile, isAdmin } = useAuth();
   const sequencer = useSequencer();
   const queryClient = useQueryClient();
 
-  const isMestre = isMestreOrAdminProfile(userProfile, isAdmin);
-  const canPublishToGroup = Boolean(isMestre || userProfile?.canWriteSequenciador);
+  const policy = resolveUserAccessPolicy(userProfile, {
+    hasAuthUser: Boolean(currentUser || userProfile?.uid),
+    isAdminFlag: isAdmin,
+  });
+  const isMestre = (isMestreOrAdminProfile(userProfile, isAdmin) || policy.isTrialActive) && !policy.isTrialExpired;
+  const canPublishToGroup = policy.canPublishToGroup;
+  const isSuperAdmin = policy.isSuperAdmin;
 
   const [name, setName] = useState(defaultName || '');
   const [visibility, setVisibility] = useState<CatalogVisibility>(canPublishToGroup ? 'mestre_group' : 'private');
   const [isSaving, setIsSaving] = useState(false);
   const [autoGenerateAudio, setAutoGenerateAudio] = useState(false);
   const [isDraft, setIsDraft] = useState<boolean>(() => Boolean((presetData as any)?.isDraft ?? false));
+  const [isShowcase, setIsShowcase] = useState<boolean>(() => Boolean((presetData as any)?.isShowcase ?? false));
+  const [keepInGroup, setKeepInGroup] = useState<boolean>(false);
 
   useEffect(() => {
     setVisibility(canPublishToGroup ? 'mestre_group' : 'private');
@@ -38,65 +47,64 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
 
   const { genererEtUploaderPresetCloudBounce, isBouncingCloud, progress, stepLabel } = useCloudAudioBounce();
 
-  const isSamambaiaMember = Boolean(
-    (userProfile?.groupId && userProfile.groupId.toLowerCase().includes('samambaia')) ||
-    userProfile?.canWriteSequenciador ||
-    userProfile?.mestreId === OFFICIAL_MESTRE_UID
-  );
+  const rawGroupId = (userProfile?.groupId || '').trim();
+  const isSamambaiaMember = isLegacySamambaiaGroup(rawGroupId);
+  const groupDisplayName = userProfile?.groupName || (isSamambaiaMember ? 'Samambaia' : rawGroupId) || 'Cloud';
 
-  const groupDisplayName = userProfile?.groupName || (isSamambaiaMember ? 'Samambaia' : userProfile?.groupId) || 'Cloud';
-  const effectiveMestreId = (userProfile?.role === 'mestre' || (userProfile?.dbRole as any) === 'mestre')
-    ? userProfile?.uid
-    : (userProfile?.mestreId || (isSamambaiaMember ? OFFICIAL_MESTRE_UID : null));
-  const effectiveGroupId = userProfile?.groupId ? userProfile.groupId.trim().toLowerCase() : (isSamambaiaMember ? 'samambaia' : undefined);
+  const effectiveMestreId = canPublishToGroup
+    ? ((userProfile?.role === 'mestre' || (userProfile?.dbRole as any) === 'mestre')
+        ? userProfile?.uid
+        : (userProfile?.mestreId || (isSamambaiaMember ? OFFICIAL_MESTRE_UID : null)))
+    : null;
+  const effectiveGroupId = canPublishToGroup && rawGroupId
+    ? (isSamambaiaMember ? 'samambaia' : rawGroupId.toLowerCase())
+    : undefined;
 
+  const effectiveUid = userProfile?.uid || currentUser?.uid || null;
   const { data: cloudPresets = [] } = useCloudPresets({
-    userUid: userProfile?.uid || null,
-    userRole: userProfile?.role || 'visiteur',
+    userUid: effectiveUid,
+    userRole: isSuperAdmin ? 'admin' : (userProfile?.role || 'visiteur'),
     mestreId: effectiveMestreId || null,
-    groupId: effectiveGroupId || null,
+    groupId: rawGroupId || null,
     groupName: userProfile?.groupName || null,
     canWriteSequenciador: userProfile?.canWriteSequenciador,
   });
 
   const loadedMorceauId = getActiveCloudPresetId(presetData);
-
-  const {
-    isForeignActivePreset,
-    hasMestreNameConflict,
-    matchedPreset,
-    isExistingPreset,
-    isLocked,
-    canUpdate,
-    isSavedOnCloud,
-  } = useMatchedPresetFinder({
-    cloudPresets,
-    name,
-    loadedMorceauId,
-    userProfile,
-    effectiveMestreId,
-    effectiveGroupId,
-    isAdmin,
+  const finder = useMatchedPresetFinder({
+    cloudPresets, name, loadedMorceauId, userProfile, effectiveMestreId, effectiveGroupId, isAdmin,
   });
 
   useEffect(() => {
-    if (matchedPreset && matchedPreset.isDraft !== undefined) {
-      setIsDraft(Boolean(matchedPreset.isDraft));
+    if (finder.matchedPreset) {
+      if (finder.matchedPreset.isDraft !== undefined) setIsDraft(Boolean(finder.matchedPreset.isDraft));
+      setIsShowcase(Boolean(finder.matchedPreset.isShowcase));
+      setKeepInGroup(Boolean(finder.matchedPreset.isShowcase && finder.matchedPreset.groupId));
     }
-  }, [matchedPreset]);
+  }, [finder.matchedPreset]);
+
+  const ownedPrivateCount = cloudPresets.filter(
+    (p) => Boolean(effectiveUid) && p.ownerId === effectiveUid && p.visibility === 'private' && !p.groupId
+  ).length;
 
   const handleSave = async (options?: { forceNew?: boolean }) => {
-    if (!name.trim() || hasMestreNameConflict) return;
-    if (!userProfile) {
-      useSequencerStore.getState().openVisitorAuthModal();
+    if (!name.trim() || finder.hasMestreNameConflict) return;
+    if (!effectiveUid || !userProfile) {
+      useSequencerStore.getState().openVisitorAuthModal('save_cloud');
+      return;
+    }
+    if (policy.isTrialExpired) {
+      onClose();
+      useSequencerStore.getState().openSubscriptionModal('trial_expired');
       return;
     }
     setIsSaving(true);
     try {
-      const effectiveOptions = isForeignActivePreset ? { ...options, forceNew: true } : options;
+      const effectiveOptions = finder.isForeignActivePreset ? { ...options, forceNew: true } : options;
       await executeSavePresetToCloud({
         name, presetData, userProfile, isAdmin, isMestre, visibility, isDraft,
-        effectiveMestreId, effectiveGroupId, matchedPreset, loadedMorceauId,
+        isShowcase: isSuperAdmin ? isShowcase : false, keepInGroup,
+        effectiveMestreId, effectiveGroupId, matchedPreset: finder.matchedPreset, loadedMorceauId,
         cloudPresets, autoGenerateAudio, genererEtUploaderPresetCloudBounce,
         lang, sequencer, queryClient, onClose, options: effectiveOptions,
       });
@@ -111,7 +119,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
   return {
     name, setName, visibility, setVisibility, isSaving, autoGenerateAudio, setAutoGenerateAudio,
     isBouncingCloud, handleSave, userProfile, groupDisplayName, progress, stepLabel,
-    matchedPreset, isExistingPreset, isLocked, isMestre, canUpdate,
-    isForeignActivePreset, hasMestreNameConflict, isDraft, setIsDraft, isSavedOnCloud,
+    ...finder, isMestre, isDraft, setIsDraft, isSuperAdmin, isShowcase, setIsShowcase,
+    keepInGroup, setKeepInGroup, canPublishToGroup, canUploadAudio: policy.canUploadVocalCloud,
+    ownedPrivateCount, maxPrivateCloudPresets: policy.maxPrivateCloudPresets,
   };
 }

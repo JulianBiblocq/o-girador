@@ -35,10 +35,19 @@ export function useHeaderProject(cloudPresets: any[] = [], activePresetName: str
 
   const groupLogo = userProfile?.groupLogoUrl || cloudGroupLogo || (isSamambaia ? '/Pictures/logo-samambaia.png' : '/o-girador-logo.webp');
 
-  const isPublicPreset = (p: { visibility?: string }) => p.visibility === 'admin_global' || p.visibility === 'public';
+  const isPublicPreset = (p: { visibility?: string; isShowcase?: boolean }) =>
+    p.visibility === 'admin_global' || p.visibility === 'public' || p.isShowcase === true;
+  const belongsToCurrentGroup = (p: any) => {
+    if (p.visibility === 'private' && !p.groupId) return Boolean(effectiveProfile?.uid && p.ownerId === effectiveProfile.uid);
+    const pGrp = String(p.groupId || p.groupName || '').trim().toLowerCase();
+    if (isSamambaia) {
+      return isLegacySamambaiaGroup(pGrp) || p.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || p.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+    }
+    return Boolean(rawGroupId && pGrp && pGrp === rawGroupId.toLowerCase());
+  };
   const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
-  const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
-  const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || isOtherDistinctGroup));
+  const privateCloudPresets = (cloudPresets || []).filter((p) => belongsToCurrentGroup(p) || (!isPublicPreset(p) && !rawGroupId));
+  const showGroupCatalogue = Boolean(groupLabel && (isSamambaia || isOtherDistinctGroup));
 
   const [groupDefaultPresetId, setGroupDefaultPresetId] = useState<string | null>(null);
 

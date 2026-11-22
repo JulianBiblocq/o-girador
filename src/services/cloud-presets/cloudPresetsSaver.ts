@@ -12,6 +12,13 @@ import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
 import { VOCAL_GRAMMAR_VERSION } from '../../utils/vocalGrammarV2';
 import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
 import { isMestreOrAdminProfile, OFFICIAL_MESTRE_UID } from '../../utils/presetPermissions';
+import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
+
+export interface SavePresetCloudOptions {
+  isShowcase?: boolean;
+  keepInGroup?: boolean;
+  skipVocalUpload?: boolean;
+}
 
 export async function savePresetToCloud(
   name: string,
@@ -25,7 +32,8 @@ export async function savePresetToCloud(
   groupId?: string,
   canWriteSequenciador?: boolean,
   isDraft?: boolean,
-  userRole?: string
+  userRole?: string,
+  options?: SavePresetCloudOptions
 ): Promise<string> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
   const isPlaywrightTest = isTestEnvironment();
@@ -44,7 +52,7 @@ export async function savePresetToCloud(
     delete presetToSave.metadata.morceauId;
   }
   presetToSave.metadata = { ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION, alfaiaEquipment };
-  const updatedMap = await uploadPendingVocalRecordings(presetToSave);
+  const updatedMap = options?.skipVocalUpload ? new Map() : await uploadPendingVocalRecordings(presetToSave);
 
   if (updatedMap.size > 0) {
     try {
@@ -62,35 +70,46 @@ export async function savePresetToCloud(
   }
 
   const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));
-  let effectiveGroupId = groupId ? groupId.trim() : '';
-  let effectiveMestreId = mestreId || null;
-  const isSamambaiaGroup =
-    effectiveOwnerId === OFFICIAL_MESTRE_UID ||
-    effectiveGroupId.toLowerCase().includes('samambaia') ||
-    effectiveGroupId.toLowerCase().includes('sammbia') ||
-    Boolean(canWriteSequenciador);
+  const isShowcase = options?.isShowcase === true;
+  const rawGroup = groupId ? groupId.trim() : '';
+  const isPrivatePersonal = visibility === 'private' && !isShowcase;
+  const detachGroupForShowcase = isShowcase && !options?.keepInGroup;
 
-  if (isSamambaiaGroup) {
-    effectiveGroupId = 'samambaia';
-    effectiveMestreId = effectiveMestreId || OFFICIAL_MESTRE_UID;
-  } else if (effectiveGroupId) {
-    effectiveGroupId = effectiveGroupId.toLowerCase();
+  let effectiveGroupId = '';
+  let effectiveMestreId: string | null = null;
+  if (!isPrivatePersonal && !detachGroupForShowcase) {
+    if (isLegacySamambaiaGroup(rawGroup)) {
+      effectiveGroupId = 'samambaia';
+      effectiveMestreId = mestreId || OFFICIAL_MESTRE_UID;
+    } else if (rawGroup) {
+      effectiveGroupId = rawGroup.toLowerCase();
+      effectiveMestreId = mestreId || null;
+    } else if (mestreId) {
+      effectiveMestreId = mestreId;
+    }
   }
 
-  const defaultVis = (isSamambaiaGroup || canWriteSequenciador) ? 'mestre_group' : 'private';
+  const defaultVis = effectiveGroupId && (isMestre || canWriteSequenciador) ? 'mestre_group' : 'private';
+  const effectiveVisibility = isShowcase ? 'admin_global' : (visibility || defaultVis);
   const docData: any = {
     name: name || 'Preset Sans Nom',
     data: dataString,
     ownerId: effectiveOwnerId,
-    visibility: visibility || defaultVis,
+    visibility: effectiveVisibility,
     targetUserId: targetUserId || null,
     mestreId: effectiveMestreId,
+    groupId: effectiveGroupId || null,
     alfaiaEquipment,
     updatedAt: Date.now(),
   };
-  if (effectiveGroupId) docData.groupId = effectiveGroupId;
   if (audioUrl !== undefined) docData.audioUrl = audioUrl;
-  if (isDraft !== undefined) docData.isDraft = isDraft;
+  if (isShowcase) {
+    docData.isShowcase = true;
+    docData.isDraft = false;
+  } else {
+    if (options?.isShowcase === false) docData.isShowcase = false;
+    if (isDraft !== undefined) docData.isDraft = isDraft;
+  }
 
   const finalPresetId = wasForeignTargetReset
     ? null

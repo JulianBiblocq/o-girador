@@ -73,7 +73,11 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
       state.tracks, state.songSections, state.totalMeasures, copied, destStartMeasure,
       state.hasFullPlaybackAccess, state.maxMeasuresAllowed
     );
-    if (res.error) { notifyToast(res.error, 'error'); return; }
+    if (res.error) {
+      state.openSubscriptionModal(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
+      notifyToast(res.error, 'error');
+      return;
+    }
     set({
       tracks: res.tracks, tracksVersion: state.tracksVersion + 1,
       ...(res.songSections ? { songSections: res.songSections } : {}),
