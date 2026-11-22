@@ -1,7 +1,3 @@
-/**
- * measureStepGridHelper.ts — Grille rythmique de mesure (ticks, nuplets et offset multi-mesures) (< 55 lignes).
- */
-
 import {
   computeMeasurePatternStepOffset,
   getRodaMeasureGeometry,
@@ -20,7 +16,8 @@ export interface MeasureStepGrid {
 export function buildMeasureStepGrid(
   timeSig: string,
   activePattern: any,
-  measureIdx: number
+  measureIdx: number,
+  isSamePatternAtMeasure?: (m: number) => boolean
 ): MeasureStepGrid {
   const geom = getRodaMeasureGeometry(timeSig);
   const { beatsCount, ticksPerBeat, maxTicks } = geom;
@@ -42,6 +39,6 @@ export function buildMeasureStepGrid(
   }
 
   const effectiveStepCount = stepTickMap.length;
-  const stepOffset = computeMeasurePatternStepOffset(activePattern, effectiveStepCount, measureIdx);
+  const stepOffset = computeMeasurePatternStepOffset(activePattern, effectiveStepCount, measureIdx, isSamePatternAtMeasure);
   return { stepTickMap, stepIsTupletMap, stepIsBeatHeadMap, effectiveStepCount, stepOffset, maxTicks };
 }

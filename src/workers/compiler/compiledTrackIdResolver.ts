@@ -37,9 +37,11 @@ export function resolveTrackFromPackedData<T extends { id: number | string }>(
   scheduleOrTrackIds?: object | readonly (number | string)[] | null
 ): T | undefined {
   const packedIdx = (packedData >>> 22) & 0x3ff;
-  const idTable = Array.isArray(scheduleOrTrackIds)
-    ? scheduleOrTrackIds
-    : getCompiledTrackIds(scheduleOrTrackIds ?? undefined);
+  const attachedIds =
+    scheduleOrTrackIds && typeof scheduleOrTrackIds === 'object'
+      ? getCompiledTrackIds(scheduleOrTrackIds)
+      : undefined;
+  const idTable = attachedIds ?? (Array.isArray(scheduleOrTrackIds) ? scheduleOrTrackIds : undefined);
 
   if (idTable) {
     if (packedIdx >= idTable.length) return undefined;

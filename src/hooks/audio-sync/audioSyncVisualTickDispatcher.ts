@@ -83,7 +83,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
       preRollMeasureIndex: 0,
       preRollTotalMeasures: 1,
       preRollBeat: currentBeatIndex,
-      measureSeqId,
+      measureSeqId: measureSeqId ?? 0,
     });
   }
 }

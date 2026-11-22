@@ -49,7 +49,9 @@ export function findAlfaiaCrossHandLookahead(
   }
   const maxScan = Math.min(len, 16);
   for (let offset = 1; offset <= maxScan; offset++) {
-    const raw = activePlayingSteps[(currentStep + offset) % len];
+    const nextIdx = currentStep + offset;
+    if (nextIdx >= len) break;
+    const raw = activePlayingSteps[nextIdx];
     const tokens = extractStepTokens(raw);
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];

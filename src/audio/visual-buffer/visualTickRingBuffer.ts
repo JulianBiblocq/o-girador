@@ -9,7 +9,7 @@ export const HIT_QUEUE_SIZE = 512;
 export const tickQueue: VisualTickEvent[] = Array.from({ length: TICK_QUEUE_SIZE }, () => ({
   drawTime: 0, step: 0, measure: 0, maxTicks: 96, ratio: 0, visualStep16: 0, visualStep12: 0,
   time: 0, iteration: 1, loopIteration: 1, measureStartTime: 0, measureDuration: 0, targetStartTime: 0,
-  isPreRoll: false, preRollMeasureIndex: 0, preRollTotalMeasures: 1, preRollBeat: 0,
+  isPreRoll: false, preRollMeasureIndex: 0, preRollTotalMeasures: 1, preRollBeat: 0, measureSeqId: 0,
 }));
 
 export const hitQueue: VisualHitTriggerEvent[] = Array.from({ length: HIT_QUEUE_SIZE }, () => ({
@@ -27,7 +27,7 @@ export function setHitReadIdx(idx: number) { hitReadIdx = idx; }
 const lastAudibleTickSnapshot: VisualTickEvent = {
   drawTime: 0, step: 0, measure: 0, maxTicks: 96, ratio: 0, visualStep16: 0, visualStep12: 0,
   time: 0, iteration: 1, loopIteration: 1, measureStartTime: 0, measureDuration: 0, targetStartTime: 0,
-  isPreRoll: false, preRollMeasureIndex: 0, preRollTotalMeasures: 1, preRollBeat: 0,
+  isPreRoll: false, preRollMeasureIndex: 0, preRollTotalMeasures: 1, preRollBeat: 0, measureSeqId: 0,
 };
 let hasLastAudibleTick = false;
 
@@ -39,7 +39,7 @@ function copyTickEvent(dst: VisualTickEvent, src: VisualTickEvent): void {
   dst.measureDuration = src.measureDuration; dst.targetStartTime = src.targetStartTime;
   dst.isPreRoll = !!src.isPreRoll; dst.preRollMeasureIndex = src.preRollMeasureIndex ?? 0;
   dst.preRollTotalMeasures = src.preRollTotalMeasures ?? 1; dst.preRollBeat = src.preRollBeat ?? 0;
-  dst.measureSeqId = src.measureSeqId;
+  dst.measureSeqId = src.measureSeqId ?? 0;
 }
 
 export function setLastAudibleTick(val: VisualTickEvent | null): void {
@@ -50,6 +50,10 @@ export function setLastAudibleTick(val: VisualTickEvent | null): void {
 
 export function getLastAudibleTick(): VisualTickEvent | null {
   return hasLastAudibleTick ? lastAudibleTickSnapshot : null;
+}
+
+export function getLiveMeasureSeqId(): number {
+  return (hasLastAudibleTick && useSequencerStore.getState().isPlaying) ? (lastAudibleTickSnapshot.measureSeqId ?? 0) : 0;
 }
 
 export function getLiveOrStoreMeasure(storeMeasure: number): number {

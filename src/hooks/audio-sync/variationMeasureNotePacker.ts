@@ -10,6 +10,7 @@ import {
   packNoteData,
 } from '../../workers/compiler/stepNotePacker';
 import { attachCompiledTrackIds, extractCompiledTrackIds } from '../../workers/compiler/compiledTrackIdResolver';
+import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 
 export function buildMeasureVariationNotes(params: {
   tracks: Track[];
@@ -41,7 +42,8 @@ export function buildMeasureVariationNotes(params: {
     const { stepTickMap, stepIsTupletMap, stepIsBeatHeadMap, effectiveStepCount, stepOffset, maxTicks } = buildMeasureStepGrid(
       timeSig || '4/4',
       { ...activePattern, beatResolutions: effectiveBeatRes },
-      measureIdx
+      measureIdx,
+      (m) => resolveActivePattern(track, tracks, m, false, null)?.id === activePattern.id
     );
 
     for (let step = 0; step < effectiveStepCount; step++) {

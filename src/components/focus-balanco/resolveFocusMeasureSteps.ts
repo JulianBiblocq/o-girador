@@ -7,7 +7,8 @@ import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { areStepValuesEqual, isStepValueActive } from '../../utils/slaveStepOpacityResolver';
 import { getVariationSculptArrays, isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
-import { getLiveVariationRodaSnapshots } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
+import { getLiveVariationRodaSnapshots, getVariationSnapshotBySeqOrMeasure } from '../../hooks/audio-sync/liveVariationLookaheadEngine';
+import { getLiveMeasureSeqId } from '../../audio/visualTickBuffer';
 import { useBalancoStore } from '../../stores/useBalancoStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { FocusBrickStepModel, FocusMeasureStepsModel } from './focusBalancoTypes';
@@ -49,7 +50,8 @@ export function resolveFocusMeasureSteps(params: {
   const beatRes = resolveActiveBeatResolutions(sigStr, targetedSoloVar?.beatResolutions && activePattern ? { ...activePattern, beatResolutions: targetedSoloVar.beatResolutions } : activePattern);
   const stepCount = beatRes.reduce((acc, r) => acc + r, 0);
 
-  const liveSnap = getLiveVariationRodaSnapshots();
+  const liveSeqMap = isPlaying ? getVariationSnapshotBySeqOrMeasure(getLiveMeasureSeqId(), measureIdx)?.stepsByTrackId : undefined;
+  const liveSnapMap = liveSeqMap ?? getLiveVariationRodaSnapshots().currentStepsByTrackId;
   let playedSteps: any[] = activePattern?.activeSteps || [], effectiveMicros = activePattern?.microtimings;
 
   if (activePattern && !explicitMuteOverride) {
@@ -59,8 +61,8 @@ export function resolveFocusMeasureSteps(params: {
     } else if (isSolo && soloVarId === 'base') {
       playedSteps = activePattern.activeSteps || [];
     } else if (isPlaying) {
-      const liveForFocus = liveSnap.currentStepsByTrackId?.[focusTrack.id];
-      const liveForMaster = (isSlave && masterTrack && !hasAnyStroke(ownPattern?.activeSteps)) ? liveSnap.currentStepsByTrackId?.[masterTrack.id] : undefined;
+      const liveForFocus = liveSnapMap?.[focusTrack.id];
+      const liveForMaster = (isSlave && masterTrack && !hasAnyStroke(ownPattern?.activeSteps)) ? liveSnapMap?.[masterTrack.id] : undefined;
       const chosenLive = (liveForFocus && hasAnyStroke(liveForFocus)) ? liveForFocus : (liveForMaster ?? liveForFocus);
       if (chosenLive) {
         playedSteps = chosenLive;
@@ -74,7 +76,12 @@ export function resolveFocusMeasureSteps(params: {
     }
   }
 
-  const stepOffset = computeMeasurePatternStepOffset(activePattern, stepCount, measureIdx);
+  const stepOffset = computeMeasurePatternStepOffset(
+    activePattern,
+    stepCount,
+    measureIdx,
+    isSolo ? undefined : (m) => resolveActivePattern(focusTrack, tracks, m, false, null)?.id === activePattern?.id
+  );
   const balancoTrack = (isSlave && focusTrack.balancoPresetId === undefined && focusTrack.balancoAmount === undefined && masterTrack) ? masterTrack : focusTrack;
   const tAmt = balancoTrack.balancoAmount ?? balancoTrack.swingIntensity ?? 100;
   const pAmt = activePattern?.balancoAmount ?? activePattern?.swingIntensity ?? 100;

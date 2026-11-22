@@ -35,7 +35,9 @@ export function findSameHandLookahead(
     if (isStrokeForHand(subTok, isDominantHand)) return { nextKind: subTok === subTok.toUpperCase() && subTok.toUpperCase() !== 'A' ? 'strong' : 'weak', msUntilNext: Math.max(70, Math.round(stepDurationMs * 0.5)) };
   }
   for (let offset = 1; offset <= Math.min(len, 4); offset++) {
-    const raw = activePlayingSteps[(currentStep + offset) % len], list = extractTokens(raw);
+    const nextIdx = currentStep + offset;
+    if (nextIdx >= len) break;
+    const raw = activePlayingSteps[nextIdx], list = extractTokens(raw);
     for (let i = 0; i < list.length; i++) {
       const token = list[i];
       if (isStrokeForHand(token, isDominantHand)) {

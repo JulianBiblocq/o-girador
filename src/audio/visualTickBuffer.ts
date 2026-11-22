@@ -10,6 +10,7 @@ export {
   HIT_QUEUE_SIZE,
   setLastAudibleTick,
   getLastAudibleTick,
+  getLiveMeasureSeqId,
   getLiveOrStoreMeasure,
   getLiveOrStoreLoopIteration,
   pushVisualTick,

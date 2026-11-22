@@ -46,7 +46,9 @@ export function findCaixaSameHandLookahead(
     }
   }
   for (let offset = 1; offset <= Math.min(len, 4); offset++) {
-    const raw = activePlayingSteps[(currentStep + offset) % len];
+    const nextIdx = currentStep + offset;
+    if (nextIdx >= len) break;
+    const raw = activePlayingSteps[nextIdx];
     const list = extractTokens(raw);
     for (let i = 0; i < list.length; i++) {
       const token = list[i];

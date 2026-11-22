@@ -45,9 +45,10 @@ function hasPrecedingHead(steps: any[] | undefined, curIdx: number, isSub: boole
     if (isHeadTok(first, allowT)) return true;
     if (first !== '/') return false;
   }
-  const len = steps.length;
-  for (let off = 1; off <= Math.min(len, 16); off++) {
-    const tok = pickToken(steps[(curIdx - off + len) % len], true, allowT);
+  for (let off = 1; off <= Math.min(steps.length, 16); off++) {
+    const prevIdx = curIdx - off;
+    if (prevIdx < 0) break;
+    const tok = pickToken(steps[prevIdx], true, allowT);
     if (isHeadTok(tok, allowT)) return true;
     if (tok !== '/') return false;
   }
@@ -59,13 +60,17 @@ function resolveSlashAmplitude(steps: any[] | undefined, curIdx: number, allowT:
   const len = steps.length;
   let startAmp = fallback, backDist = 1;
   for (let off = 1; off <= Math.min(len, 16); off++) {
-    const tok = pickToken(steps[(curIdx - off + len) % len], true, allowT);
+    const prevIdx = curIdx - off;
+    if (prevIdx < 0) break;
+    const tok = pickToken(steps[prevIdx], true, allowT);
     if (isHeadTok(tok, allowT)) { startAmp = tok === 'b' || tok === 't' ? 0.6 : 1; backDist = off; break; }
     if (tok !== '/') break;
   }
   let endAmp = startAmp, fwdDist = 1;
   for (let off = 1; off <= Math.min(len, 16); off++) {
-    const tok = pickToken(steps[(curIdx + off) % len], false, allowT);
+    const nextIdx = curIdx + off;
+    if (nextIdx >= len) break;
+    const tok = pickToken(steps[nextIdx], false, allowT);
     if (isHeadTok(tok, allowT)) { endAmp = tok === 'b' || tok === 't' ? 0.6 : 1; fwdDist = off; break; }
     if (tok === '.') { endAmp = +(startAmp * 0.72).toFixed(2); fwdDist = off; break; }
     if (tok !== '/') break;
@@ -91,9 +96,12 @@ export function consumeBarulhoStepPlan(
   if (s === '/' && !wasRolling && !hasPrecedingHead(steps, curIdx, isSub, allowT)) {
     return { action: 'none', sustain: false, amplitude: 0, ampChanged: false };
   }
-  const nextTok = !isSub && steps && Array.isArray(steps[curIdx]) && steps[curIdx].length > 1
-    ? pickToken(steps[curIdx][1], false, allowT)
-    : steps && steps.length > 0 ? pickToken(steps[(curIdx + 1) % steps.length], false, allowT) : '0';
+  const nextTok =
+    !isSub && steps && Array.isArray(steps[curIdx]) && steps[curIdx].length > 1
+      ? pickToken(steps[curIdx][1], false, allowT)
+      : steps && curIdx + 1 < steps.length
+        ? pickToken(steps[curIdx + 1], false, allowT)
+        : '0';
   const sustain = nextTok === '/' || nextTok === '.' || isRollTok(nextTok, allowT);
   const amplitude = s === '/' ? resolveSlashAmplitude(steps, curIdx, allowT, activeRollState.amplitude) : (s === 'b' || s === 't' ? 0.6 : 1);
   const ampChanged = !wasRolling || Math.abs(amplitude - activeRollState.amplitude) >= 0.08;

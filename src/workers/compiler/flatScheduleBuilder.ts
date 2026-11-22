@@ -68,7 +68,10 @@ export function buildFlatSongSchedule(
       }
 
       const { stepTickMap, stepIsTupletMap, stepIsBeatHeadMap, effectiveStepCount, stepOffset } = buildMeasureStepGrid(
-        timeSig, { ...activePattern, beatResolutions: effectiveBeatRes }, measureIdx
+        timeSig,
+        { ...activePattern, beatResolutions: effectiveBeatRes },
+        measureIdx,
+        isSoloPlayActive ? undefined : (m) => resolveActivePattern(track, tracks, m, false, null)?.id === activePattern.id
       );
 
       for (let step = 0; step < effectiveStepCount; step++) {

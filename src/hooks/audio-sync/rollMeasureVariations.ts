@@ -1,5 +1,7 @@
 import { Track, Pattern, PatternVariation } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { computeDeterministicVariationRand } from '../../utils/deterministicVariationRng';
+import { computeMeasurePatternStepOffset, getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { getVariationSculptArrays } from '../../utils/soloVariationMatcher';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { resolveCurrentPattern } from '../../utils/variationResolver';
@@ -28,7 +30,8 @@ export function rollMeasureVariations(
   soloPatternPlayId: number | null,
   soloPatternVariationId: string | null,
   precedingPatternIdByTrack: Record<number, number | null>,
-  randomSource: () => number = Math.random
+  randomSource?: () => number,
+  prevSnapshot?: MeasureVariationSnapshot | null
 ): MeasureVariationSnapshot {
   const store = useSequencerStore.getState();
   const isSoloPlayActive = soloPatternPlayId !== null;
@@ -36,19 +39,19 @@ export function rollMeasureVariations(
   const stepsByTrackId: Record<number, StepArray> = {};
   const variedPatternsByTrackId = new Map<number, { pattern: Pattern; variation: PatternVariation }>();
   const patternIdByTrackId: Record<number, number | null> = {};
+  const defSteps = getRodaMeasureGeometry(timeSig || '4/4').defaultSteps;
 
   const familyRandByMaster = new Map<string, number>();
   const masterChosenByMasterId = new Map<string, { varIdx: number; varId: string | null; varName: string | null }>();
   const getFamilyRand = (key: string): number => {
-    if (!familyRandByMaster.has(key)) familyRandByMaster.set(key, randomSource());
+    if (!familyRandByMaster.has(key)) {
+      const r = randomSource ? randomSource() : computeDeterministicVariationRand(seqId > 0 ? seqId : 0, measureIdx, key);
+      familyRandByMaster.set(key, r);
+    }
     return familyRandByMaster.get(key)!;
   };
 
-  const orderedTracks = [...tracks].sort((a, b) => {
-    const aSlave = isSlaveTrack(a, tracks) ? 1 : 0;
-    const bSlave = isSlaveTrack(b, tracks) ? 1 : 0;
-    return aSlave - bSlave;
-  });
+  const orderedTracks = [...tracks].sort((a, b) => (isSlaveTrack(a, tracks) ? 1 : 0) - (isSlaveTrack(b, tracks) ? 1 : 0));
 
   orderedTracks.forEach((track) => {
     if (track.isBusFolder || track.isLinkFolder) return;
@@ -59,11 +62,32 @@ export function rollMeasureVariations(
     }
     patternIdByTrackId[track.id] = activePattern.id;
 
+    const isContinuationBar =
+      !isSoloPlayActive &&
+      computeMeasurePatternStepOffset(
+        activePattern,
+        defSteps,
+        measureIdx,
+        (m) => resolveActivePattern(track, tracks, m, false, null)?.id === activePattern.id
+      ) > 0;
+
+    if (isContinuationBar && prevSnapshot && prevSnapshot.patternIdByTrackId[track.id] === activePattern.id) {
+      const prevVarEntry = prevSnapshot.variedPatternsByTrackId.get(track.id);
+      if (prevVarEntry && prevVarEntry.pattern.id === activePattern.id) {
+        stepsByTrackId[track.id] = getVariationSculptArrays(activePattern, prevVarEntry.variation).steps;
+        variedPatternsByTrackId.set(track.id, { pattern: activePattern, variation: prevVarEntry.variation });
+      } else {
+        stepsByTrackId[track.id] = activePattern.activeSteps;
+      }
+      return;
+    }
+
     const isSlave = isSlaveTrack(track, tracks);
-    const masterTrack = isSlave ? resolveMasterTrack(track.id, tracks) : (track.isLinkMaster ? track : null);
+    const hasOwnMeasureOverride = !isSoloPlayActive && track.patternOverrides?.[measureIdx] !== undefined;
+    const masterTrack = isSlave && !hasOwnMeasureOverride ? resolveMasterTrack(track.id, tracks) : (track.isLinkMaster ? track : null);
     const famKey = masterTrack ? String(masterTrack.id) : String(track.id);
 
-    if (isSlave && masterTrack && masterChosenByMasterId.has(famKey)) {
+    if (isSlave && !hasOwnMeasureOverride && masterTrack && masterChosenByMasterId.has(famKey)) {
       const choice = masterChosenByMasterId.get(famKey)!;
       if (choice.varIdx < 0) {
         stepsByTrackId[track.id] = activePattern.activeSteps;
@@ -98,8 +122,7 @@ export function rollMeasureVariations(
       if (track.isLinkMaster) {
         const vIdx = (activePattern.variations || []).findIndex((v: PatternVariation) => v.id === resolved.matchedVariation!.id);
         masterChosenByMasterId.set(famKey, {
-          varIdx: vIdx >= 0 ? vIdx : 0,
-          varId: String(resolved.matchedVariation.id),
+          varIdx: vIdx >= 0 ? vIdx : 0, varId: String(resolved.matchedVariation.id),
           varName: resolved.matchedVariation.name?.trim().toLowerCase() || null,
         });
       }
@@ -109,8 +132,6 @@ export function rollMeasureVariations(
   });
 
   const variedTrackIds = new Set(variedPatternsByTrackId.keys());
-  const variationNotes = buildMeasureVariationNotes({
-    tracks, measureIdx, measureStartTick, timeSig: timeSig || '4/4', variedPatternsByTrackId,
-  });
+  const variationNotes = buildMeasureVariationNotes({ tracks, measureIdx, measureStartTick, timeSig: timeSig || '4/4', variedPatternsByTrackId });
   return { seqId, measureIdx, measureStartTick, stepsByTrackId, variedPatternsByTrackId, patternIdByTrackId, variedTrackIds, variationNotes };
 }

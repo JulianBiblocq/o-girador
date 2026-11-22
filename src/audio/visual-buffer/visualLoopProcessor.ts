@@ -1,5 +1,6 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { detachedWindowManager } from '../../utils/detachedWindowManager';
+import { syncAudibleTickVariationRef } from '../../hooks/audio-sync/liveVariationSnapshotStore';
 import { tickSubscribers, syncAudioEngine } from './visualTickSubscribers';
 import {
   tickQueue,
@@ -56,6 +57,9 @@ function processVisualLoop(): void {
     }
 
     setLastAudibleTick(evt);
+    if (!evt.isPreRoll) {
+      syncAudibleTickVariationRef(evt.measureSeqId, evt.measure);
+    }
     tickSubscribers.forEach((cb) => {
       try {
         cb(evt);

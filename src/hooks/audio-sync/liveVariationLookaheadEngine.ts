@@ -1,20 +1,25 @@
 import { Track } from '../../types';
-import { MeasureVariationSnapshot, rollMeasureVariations, StepArray } from './rollMeasureVariations';
+import { getLiveMeasureSeqId } from '../../audio/visualTickBuffer';
+import {
+  applyStepExploreVisualState,
+  buildLiveVariationRodaSnapshots,
+  resetRodaVisualFrameState,
+  rodaVisualState,
+  updateRodaVisualFrameFromSnapshot,
+} from './liveVariationRodaSync';
+import {
+  getVariationSnapshotBySeqOrMeasure,
+  pruneOldSeqSnapshots,
+  resetSnapshotStore,
+  snapshotsByMeasure,
+  snapshotsBySeqId,
+  snapshotStore,
+  syncAudibleTickVariationRef,
+} from './liveVariationSnapshotStore';
+import { MeasureVariationSnapshot, rollMeasureVariations } from './rollMeasureVariations';
 
 export type { MeasureVariationSnapshot };
-
-let prevSnapshot: MeasureVariationSnapshot | null = null, currentSnapshot: MeasureVariationSnapshot | null = null, nextSnapshot: MeasureVariationSnapshot | null = null;
-const snapshotsByMeasure = new Map<number, MeasureVariationSnapshot>();
-const snapshotsBySeqId = new Map<number, MeasureVariationSnapshot>();
-let lastPlayedPatternIdByTrack: Record<number, number | null> = {}, lastHorizonPatternIdByTrack: Record<number, number | null> = {};
-let currentVariationNotes: number[] = [], currentVariedTrackIds = new Set<number>();
-let visualCurrMeasureIdx: number | null = null, visualCurrStepsByTrackId: Record<number, StepArray> | null = null;
-let visualPrevMeasureIdx: number | null = null, visualPrevStepsByTrackId: Record<number, StepArray> | null = null;
-let lastVisualRatio = 0;
-
-function pruneOldSeqSnapshots(minKeepSeqId: number): void {
-  for (const k of snapshotsBySeqId.keys()) { if (k < minKeepSeqId) snapshotsBySeqId.delete(k); }
-}
+export { getVariationSnapshotBySeqOrMeasure, syncAudibleTickVariationRef };
 
 export function getOrRollMeasureVariationForHorizon(params: {
   seqId: number; measureIdx: number; measureStartTick: number; timeSig: string;
@@ -22,42 +27,42 @@ export function getOrRollMeasureVariationForHorizon(params: {
 }): MeasureVariationSnapshot {
   const existing = snapshotsBySeqId.get(params.seqId);
   if (existing && existing.measureIdx === params.measureIdx && existing.measureStartTick === params.measureStartTick) return existing;
-  const prevSnap = snapshotsBySeqId.get(params.seqId - 1);
-  const preceding = prevSnap ? prevSnap.patternIdByTrackId : lastHorizonPatternIdByTrack;
+  const prevSnap = snapshotsBySeqId.get(params.seqId - 1) ?? null;
+  const preceding = prevSnap ? prevSnap.patternIdByTrackId : snapshotStore.lastHorizonPatternIdByTrack;
   const snap = rollMeasureVariations(
     params.seqId, params.measureIdx, params.measureStartTick, params.timeSig,
-    params.tracks, params.soloPatternPlayId, params.soloPatternVariationId, preceding
+    params.tracks, params.soloPatternPlayId, params.soloPatternVariationId, preceding, undefined, prevSnap
   );
-  lastHorizonPatternIdByTrack = { ...snap.patternIdByTrackId };
+  snapshotStore.lastHorizonPatternIdByTrack = { ...snap.patternIdByTrackId };
   snapshotsBySeqId.set(params.seqId, snap);
-  snapshotsByMeasure.set(params.measureIdx, snap);
-  pruneOldSeqSnapshots(params.seqId - 4);
+  pruneOldSeqSnapshots(params.seqId - 8);
   return snap;
 }
 
 export function invalidateFutureVariationSnapshots(afterSeqId: number, includeCurrent = false): void {
-  for (const k of snapshotsBySeqId.keys()) { if (includeCurrent ? k >= afterSeqId : k > afterSeqId) snapshotsBySeqId.delete(k); }
-  const baseSnap = snapshotsBySeqId.get(includeCurrent ? afterSeqId - 1 : afterSeqId) ?? currentSnapshot;
-  lastHorizonPatternIdByTrack = baseSnap ? { ...baseSnap.patternIdByTrackId } : { ...lastPlayedPatternIdByTrack };
+  for (const k of snapshotsBySeqId.keys()) {
+    if (includeCurrent ? k >= afterSeqId : k > afterSeqId) snapshotsBySeqId.delete(k);
+  }
+  const baseSnap = snapshotsBySeqId.get(includeCurrent ? afterSeqId - 1 : afterSeqId) ?? snapshotStore.currentSnapshot;
+  snapshotStore.lastHorizonPatternIdByTrack = baseSnap ? { ...baseSnap.patternIdByTrackId } : { ...snapshotStore.lastPlayedPatternIdByTrack };
 }
 
 export function syncCurrentVariationOverrideFromSeq(seqId: number, activeVariationsRef?: { current: Record<number, any> }): void {
   const snap = snapshotsBySeqId.get(seqId);
   if (!snap) return;
-  currentSnapshot = snap;
+  snapshotStore.currentSnapshot = snap;
   snapshotsByMeasure.set(snap.measureIdx, snap);
-  currentVariedTrackIds = snap.variedTrackIds;
-  currentVariationNotes = snap.variationNotes;
-  if (activeVariationsRef) activeVariationsRef.current = snap.stepsByTrackId;
+  snapshotStore.currentVariedTrackIds = snap.variedTrackIds;
+  snapshotStore.currentVariationNotes = snap.variationNotes;
+  if (activeVariationsRef) {
+    snapshotStore.registeredActiveVariationsRef = activeVariationsRef;
+    activeVariationsRef.current = snap.stepsByTrackId;
+  }
 }
 
 export function resetLiveVariationLookahead(activeVariationsRef?: { current: Record<number, any> }): void {
-  prevSnapshot = null; currentSnapshot = null; nextSnapshot = null;
-  snapshotsByMeasure.clear(); snapshotsBySeqId.clear();
-  lastPlayedPatternIdByTrack = {}; lastHorizonPatternIdByTrack = {};
-  currentVariationNotes = []; currentVariedTrackIds = new Set<number>();
-  visualCurrMeasureIdx = null; visualCurrStepsByTrackId = null;
-  visualPrevMeasureIdx = null; visualPrevStepsByTrackId = null; lastVisualRatio = 0;
+  resetSnapshotStore();
+  resetRodaVisualFrameState();
   if (activeVariationsRef) activeVariationsRef.current = {};
 }
 
@@ -68,77 +73,70 @@ export function advanceLiveVariationLookahead(params: {
   activeVariationsRef?: { current: Record<number, any> }; currentMeasureSeqId?: number; nextMeasureStartTick?: number;
 }): void {
   const { currentMeasureIdx, nextMeasureIdx, currentMeasureStartTick, tracks, measureTimeSigs, soloPatternPlayId, soloPatternVariationId, activeVariationsRef, currentMeasureSeqId } = params;
-  if (currentSnapshot) prevSnapshot = currentSnapshot;
+  if (activeVariationsRef) snapshotStore.registeredActiveVariationsRef = activeVariationsRef;
+  if (snapshotStore.currentSnapshot) snapshotStore.prevSnapshot = snapshotStore.currentSnapshot;
   const currSig = measureTimeSigs[currentMeasureIdx] || '4/4', nextSig = measureTimeSigs[nextMeasureIdx] || '4/4';
 
-  if (currentMeasureSeqId !== undefined) {
-    currentSnapshot = getOrRollMeasureVariationForHorizon({ seqId: currentMeasureSeqId, measureIdx: currentMeasureIdx, measureStartTick: currentMeasureStartTick, timeSig: currSig, tracks, soloPatternPlayId, soloPatternVariationId });
-    nextSnapshot = getOrRollMeasureVariationForHorizon({ seqId: currentMeasureSeqId + 1, measureIdx: nextMeasureIdx, measureStartTick: params.nextMeasureStartTick ?? 0, timeSig: nextSig, tracks, soloPatternPlayId, soloPatternVariationId });
-    pruneOldSeqSnapshots(currentMeasureSeqId - 2);
+  if (currentMeasureSeqId !== undefined && currentMeasureSeqId > 0) {
+    snapshotStore.currentSnapshot = getOrRollMeasureVariationForHorizon({ seqId: currentMeasureSeqId, measureIdx: currentMeasureIdx, measureStartTick: currentMeasureStartTick, timeSig: currSig, tracks, soloPatternPlayId, soloPatternVariationId });
+    snapshotsByMeasure.set(currentMeasureIdx, snapshotStore.currentSnapshot);
+    snapshotStore.nextSnapshot = getOrRollMeasureVariationForHorizon({ seqId: currentMeasureSeqId + 1, measureIdx: nextMeasureIdx, measureStartTick: params.nextMeasureStartTick ?? 0, timeSig: nextSig, tracks, soloPatternPlayId, soloPatternVariationId });
+    if (nextMeasureIdx !== currentMeasureIdx) snapshotsByMeasure.set(nextMeasureIdx, snapshotStore.nextSnapshot);
+    pruneOldSeqSnapshots(currentMeasureSeqId - 8);
   } else {
-    currentSnapshot = (nextSnapshot && nextSnapshot.measureIdx === currentMeasureIdx) ? nextSnapshot : rollMeasureVariations(-1, currentMeasureIdx, currentMeasureStartTick, currSig, tracks, soloPatternPlayId, soloPatternVariationId, lastPlayedPatternIdByTrack);
-    snapshotsByMeasure.set(currentMeasureIdx, currentSnapshot);
-    nextSnapshot = rollMeasureVariations(-1, nextMeasureIdx, 0, nextSig, tracks, soloPatternPlayId, soloPatternVariationId, currentSnapshot.patternIdByTrackId);
-    snapshotsByMeasure.set(nextMeasureIdx, nextSnapshot);
+    snapshotStore.currentSnapshot = (snapshotStore.nextSnapshot && snapshotStore.nextSnapshot.measureIdx === currentMeasureIdx)
+      ? snapshotStore.nextSnapshot
+      : rollMeasureVariations(-1, currentMeasureIdx, currentMeasureStartTick, currSig, tracks, soloPatternPlayId, soloPatternVariationId, snapshotStore.lastPlayedPatternIdByTrack, undefined, snapshotStore.prevSnapshot);
+    snapshotsByMeasure.set(currentMeasureIdx, snapshotStore.currentSnapshot);
+    snapshotStore.nextSnapshot = rollMeasureVariations(-1, nextMeasureIdx, 0, nextSig, tracks, soloPatternPlayId, soloPatternVariationId, snapshotStore.currentSnapshot.patternIdByTrackId, undefined, snapshotStore.currentSnapshot);
+    if (nextMeasureIdx !== currentMeasureIdx) snapshotsByMeasure.set(nextMeasureIdx, snapshotStore.nextSnapshot);
   }
-  lastPlayedPatternIdByTrack = { ...currentSnapshot.patternIdByTrackId };
-  if (activeVariationsRef && visualCurrMeasureIdx === null) activeVariationsRef.current = currentSnapshot.stepsByTrackId;
-  currentVariedTrackIds = currentSnapshot.variedTrackIds; currentVariationNotes = currentSnapshot.variationNotes;
+  snapshotStore.lastPlayedPatternIdByTrack = { ...snapshotStore.currentSnapshot.patternIdByTrackId };
+  const liveSeq = getLiveMeasureSeqId();
+  const visibleSnap = (liveSeq > 0 ? snapshotsBySeqId.get(liveSeq) : undefined) ?? snapshotStore.currentSnapshot;
+  if (activeVariationsRef && rodaVisualState.visualCurrMeasureIdx === null) activeVariationsRef.current = visibleSnap.stepsByTrackId;
+  snapshotStore.currentVariedTrackIds = snapshotStore.currentSnapshot.variedTrackIds;
+  snapshotStore.currentVariationNotes = snapshotStore.currentSnapshot.variationNotes;
 }
 
 export function recalculateLookaheadForQueuedMeasure(queuedMeasureIdx: number, tracks: Track[], soloPatternPlayId: number | null = null, soloPatternVariationId: string | null = null): void {
-  const preceding = currentSnapshot?.patternIdByTrackId ?? lastPlayedPatternIdByTrack;
-  nextSnapshot = rollMeasureVariations(-1, queuedMeasureIdx, 0, '4/4', tracks, soloPatternPlayId, soloPatternVariationId, preceding);
-  snapshotsByMeasure.set(queuedMeasureIdx, nextSnapshot);
+  const preceding = snapshotStore.currentSnapshot?.patternIdByTrackId ?? snapshotStore.lastPlayedPatternIdByTrack;
+  snapshotStore.nextSnapshot = rollMeasureVariations(-1, queuedMeasureIdx, 0, '4/4', tracks, soloPatternPlayId, soloPatternVariationId, preceding, undefined, snapshotStore.currentSnapshot);
+  if (queuedMeasureIdx !== snapshotStore.currentSnapshot?.measureIdx) snapshotsByMeasure.set(queuedMeasureIdx, snapshotStore.nextSnapshot);
 }
 
 export function syncStepExploreVariationSnapshots(params: {
   prevMeasureIdx: number | null; currentMeasureIdx: number; nextMeasureIdx: number; playheadRatio: number;
   tracks: Track[]; measureTimeSigs: Record<number, string> | string[];
-  soloPatternPlayId: number | null; soloPatternVariationId: string | null;
-  activeVariationsRef?: { current: Record<number, any> };
+  soloPatternPlayId: number | null; soloPatternVariationId: string | null; activeVariationsRef?: { current: Record<number, any> };
 }): MeasureVariationSnapshot {
   const { prevMeasureIdx, currentMeasureIdx, nextMeasureIdx, playheadRatio, tracks, measureTimeSigs, soloPatternPlayId, soloPatternVariationId, activeVariationsRef } = params;
-  const getOrRoll = (mIdx: number, preceding: Record<number, number | null>): MeasureVariationSnapshot => {
+  const getOrRoll = (mIdx: number, preceding: Record<number, number | null>, prevS: MeasureVariationSnapshot | null): MeasureVariationSnapshot => {
     const cached = snapshotsByMeasure.get(mIdx);
     if (cached) return cached;
-    const rolled = rollMeasureVariations(-1, mIdx, 0, measureTimeSigs?.[mIdx] || '4/4', tracks, soloPatternPlayId, soloPatternVariationId, preceding);
+    const rolled = rollMeasureVariations(-1, mIdx, 0, measureTimeSigs?.[mIdx] || '4/4', tracks, soloPatternPlayId, soloPatternVariationId, preceding, undefined, prevS);
     snapshotsByMeasure.set(mIdx, rolled);
     return rolled;
   };
-  const prevSnap = prevMeasureIdx !== null ? getOrRoll(prevMeasureIdx, lastPlayedPatternIdByTrack) : null;
-  const currSnap = getOrRoll(currentMeasureIdx, prevSnap ? prevSnap.patternIdByTrackId : lastPlayedPatternIdByTrack);
-  const nextSnap = getOrRoll(nextMeasureIdx, currSnap.patternIdByTrackId);
-  prevSnapshot = prevSnap; currentSnapshot = currSnap; nextSnapshot = nextSnap;
-  lastPlayedPatternIdByTrack = { ...currSnap.patternIdByTrackId };
-  visualPrevMeasureIdx = prevMeasureIdx; visualPrevStepsByTrackId = prevSnap ? prevSnap.stepsByTrackId : null;
-  visualCurrMeasureIdx = currentMeasureIdx; visualCurrStepsByTrackId = currSnap.stepsByTrackId;
-  lastVisualRatio = ((playheadRatio % 1) + 1) % 1;
-  currentVariedTrackIds = currSnap.variedTrackIds; currentVariationNotes = currSnap.variationNotes;
+  const prevSnap = prevMeasureIdx !== null ? getOrRoll(prevMeasureIdx, snapshotStore.lastPlayedPatternIdByTrack, null) : null;
+  const currSnap = getOrRoll(currentMeasureIdx, prevSnap ? prevSnap.patternIdByTrackId : snapshotStore.lastPlayedPatternIdByTrack, prevSnap);
+  const nextSnap = getOrRoll(nextMeasureIdx, currSnap.patternIdByTrackId, currSnap);
+  snapshotStore.prevSnapshot = prevSnap; snapshotStore.currentSnapshot = currSnap; snapshotStore.nextSnapshot = nextSnap;
+  snapshotStore.lastPlayedPatternIdByTrack = { ...currSnap.patternIdByTrackId };
+  applyStepExploreVisualState(prevMeasureIdx, prevSnap, currentMeasureIdx, currSnap, playheadRatio);
+  snapshotStore.currentVariedTrackIds = currSnap.variedTrackIds; snapshotStore.currentVariationNotes = currSnap.variationNotes;
   if (activeVariationsRef) activeVariationsRef.current = currSnap.stepsByTrackId;
   return currSnap;
 }
 
-export function syncLiveVariationRodaVisualFrame(isPlaying: boolean, visualMeasureIdx: number, playheadRatio: number, activeVariationsRef?: { current: Record<number, any> }): void {
-  if (!isPlaying) { visualCurrMeasureIdx = null; visualCurrStepsByTrackId = null; visualPrevMeasureIdx = null; visualPrevStepsByTrackId = null; lastVisualRatio = 0; return; }
-  const snapSteps = snapshotsByMeasure.get(visualMeasureIdx)?.stepsByTrackId ?? currentSnapshot?.stepsByTrackId ?? null;
-  const r = ((playheadRatio % 1) + 1) % 1;
-  if (visualCurrMeasureIdx === null) { visualCurrMeasureIdx = visualMeasureIdx; visualCurrStepsByTrackId = snapSteps; visualPrevMeasureIdx = null; visualPrevStepsByTrackId = null; }
-  else if (visualMeasureIdx !== visualCurrMeasureIdx || (r < 0.25 && lastVisualRatio > 0.75)) { visualPrevMeasureIdx = visualCurrMeasureIdx; visualPrevStepsByTrackId = visualCurrStepsByTrackId; visualCurrMeasureIdx = visualMeasureIdx; visualCurrStepsByTrackId = snapSteps; }
-  else if (!visualCurrStepsByTrackId && snapSteps) visualCurrStepsByTrackId = snapSteps;
-  lastVisualRatio = r;
-  if (activeVariationsRef && visualCurrStepsByTrackId) activeVariationsRef.current = visualCurrStepsByTrackId;
+export function syncLiveVariationRodaVisualFrame(isPlaying: boolean, visualMeasureIdx: number, playheadRatio: number, activeVariationsRef?: { current: Record<number, any> }, explicitSeqId?: number): void {
+  const seqId = explicitSeqId ?? getLiveMeasureSeqId();
+  const snapSteps = getVariationSnapshotBySeqOrMeasure(seqId, visualMeasureIdx)?.stepsByTrackId ?? snapshotStore.currentSnapshot?.stepsByTrackId ?? null;
+  updateRodaVisualFrameFromSnapshot(isPlaying, visualMeasureIdx, playheadRatio, seqId, snapSteps, activeVariationsRef);
 }
 
-export function getMeasureVariationSnapshot(measureIdx: number): MeasureVariationSnapshot | undefined {
-  return snapshotsByMeasure.get(measureIdx) ?? (currentSnapshot?.measureIdx === measureIdx ? currentSnapshot : undefined);
-}
-export function getActiveVariationIdForTrack(seqId: number | undefined, measureIdx: number, trackId: number): string | null {
-  const snap = (seqId !== undefined && seqId > 0 ? snapshotsBySeqId.get(seqId) : undefined) ?? snapshotsByMeasure.get(measureIdx) ?? currentSnapshot;
-  return snap?.variedPatternsByTrackId.get(trackId)?.variation?.id ?? null;
-}
-export function getLiveVariationAudioOverride() { return { variedTrackIds: currentVariedTrackIds, variationNotes: currentVariationNotes }; }
-export function getLiveVariationRodaSnapshots(targetNextMeasureIdx?: number) {
-  const nextSteps = (targetNextMeasureIdx !== undefined && snapshotsByMeasure.has(targetNextMeasureIdx)) ? snapshotsByMeasure.get(targetNextMeasureIdx)!.stepsByTrackId : (nextSnapshot?.stepsByTrackId ?? null);
-  return { hasPrevMeasure: visualPrevMeasureIdx !== null, prevMeasureIdx: visualPrevMeasureIdx ?? prevSnapshot?.measureIdx ?? null, prevStepsByTrackId: visualPrevStepsByTrackId, currentMeasureIdx: visualCurrMeasureIdx ?? currentSnapshot?.measureIdx ?? null, currentStepsByTrackId: visualCurrStepsByTrackId ?? currentSnapshot?.stepsByTrackId ?? null, nextMeasureIdx: targetNextMeasureIdx ?? nextSnapshot?.measureIdx ?? null, nextStepsByTrackId: nextSteps };
-}
+export const getMeasureVariationSnapshot = (measureIdx: number) => getVariationSnapshotBySeqOrMeasure(getLiveMeasureSeqId(), measureIdx);
+export const getActiveVariationIdForTrack = (seqId: number | undefined, measureIdx: number, trackId: number) =>
+  getVariationSnapshotBySeqOrMeasure(seqId, measureIdx)?.variedPatternsByTrackId.get(trackId)?.variation?.id ?? null;
+export const getLiveVariationAudioOverride = () => ({ variedTrackIds: snapshotStore.currentVariedTrackIds, variationNotes: snapshotStore.currentVariationNotes });
+export const getLiveVariationRodaSnapshots = buildLiveVariationRodaSnapshots;

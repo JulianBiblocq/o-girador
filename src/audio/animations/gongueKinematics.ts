@@ -40,7 +40,9 @@ export function findGongueLookahead(
     if (subKind) return { nextKind: subKind, msUntilNext: Math.max(70, Math.round(stepDurationMs * 0.5)) };
   }
   for (let offset = 1; offset <= Math.min(len, 4); offset++) {
-    const raw = activePlayingSteps[(currentStep + offset) % len];
+    const nextIdx = currentStep + offset;
+    if (nextIdx >= len) break;
+    const raw = activePlayingSteps[nextIdx];
     const list = Array.isArray(raw) ? raw : typeof raw === 'object' && Array.isArray(raw?.sim) ? raw.sim : [raw];
     for (let i = 0; i < list.length; i++) {
       const k = classifyGongueToken(String(list[i] || ''));

@@ -13,6 +13,7 @@ import { prepareTransportResume, ResumePreparationContext } from './transportRes
 import { clearFreeze, frozenPlaybackState } from './frozenPlaybackState';
 import { resolveTargetMeasureAndPreRoll } from './transportTargetMeasureResolver';
 import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
+import { bumpVariationSessionSeed } from '../../utils/deterministicVariationRng';
 
 export interface PlayToggleContext extends TransportPauseContext, ResumePreparationContext {
   isStartingRef: { current: boolean }; isPlayingRef: { current: boolean };
@@ -86,6 +87,7 @@ export async function handleTogglePlay(
       }
 
       clearFreeze();
+      bumpVariationSessionSeed();
       useTransportStore.getState().setIsPaused(false);
       const preRoll = useTransportStore.getState().preRollSettings;
       const { targetM, shouldExecutePreRoll } = resolveTargetMeasureAndPreRoll(

@@ -127,5 +127,6 @@ export function primeSoloVariationLookahead(params: {
     soloPatternPlayId: patternId,
     soloPatternVariationId: effectiveVarId,
     activeVariationsRef,
+    currentMeasureSeqId: 1,
   });
 }

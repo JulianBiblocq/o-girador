@@ -44,7 +44,9 @@ export function findTimbalSameHandLookahead(
     if (isTimbalStrokeForHand(subTok, isDominantHand)) return { nextKind: classifyTimbalNextKind(subTok), nextSymbol: subTok, isNextWeak: isWeakTimbalToken(subTok), msUntilNext: Math.max(65, Math.round(stepDurationMs * 0.5)) };
   }
   for (let offset = 1; offset <= Math.min(len, 4); offset++) {
-    const raw = activePlayingSteps[(currentStep + offset) % len], list = extractTokens(raw);
+    const nextIdx = currentStep + offset;
+    if (nextIdx >= len) break;
+    const raw = activePlayingSteps[nextIdx], list = extractTokens(raw);
     for (let i = 0; i < list.length; i++) {
       const tok = list[i];
       if (isTimbalStrokeForHand(tok, isDominantHand)) return { nextKind: classifyTimbalNextKind(tok), nextSymbol: tok, isNextWeak: isWeakTimbalToken(tok), msUntilNext: Math.max(85, Math.round((offset + (i > 0 && Array.isArray(raw) ? 0.5 : 0)) * stepDurationMs)) };

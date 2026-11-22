@@ -1,101 +1,77 @@
-import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
-import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematics';
+import React from 'react';
 import { resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
-import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
-import { resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
-import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
-import { resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
-import { resetGongueStickAndShadow, resetAgbeAndMineiroRest } from './aoVivoOtherDispatchers';
-import { normalizeAoVivoFamily } from './resolveAoVivoFamily';
+import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematics';
+import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
+import { getVariationSnapshotBySeqOrMeasure } from '../../hooks/audio-sync/liveVariationSnapshotStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
-import { resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { resolveActivePattern } from '../../workers/compiler/patternResolver';
+import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
+import { resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
+import { resetAgbeAndMineiroRest, resetGongueStickAndShadow } from './aoVivoOtherDispatchers';
+import { resetCaixaSticksAndShadows } from './caixaLookaheadHelper';
+import { normalizeAoVivoFamily } from './resolveAoVivoFamily';
+import { resetTimbalHandsAndShadows } from './timbalLookaheadHelper';
 
 export function resolveAoVivoPatternAndSteps(
   activeTrack: any,
   allTracks: any[],
   measure: number,
   soloPlayId: number | null,
-  varMap: Record<number, any> | undefined,
-  isCombineGroup: boolean
-): { pattern: any | null; activePlayingSteps: any[] } {
-  if (!activeTrack) return { pattern: null, activePlayingSteps: [] };
-  const targetBusId = activeTrack.busId ?? activeTrack.linkedToTrackId ?? activeTrack.id;
-  const parent = allTracks.find((t: any) => String(t.id) === String(targetBusId) && t.id !== activeTrack.id);
-  const master = resolveMasterTrack(activeTrack.id, allTracks);
-  const groupTracks = allTracks.filter(
-    (t: any) =>
-      String(t.id) === String(targetBusId) ||
-      String(t.linkedToTrackId) === String(targetBusId) ||
-      String(t.busId) === String(targetBusId)
-  );
+  varMap?: Record<number, any>,
+  seqIdOrCombine?: number | boolean
+): { pattern: any | null; effectivePattern: any | null; activePlayingSteps: any[] } {
+  if (!activeTrack) return { pattern: null, effectivePattern: null, activePlayingSteps: [] };
 
-  const findById = (pid: any) => {
-    for (const src of [activeTrack, parent, master, ...groupTracks]) {
-      const found = src?.patterns?.find((p: any) => String(p.id) === String(pid));
-      if (found) return found;
-    }
-    return null;
-  };
+  const concreteTrack =
+    activeTrack.isBusFolder || activeTrack.isLinkFolder
+      ? resolveMasterTrack(activeTrack.id, allTracks) ?? activeTrack
+      : activeTrack;
+  if (!concreteTrack || concreteTrack.isBusFolder || concreteTrack.isLinkFolder) {
+    return { pattern: null, effectivePattern: null, activePlayingSteps: [] };
+  }
 
-  let pattern: any = null;
-  if (soloPlayId !== null && soloPlayId !== undefined) {
-    pattern = findById(soloPlayId);
-  }
-  if (!pattern && activeTrack.patternOverrides?.[measure] !== undefined) {
-    const ov = activeTrack.patternOverrides[measure];
-    if (ov === null) return { pattern: null, activePlayingSteps: [] };
-    pattern = findById(ov);
-  }
+  const isSolo = soloPlayId !== null && soloPlayId !== undefined;
+  const pattern = resolveActivePattern(concreteTrack, allTracks, measure, isSolo, soloPlayId);
   if (!pattern) {
-    for (const src of [activeTrack, parent, master]) {
-      const assigned = src?.patterns?.find((p: any) => p?.measureAssignments?.[measure]);
-      if (assigned) {
-        pattern = activeTrack.patterns?.find((p: any) => p.name === assigned.name) || assigned;
-        break;
-      }
-    }
+    return { pattern: null, effectivePattern: null, activePlayingSteps: [] };
   }
-  if (!pattern) {
-    pattern = activeTrack.patterns?.[0] || parent?.patterns?.[0] || master?.patterns?.[0] || null;
-  }
-  if (!pattern) return { pattern: null, activePlayingSteps: [] };
 
-  const soloVarId = soloPlayId !== null && soloPlayId !== undefined ? useTransportStore.getState().soloPatternVariationId : null;
-  const resolvedBase = resolveEffectivePatternStepsForSoloOrLive({
-    pattern, trackId: activeTrack.id, tracks: allTracks,
-    soloPatternPlayId: soloPlayId, soloPatternVariationId: soloVarId,
-    liveStepsMap: varMap, canUseLiveVariation: true,
+  const measureSeqId = typeof seqIdOrCombine === 'number' && seqIdOrCombine > 0 ? seqIdOrCombine : undefined;
+  const seqStepsMap = measureSeqId !== undefined
+    ? getVariationSnapshotBySeqOrMeasure(measureSeqId, measure)?.stepsByTrackId
+    : undefined;
+  const effectiveVarMap = seqStepsMap ?? varMap;
+
+  const isSlave = isSlaveTrack(concreteTrack, allTracks);
+  const hasOwnOverride = !isSolo && concreteTrack.patternOverrides?.[measure] !== undefined;
+  const master = isSlave && !hasOwnOverride ? resolveMasterTrack(concreteTrack.id, allTracks) : undefined;
+  const lookupMap =
+    effectiveVarMap && !Array.isArray(effectiveVarMap[concreteTrack.id]) && master && Array.isArray(effectiveVarMap[master.id])
+      ? { ...effectiveVarMap, [concreteTrack.id]: effectiveVarMap[master.id] }
+      : effectiveVarMap;
+
+  const soloVarId = isSolo ? useTransportStore.getState().soloPatternVariationId : null;
+  const resolved = resolveEffectivePatternStepsForSoloOrLive({
+    pattern,
+    trackId: concreteTrack.id,
+    tracks: allTracks,
+    soloPatternPlayId: soloPlayId,
+    soloPatternVariationId: soloVarId,
+    liveStepsMap: lookupMap,
+    canUseLiveVariation: true,
   });
-  const baseSteps: any[] = resolvedBase.steps.length > 0
-    ? resolvedBase.steps
-    : (parent && varMap?.[parent.id]) || (master && varMap?.[master.id]) || pattern.activeSteps || [];
 
-  if (!isCombineGroup) return { pattern, activePlayingSteps: baseSteps };
+  const effectivePattern = resolved.beatResolutions
+    ? { ...pattern, beatResolutions: resolved.beatResolutions }
+    : pattern;
 
-  const combined = baseSteps.slice();
-  for (const c of groupTracks) {
-    if (c.id === activeTrack.id || c.isBusFolder) continue;
-    const ov = c.patternOverrides?.[measure];
-    const cPat = soloPlayId !== null && soloPlayId !== undefined ? findById(soloPlayId) : (ov !== undefined && ov !== null ? findById(ov) : null);
-    const cSteps = resolveEffectivePatternStepsForSoloOrLive({
-      pattern: cPat, trackId: c.id, tracks: allTracks,
-      soloPatternPlayId: soloPlayId, soloPatternVariationId: soloVarId,
-      liveStepsMap: varMap, canUseLiveVariation: true,
-    }).steps;
-    if (!cSteps || cSteps.length === 0) continue;
-    for (let i = 0; i < Math.max(combined.length, cSteps.length); i++) {
-      const mVal = combined[i];
-      const cVal = cSteps[i];
-      const hasM = Boolean(mVal && mVal !== 0 && mVal !== '0' && mVal !== '-');
-      const hasC = Boolean(cVal && cVal !== 0 && cVal !== '0' && cVal !== '-');
-      if (!hasM && hasC) combined[i] = cVal;
-      else if (hasM && hasC && mVal !== cVal && !Array.isArray(mVal) && !Array.isArray(cVal)) {
-        combined[i] = { sim: [String(mVal), String(cVal)] };
-      }
-    }
-  }
-  return { pattern, activePlayingSteps: combined };
+  return {
+    pattern,
+    effectivePattern,
+    activePlayingSteps: resolved.steps || [],
+  };
 }
 
 export function resetAoVivoRestPosition(

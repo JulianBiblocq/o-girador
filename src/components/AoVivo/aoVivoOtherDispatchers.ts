@@ -41,7 +41,7 @@ export function dispatchMineiro(
 export function dispatchAgbe(
   stroke: string, isVibrate: boolean, agbeWholeEl: SVGGElement | null,
   animRef: React.MutableRefObject<Animation | null>, nextStroke?: string,
-  activePlayingSteps?: any[], currentStep = 0, stepDurationMs = 200, isSubStep = false, leadMs = 0, oneShotStepMode = false
+  activePlayingSteps?: any[], currentStep = 0, stepDurationMs = 200, isSubStep = false, leadMs = 0, oneShotStepMode = false, isLeftHanded = false
 ) {
   if (!agbeWholeEl) return;
   const spd = CONFIG_AGBE_LAB.speedMultiplier, norm = (stroke || '').trim();
@@ -49,7 +49,7 @@ export function dispatchAgbe(
   const plan = consumeBarulhoStepPlan('agbe', isVibrate ? '~' : norm, activePlayingSteps, currentStep, isSubStep);
   if (plan.action !== 'none') {
     const cycleMs = Math.max(70, Math.round(115 / spd));
-    const { startTr, loopFrames, endTr } = buildAgbeBarulhoFrames(plan.amplitude || 0.7, nextStroke, !plan.sustain || plan.action === 'stop' || oneShotStepMode);
+    const { startTr, loopFrames, endTr } = buildAgbeBarulhoFrames(plan.amplitude || 0.7, nextStroke, !plan.sustain || plan.action === 'stop' || oneShotStepMode, isLeftHanded);
     if (plan.action === 'stop') releaseWaapiBarulhoRoll({ el: agbeWholeEl, animRef, contactTransform: String(loopFrames[0].transform), endTransform: endTr, loopFrames, cycleMs, leadMs });
     else runWaapiBarulhoRoll({ el: agbeWholeEl, animRef, startTransform: startTr, loopFrames, endTransform: endTr, cycleMs, stepDurationMs, leadMs, plan, oneShotStepMode });
     return;
@@ -59,7 +59,7 @@ export function dispatchAgbe(
   const duration = Math.max(80, Math.round(CONFIG_AGBE_LAB.pendulumDurationMs / spd));
   animRef.current?.cancel();
   agbeWholeEl.getAnimations?.().forEach((a) => a.cancel());
-  animRef.current = agbeWholeEl.animate(generateAgbeKeyframes(norm, bpm, nextStroke), { duration, iterations: 1, fill: 'forwards' });
+  animRef.current = agbeWholeEl.animate(generateAgbeKeyframes(norm, bpm, nextStroke, isLeftHanded), { duration, iterations: 1, fill: 'forwards' });
 }
 
 export function dispatchGongue(

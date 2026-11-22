@@ -15,6 +15,7 @@ import { restoreStoreChannelGains } from './realtimeFaderAudioUpdater';
 import { clearFreeze } from './frozenPlaybackState';
 import { resetWorkletHorizonState } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { findConcretePatternOwnerTrack } from '../../utils/soloVariationMatcher';
+import { bumpVariationSessionSeed } from '../../utils/deterministicVariationRng';
 import { resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
 import { openSoloFamilyAndBusGains, primeSoloVariationLookahead, tryHotSwapSoloPattern } from './soloPatternSetupHelper';
 
@@ -73,6 +74,7 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   flushVisualBuffers(); purgeVisualTickBuffer(); setLastAudibleTick(null);
   resetWorkletHorizonState();
   resetLiveVariationLookahead(ctx.activeVariationsRef);
+  bumpVariationSessionSeed();
 
   openSoloFamilyAndBusGains({ soloTrack, currentTracks, channels: ctx.channels, busChannels: ctx.busChannels, savedSoloMuteStateRef: ctx.savedSoloMuteStateRef });
   if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = patternId;
@@ -118,6 +120,7 @@ export function handleStopSoloPattern(ctx: SoloTransportContext): void {
   ctx.soloLoopCycleRef.current = 0;
   resetWorkletHorizonState();
   resetLiveVariationLookahead(ctx.activeVariationsRef);
+  bumpVariationSessionSeed();
   const activeEngine = ctx.audioEngine || getAudioEngine();
   activeEngine?.purgeScheduledHits();
   activeEngine?.syncTracksToWorklet(tracks);
