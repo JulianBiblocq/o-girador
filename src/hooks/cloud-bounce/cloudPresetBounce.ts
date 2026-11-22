@@ -1,9 +1,8 @@
 import { auth } from '../../firebase/config';
 import { Preset } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useTransportStore } from '../../stores/useTransportStore';
+import { renderFullSongBounceOffline } from '../../utils/bounce/fullSongBounceExporter';
 import { calculatePresetTiming } from './cloudPresetTimingCalculator';
-import { recordPresetLive } from './cloudPresetLiveRecorder';
 import { normalizeAndUploadPresetAudio } from './cloudPresetUploader';
 
 export async function renderAndUploadPresetBounce(
@@ -16,62 +15,34 @@ export async function renderAndUploadPresetBounce(
   setProgress: (pct: number) => void
 ): Promise<string | null> {
   const storeState = useSequencerStore.getState();
-  const transportState = useTransportStore.getState();
-  const lang = options?.lang || storeState.lang || 'fr';
 
-  const prevMetro = transportState.isMetroOn;
-  const prevPreRoll = transportState.preRollSettings;
-  const prevIsLooping = storeState.isLooping;
-  const prevIsLoopRegionActive = storeState.isLoopRegionActive;
-  const prevLoopStart = storeState.loopStartMeasure;
-  const prevLoopEnd = storeState.loopEndMeasure;
-  const prevLoopMode = storeState.loopMode;
-  const prevLoopIteration = storeState.currentLoopIteration;
-  const prevIsLoopBypassed = storeState.isLoopBypassed;
-  const prevIsLoopExitRequested = storeState.isLoopExitRequested;
+  setStage(5, 'Préparation du rendu hors-ligne...', 'Preparando renderização offline...');
+  const timing = calculatePresetTiming(presetData, storeState, baseBpm, auth.currentUser, options);
 
-  try {
-    setStage(5, "Initialisation de l'enregistrement...", "Inicializando gravação...");
-    const timing = calculatePresetTiming(presetData, storeState, baseBpm, auth.currentUser, options);
-
-    transportState.setIsMetroOn(false);
-    transportState.setPreRollSettings({ ...prevPreRoll, enabled: false });
-
-    useSequencerStore.setState({
-      isLooping: timing.isLoopRegionActive,
-      isLoopRegionActive: timing.isLoopRegionActive,
-      loopStartMeasure: timing.loopStart,
-      loopEndMeasure: timing.loopEnd,
-      loopMode: timing.numLoops,
-      currentLoopIteration: 1,
-      isLoopBypassed: false,
-      isLoopExitRequested: false,
-    });
-
-    const audioBlob = await recordPresetLive(timing, audio, lang, (pct, label) => {
+  const bounce = await renderFullSongBounceOffline({
+    presetData,
+    baseBpm,
+    masterVol: audio?.masterVol,
+    masterEQ: audio?.masterEQ,
+    masterCompressor: audio?.masterCompressor,
+    presetTiming: timing,
+    onProgress: (pct, fr, pt) => {
       setProgress(pct);
-      setStage(pct, label, label);
-    });
+      setStage(pct, fr, pt);
+    },
+  });
 
-    setStage(87, "Normalisation & Finalisation de l'audio...", "Normalização e finalização do áudio...");
-    const audioUrl = await normalizeAndUploadPresetAudio(
-      audioBlob, presetId, timing, presetData, baseBpm, (pct) => setProgress(pct)
-    );
+  setStage(90, "Envoi de l'audio sur le Cloud...", 'Enviando áudio para a nuvem...');
+  const audioUrl = await normalizeAndUploadPresetAudio(
+    bounce.wavBlob,
+    presetId,
+    timing,
+    presetData,
+    baseBpm,
+    (pct) => setProgress(pct),
+    { skipNormalization: true }
+  );
 
-    setStage(100, "Terminé !", "Concluído!");
-    return audioUrl;
-  } finally {
-    useTransportStore.getState().setIsMetroOn(prevMetro);
-    useTransportStore.getState().setPreRollSettings(prevPreRoll);
-    useSequencerStore.setState({
-      isLooping: prevIsLooping,
-      isLoopRegionActive: prevIsLoopRegionActive,
-      loopStartMeasure: prevLoopStart,
-      loopEndMeasure: prevLoopEnd,
-      loopMode: prevLoopMode,
-      currentLoopIteration: prevLoopIteration,
-      isLoopBypassed: prevIsLoopBypassed,
-      isLoopExitRequested: prevIsLoopExitRequested,
-    });
-  }
+  setStage(100, 'Terminé !', 'Concluído!');
+  return audioUrl;
 }

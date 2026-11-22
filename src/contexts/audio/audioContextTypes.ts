@@ -16,11 +16,6 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   activeKeyboardInstrumentId: string | null;
   setActiveKeyboardInstrumentId: React.Dispatch<React.SetStateAction<string | null>>;
 
-  // Recording
-  isRecording: boolean;
-  recordingSeconds: number;
-  handleAudioRecordingToggle: () => Promise<void>;
-
   // Presets
   applyPreset: (p: any) => Promise<void>;
   loadFallbackPreset: (name: string) => Promise<void>;

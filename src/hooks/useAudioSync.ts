@@ -25,7 +25,6 @@ import { useAudioSyncTransportHandlers } from './audio-sync/useAudioSyncTranspor
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { safeSuspendAudioContext } from '../audio/audioContextSuspendManager';
-import { stopAudioRecording } from '../contexts/audio/audioRecorderService';
 import { VocalRecordingService } from '../audio/vocal/vocalRecordingService';
 
 export {
@@ -123,7 +122,6 @@ if (import.meta.hot) {
         try { engine.stop(); } catch {}
         try { engine.dispose(); } catch {}
       }
-      try { stopAudioRecording(); } catch {}
       try { VocalRecordingService.stopRecording(); } catch {}
       try { safeSuspendAudioContext(); } catch {}
       try { (Tone.getContext().rawContext as any)?.suspend?.(); } catch {}

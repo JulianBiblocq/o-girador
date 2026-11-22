@@ -7,7 +7,6 @@ import { getLocalLibrary, savePresetToLibrary } from '../library';
 import { i18n } from '../data';
 import { AudioContextType } from './audio/audioContextTypes';
 import { useAudioEffectsState } from './audio/useAudioEffectsState';
-import { useAudioRecordingState } from './audio/useAudioRecordingState';
 import { executeApplyPreset } from './audio/audioPresetApplier';
 import { fetchFallbackPresetData } from './audio/audioPresetLoader';
 import { buildCurrentPresetData } from './audio/audioPresetDataBuilder';
@@ -25,7 +24,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
 
   const fxState = useAudioEffectsState();
-  const { isRecording, recordingSeconds, handleAudioRecordingToggle } = useAudioRecordingState();
   const [activePresetName, setActivePresetName] = useState<string>('');
   const [isPresetLoading, setIsPresetLoading] = useState<boolean>(false);
 
@@ -113,12 +111,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [applyPreset]);
 
   const value: AudioContextType = useMemo(() => ({
-    ...audioSync, ...fxState, isRecording, recordingSeconds, handleAudioRecordingToggle,
+    ...audioSync, ...fxState,
     applyPreset, loadFallbackPreset, handlePresetSelect, handleSaveState: async () => {}, handleLoadState: () => {},
     handleSaveToLocal, getCurrentPresetData, handleLoadLocalPreset, activePresetName, setActivePresetName,
     handleTimeSigChange: (sig) => resizeTimeSig(sig, sequencer, audioSync), isPresetLoading,
   }), [
-    audioSync, fxState, isRecording, recordingSeconds, handleAudioRecordingToggle, applyPreset,
+    audioSync, fxState, applyPreset,
     loadFallbackPreset, handlePresetSelect, handleSaveToLocal, getCurrentPresetData,
     handleLoadLocalPreset, activePresetName, sequencer, isPresetLoading
   ]);

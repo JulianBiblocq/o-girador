@@ -46,8 +46,6 @@ export function handleMidiTransportAction(
           const seq = useSequencerStore.getState();
           if (seq.armedPatternId !== null) {
             seq.togglePatternRecording();
-          } else {
-            audio.handleAudioRecordingToggle();
           }
           break;
         }

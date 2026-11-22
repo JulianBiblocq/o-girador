@@ -70,8 +70,6 @@ export function handleMcuCommand(
         const seq = useSequencerStore.getState();
         if (seq.armedPatternId !== null) {
           seq.togglePatternRecording();
-        } else {
-          audio.handleAudioRecordingToggle();
         }
         return true;
       }

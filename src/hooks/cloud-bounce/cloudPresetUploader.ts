@@ -12,19 +12,22 @@ export async function normalizeAndUploadPresetAudio(
   timing: PresetTimingCalculation,
   presetData: any,
   baseBpm: number,
-  onProgress: (pct: number) => void
+  onProgress: (pct: number) => void,
+  opts?: { skipNormalization?: boolean }
 ): Promise<string | null> {
   let finalAudioBlob: Blob = audioBlob;
-  try {
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-    if (rawCtx && typeof rawCtx.decodeAudioData === 'function') {
-      const decoded = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
-      normalizeAudioBuffer(decoded, -0.5);
-      finalAudioBlob = audioBufferToWav(decoded);
+  if (!opts?.skipNormalization) {
+    try {
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+      if (rawCtx && typeof rawCtx.decodeAudioData === 'function') {
+        const decoded = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
+        normalizeAudioBuffer(decoded, -0.5);
+        finalAudioBlob = audioBufferToWav(decoded);
+      }
+    } catch (normErr) {
+      console.warn("[Cloud Bounce] Normalisation non bloquante ignorée sur erreur :", normErr);
     }
-  } catch (normErr) {
-    console.warn("[Cloud Bounce] Normalisation non bloquante ignorée sur erreur :", normErr);
   }
 
   let audioUrl: string | null = null;
