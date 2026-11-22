@@ -1,3 +1,7 @@
+export const CONE_MIN_RAD = Math.PI / 9; // 20° (Extrême Droite +100)
+export const CONE_MAX_RAD = (8 * Math.PI) / 9; // 160° (Extrême Gauche -100)
+export const CONE_SPAN_RAD = (7 * Math.PI) / 9; // 140° d'ouverture totale
+
 export const clampPositionToCone = (
   clientX: number,
   clientY: number,
@@ -14,10 +18,10 @@ export const clampPositionToCone = (
   const Rmax = H;
 
   if (v < 0) {
-    theta = u >= 0 ? Math.PI / 6 : (5 * Math.PI) / 6;
+    theta = u >= 0 ? CONE_MIN_RAD : CONE_MAX_RAD;
   } else {
-    if (theta < Math.PI / 6) theta = Math.PI / 6;
-    else if (theta > (5 * Math.PI) / 6) theta = (5 * Math.PI) / 6;
+    if (theta < CONE_MIN_RAD) theta = CONE_MIN_RAD;
+    else if (theta > CONE_MAX_RAD) theta = CONE_MAX_RAD;
   }
   if (R > Rmax) R = Rmax;
   const clampedU = R * Math.cos(theta);

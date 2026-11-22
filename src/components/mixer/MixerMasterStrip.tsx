@@ -15,6 +15,7 @@ import { useMasterThemeTokens } from './useMasterThemeTokens';
 import { MasterStereoMeter } from './MasterStereoMeter';
 import { MasterCollapsedStrip } from './MasterCollapsedStrip';
 import { MasterAutomationBypassBox } from './master/MasterAutomationBypassBox';
+import { MasterPanRadarStrip } from './master/MasterPanRadarStrip';
 
 interface MixerMasterStripProps {
   isMobile: boolean; isActive: boolean; isPlaying: boolean; lang: string;
@@ -120,16 +121,7 @@ export const MixerMasterStrip: React.FC<MixerMasterStripProps> = ({
                   peakLeftRef={peakLeftRef} peakRightRef={peakRightRef} clipLeftRef={clipLeftRef} clipRightRef={clipRightRef} onClearClip={clearMasterClipLeds}
                 />
               </div>
-              <div className="mt-2 pt-1.5 border-t border-[var(--cordel-border)]/45 shrink-0">
-                <button
-                  type="button" onClick={onOpenSaveTemplate}
-                  className="w-full min-h-[40px] py-2.5 px-3 bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-wood)] hover:text-[var(--cordel-parchment-bg)] border-2 border-[var(--cordel-ink-dark)] shadow-[2px_2px_0px_var(--cordel-ink-dark)] rounded-[2px] font-cactus font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                  title={lang === 'fr' ? 'Sauvegarder la disposition actuelle comme gabarit par défaut' : 'Salvar o layout atual como modelo padrão'}
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>
-                  <span className="truncate">{lang === 'fr' ? 'Gabarit du Baque' : 'Modelo do Baque'}</span>
-                </button>
-              </div>
+              <MasterPanRadarStrip lang={lang} onOpenSaveTemplate={onOpenSaveTemplate} />
             </div>
           </div>
         </>

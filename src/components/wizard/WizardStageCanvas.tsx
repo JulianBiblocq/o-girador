@@ -4,6 +4,7 @@ import { PlacedInstrument } from '../../stores/useWizardStore';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { ASSETS_BASE_URL } from '../../data';
 import { AVAILABLE_INSTRUMENTS, t } from './wizardConstants';
+import { CONE_MAX_RAD, CONE_MIN_RAD } from './wizardStageGeometry';
 import { Language } from '../../types';
 
 interface WizardStageCanvasProps {
@@ -32,14 +33,14 @@ export const WizardStageCanvas: React.FC<WizardStageCanvasProps> = ({
       {W > 0 && H > 0 && (
         <svg className="absolute inset-0 pointer-events-none select-none z-0 text-[var(--cordel-text)]" width={W} height={H}>
           <line x1={W / 2} y1={H} x2={W / 2} y2={0} stroke="currentColor" strokeWidth="1.2" strokeOpacity="0.18" strokeDasharray="4 4" />
-          <line x1={W / 2} y1={H} x2={W / 2 + coneLen * Math.cos((5 * Math.PI) / 6)} y2={H - coneLen * Math.sin((5 * Math.PI) / 6)} stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.3" />
-          <line x1={W / 2} y1={H} x2={W / 2 + coneLen * Math.cos(Math.PI / 6)} y2={H - coneLen * Math.sin(Math.PI / 6)} stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.3" />
+          <line x1={W / 2} y1={H} x2={W / 2 + coneLen * Math.cos(CONE_MAX_RAD)} y2={H - coneLen * Math.sin(CONE_MAX_RAD)} stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.3" />
+          <line x1={W / 2} y1={H} x2={W / 2 + coneLen * Math.cos(CONE_MIN_RAD)} y2={H - coneLen * Math.sin(CONE_MIN_RAD)} stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.3" />
           {[0.25, 0.5, 0.75, 1.0].map((ratio, idx) => {
             const r = H * ratio;
-            const x1 = W / 2 + r * Math.cos(Math.PI / 6);
-            const y1 = H - r * Math.sin(Math.PI / 6);
-            const x2 = W / 2 + r * Math.cos((5 * Math.PI) / 6);
-            const y2 = H - r * Math.sin((5 * Math.PI) / 6);
+            const x1 = W / 2 + r * Math.cos(CONE_MIN_RAD);
+            const y1 = H - r * Math.sin(CONE_MIN_RAD);
+            const x2 = W / 2 + r * Math.cos(CONE_MAX_RAD);
+            const y2 = H - r * Math.sin(CONE_MAX_RAD);
             return (
               <path
                 key={idx}

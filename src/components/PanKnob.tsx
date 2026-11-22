@@ -1,6 +1,7 @@
 import React from 'react';
 import { PanKnobSvg } from './controls/PanKnobSvg';
 import { usePanKnobInteraction } from './controls/usePanKnobInteraction';
+import { usePanSquadTicks } from './controls/usePanSquadTicks';
 
 interface PanKnobProps {
   trackId?: number;
@@ -17,20 +18,22 @@ export const PanKnob: React.FC<PanKnobProps> = ({
   value,
   onChange,
   defaultValue = 0,
-  label = "Pan",
+  label = 'Pan',
   showLabels = true,
-  panKnobRef
+  panKnobRef,
 }) => {
+  const memberTicks = usePanSquadTicks(trackId);
   const {
     containerRef,
     inputRef,
     setRotationRef,
+    setTickGroupRef,
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
     resetToDefault,
     handleInputChange,
-  } = usePanKnobInteraction({ trackId, value, defaultValue, onChange, panKnobRef });
+  } = usePanKnobInteraction({ trackId, value, defaultValue, onChange, panKnobRef, memberTicks });
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -42,7 +45,7 @@ export const PanKnob: React.FC<PanKnobProps> = ({
   const panTitle = `Pan: ${value === 0 ? 'Centro' : value > 0 ? 'D' + value : 'E' + Math.abs(value)}`;
 
   return (
-    <div 
+    <div
       className="flex flex-col items-center gap-0.5 select-none shrink-0 touch-none"
       onDoubleClick={handleDoubleClick}
     >
@@ -59,6 +62,8 @@ export const PanKnob: React.FC<PanKnobProps> = ({
       >
         <PanKnobSvg
           setRotationRef={setRotationRef}
+          setTickGroupRef={setTickGroupRef}
+          memberTicks={memberTicks}
           initialAngle={initialAngle}
           inputRef={inputRef}
           value={value}

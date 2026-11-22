@@ -5,6 +5,7 @@
  * and multi-style anticipation (Maracatu, Capoeira, Samba).
  */
 
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -111,9 +112,11 @@ export function useInstrumentLabel() {
   const customNomenclature = useNomenclatureStore((s) => s.customNomenclature);
   const activeStyle = useNomenclatureStore((s) => s.activeStyle);
 
-  return (target: number | string | { instrumentIdx?: number; customName?: string; id?: any } | null | undefined) => {
-    return resolveInstrumentLabel(target, customNomenclature, activeStyle);
-  };
+  return useCallback(
+    (target: number | string | { instrumentIdx?: number; customName?: string; id?: any } | null | undefined) =>
+      resolveInstrumentLabel(target, customNomenclature, activeStyle),
+    [customNomenclature, activeStyle]
+  );
 }
 
 /**

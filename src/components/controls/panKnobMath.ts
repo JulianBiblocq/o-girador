@@ -23,11 +23,14 @@ export function formatPanTitle(val: number): string {
   return `Pan: ${val > 0 ? 'D' + val : 'E' + Math.abs(val)}`;
 }
 
+import type { PanCrownTickSpec } from './usePanSquadTicks';
+
 export interface UsePanKnobInteractionProps {
   trackId?: number;
   value: number;
   defaultValue?: number;
   onChange: (val: number) => void;
   panKnobRef?: React.RefObject<SVGGElement | null>;
+  memberTicks?: readonly PanCrownTickSpec[];
 }
 

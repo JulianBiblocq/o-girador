@@ -1,7 +1,10 @@
 import React from 'react';
+import type { PanCrownTickSpec } from './usePanSquadTicks';
 
 interface PanKnobSvgProps {
   setRotationRef: (el: SVGGElement | null) => void;
+  setTickGroupRef?: (idx: number, el: SVGGElement | null) => void;
+  memberTicks?: readonly PanCrownTickSpec[];
   initialAngle: number;
   inputRef: React.RefObject<HTMLInputElement | null>;
   value: number;
@@ -11,6 +14,8 @@ interface PanKnobSvgProps {
 
 export const PanKnobSvg: React.FC<PanKnobSvgProps> = ({
   setRotationRef,
+  setTickGroupRef,
+  memberTicks,
   initialAngle,
   inputRef,
   value,
@@ -24,6 +29,30 @@ export const PanKnobSvg: React.FC<PanKnobSvgProps> = ({
         <line x1="16" y1="2" x2="16" y2="4" stroke="var(--cordel-border)" strokeWidth="1.5" opacity="0.4" />
         <line x1="2" y1="16" x2="4" y2="16" stroke="var(--cordel-border)" strokeWidth="1.5" opacity="0.4" />
         <line x1="30" y1="16" x2="28" y2="16" stroke="var(--cordel-border)" strokeWidth="1.5" opacity="0.4" />
+
+        {memberTicks && memberTicks.length > 0 && memberTicks.map((tick, idx) => {
+          const effPan = Math.max(-100, Math.min(100, tick.baseOffset + value));
+          const angle = effPan * 1.35;
+          return (
+            <g
+              key={idx}
+              data-testid={`pan-crown-member-tick-${idx}`}
+              ref={setTickGroupRef ? (el) => setTickGroupRef(idx, el) : undefined}
+              transform={`rotate(${angle} 16 16)`}
+            >
+              <line
+                x1="16"
+                y1={tick.isLeader ? '0.8' : '1.4'}
+                x2="16"
+                y2={tick.isLeader ? '5.2' : '4.6'}
+                stroke={tick.isLeader ? 'var(--cordel-wood)' : 'var(--cordel-border)'}
+                strokeWidth={tick.isLeader ? '1.9' : '1.3'}
+                strokeLinecap="round"
+                opacity={tick.isLeader ? '0.82' : '0.52'}
+              />
+            </g>
+          );
+        })}
 
         <g ref={setRotationRef} transform={`rotate(${initialAngle} 16 16)`}>
           <line x1="16" y1="16" x2="16" y2="5" stroke="var(--cordel-border)" strokeWidth="2.5" strokeLinecap="round" />

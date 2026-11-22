@@ -2,7 +2,7 @@
   "name": "ogirador",
   "private": true,
   "license": "UNLICENSED",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "type": "module",
   "scripts": {
     "predev": "node scripts/updatePresets.js && node scripts/copyAudio.js",
@@ -19,6 +19,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:vocal": "playwright test e2e/vocal-chain.spec.ts",
     "audio:timbal": "node scripts/encode-studio-timbal.mjs",
+    "audio:tarol": "node scripts/encode-studio-tarol.mjs",
     "audio:m4a": "node scripts/generate-ios-m4a.mjs",
     "backup:presets": "node scripts/backup-cloud-presets.mjs"
   },

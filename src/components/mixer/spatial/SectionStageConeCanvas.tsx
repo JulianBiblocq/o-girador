@@ -3,7 +3,7 @@
  */
 import React, { useRef, useState } from 'react';
 import type { SectionPlayerPlacement } from '../../../types';
-import { clampPositionToCone } from '../../wizard/wizardStageGeometry';
+import { clampPositionToCone, CONE_MAX_RAD, CONE_MIN_RAD } from '../../wizard/wizardStageGeometry';
 import { formatPlayerAcousticReadout } from '../../../utils/sectionStagePresets';
 
 interface SectionStageConeCanvasProps {
@@ -63,14 +63,14 @@ export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
     >
       <svg className="absolute inset-0 pointer-events-none text-[var(--cordel-text)]" width={STAGE_W} height={STAGE_H}>
         <line x1={STAGE_W / 2} y1={STAGE_H} x2={STAGE_W / 2} y2={0} stroke="currentColor" strokeWidth="1" strokeOpacity="0.2" strokeDasharray="3 3" />
-        <line x1={STAGE_W / 2} y1={STAGE_H} x2={STAGE_W / 2 + CONE_LEN * Math.cos((5 * Math.PI) / 6)} y2={STAGE_H - CONE_LEN * Math.sin((5 * Math.PI) / 6)} stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.32" />
-        <line x1={STAGE_W / 2} y1={STAGE_H} x2={STAGE_W / 2 + CONE_LEN * Math.cos(Math.PI / 6)} y2={STAGE_H - CONE_LEN * Math.sin(Math.PI / 6)} stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.32" />
+        <line x1={STAGE_W / 2} y1={STAGE_H} x2={STAGE_W / 2 + CONE_LEN * Math.cos(CONE_MAX_RAD)} y2={STAGE_H - CONE_LEN * Math.sin(CONE_MAX_RAD)} stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.32" />
+        <line x1={STAGE_W / 2} y1={STAGE_H} x2={STAGE_W / 2 + CONE_LEN * Math.cos(CONE_MIN_RAD)} y2={STAGE_H - CONE_LEN * Math.sin(CONE_MIN_RAD)} stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.32" />
         {[0.25, 0.5, 0.75, 1.0].map((ratio) => {
           const r = STAGE_H * ratio;
-          const x1 = STAGE_W / 2 + r * Math.cos(Math.PI / 6);
-          const y1 = STAGE_H - r * Math.sin(Math.PI / 6);
-          const x2 = STAGE_W / 2 + r * Math.cos((5 * Math.PI) / 6);
-          const y2 = STAGE_H - r * Math.sin((5 * Math.PI) / 6);
+          const x1 = STAGE_W / 2 + r * Math.cos(CONE_MIN_RAD);
+          const y1 = STAGE_H - r * Math.sin(CONE_MIN_RAD);
+          const x2 = STAGE_W / 2 + r * Math.cos(CONE_MAX_RAD);
+          const y2 = STAGE_H - r * Math.sin(CONE_MAX_RAD);
           return (
             <path
               key={ratio}
@@ -90,12 +90,12 @@ export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
           data-testid="section-player-readout-tooltip"
           className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 px-2 py-0.5 rounded-xs border border-[var(--cordel-border-strong)] bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] font-mono text-[10px] font-bold shadow-xs pointer-events-none whitespace-nowrap"
         >
-          #{activeIdx + 1} • {formatPlayerAcousticReadout(activePlayer.x, activePlayer.y, trackPanVal)}
+          #{activeIdx + 1} • {formatPlayerAcousticReadout(activePlayer.x, activePlayer.y, trackPanVal, activePlayer.volumeVal, activePlayer.panVal)}
         </div>
       )}
 
       {players.map((p, idx) => {
-        const readout = formatPlayerAcousticReadout(p.x, p.y, trackPanVal);
+        const readout = formatPlayerAcousticReadout(p.x, p.y, trackPanVal, p.volumeVal, p.panVal);
         const isCurrent = activeIdx === idx;
         return (
           <div
