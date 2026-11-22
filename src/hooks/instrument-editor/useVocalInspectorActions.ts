@@ -18,14 +18,14 @@ export function useVocalInspectorActions(
     let blob = store.vocalBlobs[canonicalKey] ?? store.vocalBlobs[pId];
 
     if (!buffer || !blob) {
-      const dbBlob = (await getVocalRecording(canonicalKey)) || (await getVocalRecording(pId));
+      const dbBlob = await getVocalRecording(canonicalKey, { trackId: effectiveEditTrackId, patternId: pId });
       if (dbBlob) {
         blob = dbBlob;
         store.addVocalBlob(canonicalKey, dbBlob);
         try {
           const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
           const arrayBuffer = await dbBlob.arrayBuffer();
-          buffer = await rawCtx.decodeAudioData(arrayBuffer);
+          buffer = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
           store.setVocalBuffer(canonicalKey, buffer);
         } catch (_) {}
       }
@@ -54,7 +54,7 @@ export function useVocalInspectorActions(
     try {
       const rawCtx = (Tone.getContext()?.rawContext || Tone.context) as AudioContext;
       const arrayBuffer = await file.arrayBuffer();
-      const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
+      const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
       useAudioStore.getState().setTempRecording({
         patternId: pId,
         trackId: effectiveEditTrackId,

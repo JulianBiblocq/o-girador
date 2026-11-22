@@ -1,57 +1,80 @@
 /**
- * O Girador - Vocal IndexedDB Records Rehydration Scanner
- * Unification du cache vocal sous la clé canonique unique `${trackId}_${patternId}` (< 75 lignes).
+ * O Girador - Vocal IndexedDB Records Rehydration Scanner (< 85 lignes)
+ * - Résolution stricte par motif éligible : `${track.id}_${pattern.id}` -> `Number(id)` -> `String(id)` -> `vocalClip.id`.
+ * - Décodage isolé `try/catch` sur `arrayBuffer.slice(0)` et zéro mutation Zustand intermédiaire (batch atomique).
  */
 
 import { useAudioStore } from '../../stores/useAudioStore';
+import {
+  buildVocalRecordingCandidateKeys,
+  collectEligibleVocalTargets,
+  EligibleVocalTarget,
+} from './vocalKeyCascadeResolver';
+
+export interface BatchedVocalEntry {
+  key: string | number;
+  buffer: AudioBuffer;
+  blob?: Blob;
+  legacyAliasKey?: string | number;
+}
 
 export class VocalIdbScanner {
   public static async scanRecords(
-    records: any[],
+    records: Array<{ patternId: number | string; audioBlob: Blob }>,
     allTracks: any[],
     rawCtx: AudioContext,
-    entriesToBatch: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }>
+    entriesToBatch: BatchedVocalEntry[],
+    precomputedTargets?: EligibleVocalTarget[]
   ): Promise<void> {
+    const targets = precomputedTargets ?? collectEligibleVocalTargets(allTracks);
+    if (targets.length === 0) return;
+
+    const idbByExactKey = new Map<number | string, Blob>();
     for (const rec of records) {
+      if (rec && rec.patternId !== undefined && rec.audioBlob) {
+        idbByExactKey.set(rec.patternId, rec.audioBlob);
+      }
+    }
+
+    const patternIdCounts = new Map<string, number>();
+    for (const { pattern } of targets) {
+      const k = String(pattern.id);
+      patternIdCounts.set(k, (patternIdCounts.get(k) || 0) + 1);
+    }
+
+    const storeState = useAudioStore.getState();
+    const currentBuffers = storeState.vocalBuffers;
+    const currentBlobs = storeState.vocalBlobs;
+
+    for (const { track, pattern, canonicalKey } of targets) {
+      if (currentBuffers[canonicalKey]) continue;
+
       try {
-        const pid = rec.patternId;
-        const numPid = Number(pid);
-        const strPid = String(pid);
+        const candidates = buildVocalRecordingCandidateKeys(canonicalKey, {
+          trackId: track.id,
+          patternId: pattern.id,
+          vocalClipId: pattern.vocalClip?.id,
+        });
 
-        let matchingPattern: any = null;
-        const matchingTrack = allTracks.find((t) =>
-          Array.isArray(t.patterns) && t.patterns.some((p: any) => {
-            if (!p) return false;
-            const compositeCandidate = `${t.id}_${p.id}`;
-            const match = (
-              compositeCandidate === strPid ||
-              p.id === pid || String(p.id) === strPid || (!isNaN(numPid) && Number(p.id) === numPid) ||
-              (p.vocalClip && (
-                p.vocalClip.id === pid || String(p.vocalClip.id) === strPid || (!isNaN(numPid) && Number(p.vocalClip.id) === numPid)
-              ))
-            );
-            if (match) matchingPattern = p;
-            return match;
-          })
-        );
+        let matchedBlob: Blob | undefined;
+        for (const candidate of candidates) {
+          matchedBlob = idbByExactKey.get(candidate) ?? currentBlobs[candidate];
+          if (matchedBlob) break;
+        }
+        if (!matchedBlob) continue;
 
-        const canonicalKey = matchingTrack && matchingPattern
-          ? `${matchingTrack.id}_${matchingPattern.id}`
-          : matchingTrack
-          ? `${matchingTrack.id}_${pid}`
-          : strPid;
+        const arrayBuffer = await matchedBlob.arrayBuffer();
+        const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer.slice(0));
+        const isUniquePatId = patternIdCounts.get(String(pattern.id)) === 1;
 
-        const currentBuffers = useAudioStore.getState().vocalBuffers;
-        if (currentBuffers[canonicalKey]) continue;
-
-        const arrayBuffer = await rec.audioBlob.arrayBuffer();
-        const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
-
-        useAudioStore.getState().setVocalBuffer(canonicalKey, audioBuffer);
-        useAudioStore.getState().addVocalBlob(canonicalKey, rec.audioBlob);
-        entriesToBatch.push({ key: canonicalKey, buffer: audioBuffer, blob: rec.audioBlob });
+        entriesToBatch.push({
+          key: canonicalKey,
+          buffer: audioBuffer,
+          blob: matchedBlob,
+          legacyAliasKey: isUniquePatId ? pattern.id : undefined,
+        });
       } catch (err) {
-        console.error(`[VOCAL REHYDRATE] Erreur décodage IDB record ${rec.patternId}:`, err);
+        console.error(`[VOCAL REHYDRATE] Erreur décodage IDB motif ${canonicalKey}:`, err);
       }
     }
   }

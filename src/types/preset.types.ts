@@ -54,6 +54,7 @@ export interface PresetMetadata {
   sungScaleMode?: string;
   packTranspositionSemitones?: number;
   transpositionSemitones?: number;
+  vocalTransposeSteps?: number;
   vocalGrammarVersion?: number;
   alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
   skinChorusAmount?: number;

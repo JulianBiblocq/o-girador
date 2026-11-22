@@ -6,7 +6,6 @@ import { initBusesAudioNodes } from './audioBusInitializer';
 import { initTrackChannelsAudioNodes } from './audioTrackChannelsInitializer';
 import { startVisualLoop, stopVisualLoop, registerAudioEngineSyncTarget } from '../../audio/visualTickBuffer';
 import { stopAllNativeOscillators } from '../../audio/nativeSynths';
-import { vocalEngineService } from '../../audio/vocalEngineService';
 import { AudioEngine } from '../../AudioEngine';
 import { InputManager } from '../../InputManager';
 import { initMasterEffectsChain, trackInputs, syncTrackInsertChain, setOnTrackDisposeCallback } from '../../audio/effectsChain';
@@ -126,9 +125,6 @@ export function useAudioInitialization(p: AudioInitProps): void {
         console.error('[initAudio] Critical error during audio setup:', err);
       } finally {
         if (engine) engine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(tracksRef.current)).catch(() => {});
-        vocalEngineService.rehydrateVocalBuffers(tracksRef.current).catch((e) => {
-          console.error('[initAudio] Background rehydration error:', e);
-        });
         setIsLoading(false);
       }
     };

@@ -1,6 +1,6 @@
 /**
- * Helpers de sérialisation/restauration d'automations, transposition vocale, vigilance
- * et réglages d'Acoustique d'Ensemble (`skinChorusAmount`, `rodaBreathingAmount`) (< 85 lignes).
+ * Helpers de sérialisation/restauration d'automations, transposition vocale (`-12..+12`), vigilance
+ * et réglages d'Acoustique d'Ensemble (`skinChorusAmount`, `rodaBreathingAmount`) (< 105 lignes).
  */
 
 import { DEFAULT_STUDIO_MASTER_BUS_CONFIG } from '../../audio/effects/studioFxPresets';
@@ -12,6 +12,22 @@ import {
 } from '../../stores/useSequencerStore';
 import { usePaperVigilanceStore } from '../../stores/usePaperVigilanceStore';
 import type { MasterFX } from '../../types';
+
+export function sanitizeVocalTransposeSteps(raw: unknown, fallback = 0): number {
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return fallback;
+  const clamped = Math.max(-12, Math.min(12, Math.round(num)));
+  return Object.is(clamped, -0) ? 0 : clamped;
+}
+
+export function resolvePresetVocalTransposeSteps(p: any): number {
+  const raw =
+    p?.vocalTransposeSteps ??
+    p?.metadata?.vocalTransposeSteps ??
+    p?.metadata?.transpositionSemitones;
+  return sanitizeVocalTransposeSteps(raw, 0);
+}
 
 export function buildSerializedMasterFX(masterFX?: Partial<MasterFX> | null): MasterFX {
   return {
@@ -45,7 +61,7 @@ export function buildSerializedMasterFX(masterFX?: Partial<MasterFX> | null): Ma
 export function restorePresetAutomationsAndVocal(p: any): void {
   const store = useSequencerStore.getState();
 
-  const targetTranspose = typeof p.vocalTransposeSteps === 'number' ? p.vocalTransposeSteps : 0;
+  const targetTranspose = resolvePresetVocalTransposeSteps(p);
   store.setVocalTransposeSteps(targetTranspose);
 
   const isMasterBypassed = Boolean(p.isMasterVolumeBypassed);

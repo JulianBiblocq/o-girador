@@ -62,9 +62,8 @@ export async function handleTogglePlay(
         activeEngine.syncTracksToWorklet(startTracks);
       }
 
-      const pendingRehydration = vocalEngineService.getRehydratingPromise();
-      if (pendingRehydration) {
-        try { await pendingRehydration; } catch (_) {}
+      if (vocalEngineService.getRehydratingPromise() || vocalEngineService.needsRehydration(startTracks)) {
+        try { await vocalEngineService.rehydrateVocalBuffers(startTracks); } catch (_) {}
       }
 
       const isResumeFromPause = Boolean(

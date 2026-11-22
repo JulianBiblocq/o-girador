@@ -8,6 +8,8 @@ import { getCloudSectionData } from '../cloudSections';
 import { getCloudPattern } from '../cloudPatterns';
 import { fetchCloudToadaById } from '../services/cloudToadas';
 import { importToadaPackIntoSequencer } from '../utils/toadaPackImporter';
+import { getAutosave } from '../db';
+import { wasUnsavedSessionRestored } from './app-audio/autosavePayloadBuilder';
 
 interface UseDeepLinkLoaderOptions {
   audio: {
@@ -54,6 +56,11 @@ export function useDeepLinkLoader({ audio, sequencer, authLoading }: UseDeepLink
         }
 
         if (loadPresetId) {
+          const saved = await getAutosave().catch(() => null);
+          if (wasUnsavedSessionRestored() || (saved?.hasUnsavedChanges && saved?.metadata?.morceauId === loadPresetId)) {
+            cleanUrlParams(['loadPreset', 'presetId']);
+            return;
+          }
           let presetData = await getCloudPreset(loadPresetId);
           if (!presetData) {
             await new Promise((r) => setTimeout(r, 400));

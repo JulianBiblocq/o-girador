@@ -11,47 +11,39 @@ import { findExistingPresetId } from './existingPresetMatcher';
 import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
 import { VOCAL_GRAMMAR_VERSION } from '../../utils/vocalGrammarV2';
 import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
+import { sanitizeVocalTransposeSteps } from '../../contexts/audio/presetSerializationHelpers';
+import { markAutosaveBaselineClean } from '../../hooks/app-audio/autosavePayloadBuilder';
 import { isMestreOrAdminProfile, OFFICIAL_MESTRE_UID } from '../../utils/presetPermissions';
 import { isLegacySamambaiaGroup } from '../../utils/tenantGroupHelpers';
 
-export interface SavePresetCloudOptions {
-  isShowcase?: boolean;
-  keepInGroup?: boolean;
-  skipVocalUpload?: boolean;
-}
+export interface SavePresetCloudOptions { isShowcase?: boolean; keepInGroup?: boolean; skipVocalUpload?: boolean; }
 
 export async function savePresetToCloud(
-  name: string,
-  presetData: Preset,
-  ownerId: string,
-  visibility: CatalogVisibility,
-  targetUserId?: string,
-  audioUrl?: string | null,
-  targetPresetId?: string,
-  mestreId?: string,
-  groupId?: string,
-  canWriteSequenciador?: boolean,
-  isDraft?: boolean,
-  userRole?: string,
-  options?: SavePresetCloudOptions
+  name: string, presetData: Preset, ownerId: string, visibility: CatalogVisibility,
+  targetUserId?: string, audioUrl?: string | null, targetPresetId?: string, mestreId?: string,
+  groupId?: string, canWriteSequenciador?: boolean, isDraft?: boolean, userRole?: string, options?: SavePresetCloudOptions
 ): Promise<string> {
   const isRestoration = typeof window !== 'undefined' && (window as any).__ALLOW_SANCTUARIZED_RESTORE__ === true;
   const isPlaywrightTest = isTestEnvironment();
   const currentAuthUid = auth.currentUser?.uid || ownerId;
   const isMestre = isMestreOrAdminProfile({ uid: currentAuthUid, role: userRole });
-
   const { resolvedTargetId, wasForeignTargetReset } = await resolveDefensiveTargetPresetId(
     targetPresetId, currentAuthUid, userRole, isRestoration, isPlaywrightTest
   );
-
   const effectiveOwnerId = (!isMestre && currentAuthUid) ? currentAuthUid : (ownerId || currentAuthUid || '');
 
   const presetToSave = JSON.parse(JSON.stringify(presetData));
   const alfaiaEquipment = resolvePresetAlfaiaEquipment(presetToSave) ?? null;
-  if (wasForeignTargetReset && presetToSave.metadata) {
-    delete presetToSave.metadata.morceauId;
-  }
-  presetToSave.metadata = { ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION, alfaiaEquipment };
+  if (wasForeignTargetReset && presetToSave.metadata) delete presetToSave.metadata.morceauId;
+  const safeTranspose = sanitizeVocalTransposeSteps(
+    presetToSave.vocalTransposeSteps ?? presetToSave.metadata?.vocalTransposeSteps ?? presetToSave.metadata?.transpositionSemitones, 0
+  );
+  presetToSave.vocalTransposeSteps = safeTranspose;
+  presetToSave.metadata = {
+    ...(presetToSave.metadata || {}), vocalGrammarVersion: VOCAL_GRAMMAR_VERSION, alfaiaEquipment,
+    vocalTransposeSteps: safeTranspose, transpositionSemitones: safeTranspose,
+  };
+  markAutosaveBaselineClean();
   const updatedMap = options?.skipVocalUpload ? new Map() : await uploadPendingVocalRecordings(presetToSave);
 
   if (updatedMap.size > 0) {

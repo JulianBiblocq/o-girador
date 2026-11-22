@@ -1,4 +1,3 @@
-
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebase/config';
 import { getVocalRecording } from '../../db';
@@ -10,12 +9,15 @@ export async function uploadPendingVocalRecordings(preset: Preset): Promise<Map<
   for (const track of preset.tracks || []) {
     for (const pattern of track.patterns || []) {
       try {
+        const canonicalKey = `${track.id}_${pattern.id}`;
+        const clipId = pattern.vocalClip?.id;
         const storeBlobs = useAudioStore.getState().vocalBlobs;
-        const blob = (await getVocalRecording(pattern.id)) ||
-          (pattern.vocalClip?.id ? await getVocalRecording(pattern.vocalClip.id) : null) ||
+        const blob =
+          (await getVocalRecording(canonicalKey, { trackId: track.id, patternId: pattern.id, vocalClipId: clipId })) ||
+          storeBlobs[canonicalKey] ||
           storeBlobs[pattern.id] ||
           storeBlobs[String(pattern.id)] ||
-          (pattern.vocalClip?.id ? storeBlobs[pattern.vocalClip.id] || storeBlobs[String(pattern.vocalClip.id)] : null);
+          (clipId !== undefined ? storeBlobs[`${track.id}_${clipId}`] || storeBlobs[clipId] || storeBlobs[String(clipId)] : null);
 
         const needsUpload = Boolean(
           blob && (!pattern.vocalAudioUrl || !pattern.vocalAudioUrl.startsWith('https://firebasestorage.googleapis.com/'))
@@ -28,7 +30,7 @@ export async function uploadPendingVocalRecordings(preset: Preset): Promise<Map<
           const downloadUrl = await getDownloadURL(storageRef);
           pattern.vocalAudioUrl = downloadUrl;
           updatedMap.set(pattern.id, downloadUrl);
-          if (pattern.vocalClip?.id) updatedMap.set(pattern.vocalClip.id, downloadUrl);
+          if (clipId !== undefined) updatedMap.set(clipId, downloadUrl);
         }
       } catch (e) {
         console.error(`savePresetToCloud - Échec upload vocal pour motif ${pattern.id}:`, e);

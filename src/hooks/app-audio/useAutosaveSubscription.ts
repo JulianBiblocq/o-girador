@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { useTransportStore } from '../../stores/useTransportStore';
-import { useAudioStore } from '../../stores/useAudioStore';
-import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
+import { saveAutosave } from '../../db';
+import { buildAutosavePayload, computeAutosaveSignature } from './autosavePayloadBuilder';
 
 export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefObject<any>) {
   const [isSavedIndicatorVisible, setIsSavedIndicatorVisible] = useState(false);
@@ -19,86 +18,19 @@ export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefOb
 
   useEffect(() => {
     if (audio.isLoading) return;
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
-    const performSave = () => {
+    const checkAndPerformSave = (useDirectSave = false) => {
       const state = useSequencerStore.getState();
-      if (!state.tracks || !Array.isArray(state.tracks) || state.tracks.length === 0) return;
-      const tracksCopy = state.tracks.map((t: any) => ({
-        ...t,
-        patterns: t.patterns.map((p: any) => {
-          const { vocalAudioData, ...safePattern } = p;
-          return safePattern;
-        })
-      }));
-
-      const currentPreRoll = useTransportStore.getState().preRollSettings;
-      const currentVocalPreset = useAudioStore.getState().vocalPreset || 'guide';
-
-      const dataToSave = {
-        version: 3,
-        tracks: tracksCopy,
-        rodaTrackOrder: state.rodaTrackOrder,
-        bpm: state.bpm,
-        timeSig: state.timeSig,
-        totalMeasures: state.totalMeasures,
-        measureTimeSigs: state.measureTimeSigs,
-        measureBpms: state.measureBpms,
-        measureBpmTransitions: state.measureBpmTransitions,
-        measureVols: state.measureVols,
-        measureVolTransitions: state.measureVolTransitions,
-        songSections: state.songSections,
-        songMarkers: state.songMarkers,
-        measureSignals: state.measureSignals,
-        mestreSignals: state.mestreSignals,
-        loopStartMeasure: state.loopStartMeasure,
-        loopEndMeasure: state.loopEndMeasure,
-        isLoopRegionActive: state.isLoopRegionActive,
-        loopMode: state.loopMode,
-        isLooping: state.isLooping,
-        letras: state.letras,
-        metadata: state.metadata,
-        preRollSettings: currentPreRoll,
-        vocalPreset: currentVocalPreset,
-        vocalTransposeSteps: state.vocalTransposeSteps ?? 0,
-        isMasterVolumeBypassed: Boolean(state.isMasterVolumeBypassed),
-        globalAutomationBypass: state.globalAutomationBypass,
-        masterEQ: audioRef.current?.masterEQ,
-        masterCompressor: audioRef.current?.masterCompressor,
-        masterVol: audioRef.current?.masterVol,
-        masterReverbVol: audioRef.current?.masterReverbVol,
-        reverbDecay: audioRef.current?.reverbDecay,
-        masterFX: state.masterFX,
-        masterDistortion: state.masterFX?.distortion?.returnVolume,
-        masterDistortionDrive: state.masterFX?.distortion?.drive,
-        globalSwing: audioRef.current?.globalSwing,
-        audioScaleVersion: CURRENT_AUDIO_SCALE_VERSION,
-      };
-
-      workerRef.current?.postMessage({ type: 'SAVE_AUTOSAVE', payload: dataToSave });
-    };
-
-    const getStateSignature = (state: any) => JSON.stringify({
-      bpm: state.bpm, timeSig: state.timeSig, totalMeasures: state.totalMeasures,
-      loopMode: state.loopMode, isLooping: state.isLooping, loopStartMeasure: state.loopStartMeasure,
-      loopEndMeasure: state.loopEndMeasure, isLoopRegionActive: state.isLoopRegionActive,
-      metadata: state.metadata, letras: state.letras, songSections: state.songSections,
-      measureBpms: state.measureBpms, measureTimeSigs: state.measureTimeSigs, measureVols: state.measureVols,
-      mestreSignals: state.mestreSignals, vocalTransposeSteps: state.vocalTransposeSteps,
-      isMasterVolumeBypassed: state.isMasterVolumeBypassed,
-      tracks: state.tracks.map((t: any) => ({
-        id: t.id, instrumentIdx: t.instrumentIdx, isMute: t.isMute, volumeVal: t.volumeVal,
-        patterns: t.patterns.map((p: any) => ({ id: p.id, steps: p.steps, activeSteps: p.activeSteps }))
-      })),
-      masterFX: state.masterFX,
-    });
-
-    const checkAndPerformSave = () => {
-      const state = useSequencerStore.getState();
-      const currentSig = getStateSignature(state);
-      if (currentSig !== lastNotesSignatureRef.current) {
-        lastNotesSignatureRef.current = currentSig;
-        performSave();
+      const currentSig = computeAutosaveSignature(state);
+      if (currentSig === lastNotesSignatureRef.current) return;
+      const dataToSave = buildAutosavePayload(audioRef.current, currentSig);
+      if (!dataToSave) return;
+      lastNotesSignatureRef.current = currentSig;
+      if (useDirectSave || !workerRef.current) {
+        saveAutosave(dataToSave).catch(() => {});
+      } else {
+        workerRef.current.postMessage({ type: 'SAVE_AUTOSAVE', payload: dataToSave });
       }
     };
 
@@ -106,23 +38,33 @@ export function useAutosaveSubscription(audio: any, audioRef: React.MutableRefOb
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(checkAndPerformSave, { timeout: 1000 });
+          (window as any).requestIdleCallback(() => checkAndPerformSave(false), { timeout: 800 });
         } else {
-          checkAndPerformSave();
+          checkAndPerformSave(false);
         }
-      }, 1500);
+      }, 1200);
     });
 
     const handleForceAutosave = () => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkAndPerformSave, 100);
+      timeoutId = setTimeout(() => checkAndPerformSave(true), 60);
     };
+
+    const handlePageHide = () => {
+      clearTimeout(timeoutId);
+      checkAndPerformSave(true);
+    };
+
     window.addEventListener('force-autosave', handleForceAutosave);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
 
     return () => {
       clearTimeout(timeoutId);
       unsub();
       window.removeEventListener('force-autosave', handleForceAutosave);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
     };
   }, [audio.isLoading, audioRef]);
 

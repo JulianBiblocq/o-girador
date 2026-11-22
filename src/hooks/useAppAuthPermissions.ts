@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useAuth, UserProfile } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useDesktopWorkspaceStore } from '../stores/useDesktopWorkspaceStore';
-import { vocalEngineService } from '../audio/vocalEngineService';
 import { useTransportStore } from '../stores/useTransportStore';
 import { syncMobileViewModeWithProfile, hasDirectModeUrlParam } from '../utils/viewModeResolver';
 import { resolvePracticeModeForProfile } from '../stores/helpers/practiceModeHelpers';
@@ -65,12 +64,6 @@ export function useAppAuthPermissions(userProfile: UserProfile | null, isAdmin: 
       return () => window.clearTimeout(timer);
     }
   }, [currentUser?.uid, userProfile, isAdmin]);
-
-  useEffect(() => {
-    vocalEngineService.rehydrateVocalBuffers().catch((err) => {
-      console.error('[VOCAL REHYDRATE] Erreur montage App:', err);
-    });
-  }, []);
 
   useEffect(() => {
     if (userProfile && (userProfile as any).customSwingOffsets) {

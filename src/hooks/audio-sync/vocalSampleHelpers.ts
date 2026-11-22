@@ -1,26 +1,28 @@
 import { useAudioStore } from '../../stores/useAudioStore';
 import { sanitizePitchHz } from '../../utils/pitchHzContract';
+import {
+  buildVocalRecordingCandidateKeys,
+  isEligibleVocalPattern,
+} from '../../audio/vocal/vocalKeyCascadeResolver';
 
 export const noteToFrequency = (noteStr: string, referencePitchHz?: unknown): number => {
   const refHz = sanitizePitchHz(referencePitchHz);
   const defaultC4 = refHz * Math.pow(2, -9 / 12);
   const noteMap: { [key: string]: number } = {
     'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5,
-    'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+    'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
   };
-  
+
   const match = noteStr.match(/^([A-G][#b]?)(-?\d+)$/);
   if (!match) return defaultC4;
-  
+
   const pitch = match[1];
   const octave = parseInt(match[2], 10);
-  
   const semitoneIndex = noteMap[pitch];
   if (semitoneIndex === undefined) return defaultC4;
-  
+
   const semitonesFromC4 = semitoneIndex + (octave - 4) * 12;
   const semitonesFromA4 = semitonesFromC4 - 9;
-  
   return refHz * Math.pow(2, semitonesFromA4 / 12);
 };
 
@@ -38,15 +40,7 @@ export const getVoiceNoteStepsFromDecay = (decay: number): number => {
 };
 
 export const isVocalSamplePattern = (pattern: any): boolean => {
-  if (!pattern) return false;
-  return Boolean(
-    pattern.vocalMode === 'micro' ||
-    pattern.vocalMode === 'audio' ||
-    pattern.vocalMode === 'recorded' ||
-    pattern.vocalClip ||
-    pattern.vocalAudioData ||
-    pattern.vocalAudioUrl
-  );
+  return isEligibleVocalPattern(pattern);
 };
 
 export const isSamplePlaybackAllowed = (currentVocalMode: string | undefined): boolean => {
@@ -56,14 +50,14 @@ export const isSamplePlaybackAllowed = (currentVocalMode: string | undefined): b
 export const getVocalBufferForPattern = (trackId: string | number, pattern: any): AudioBuffer | undefined => {
   if (!pattern) return undefined;
   const buffers = useAudioStore.getState().vocalBuffers;
-  const patId = pattern.id;
-  const clipId = pattern.vocalClip?.id;
-
-  return (
-    buffers[`${trackId}_${patId}`] ||
-    buffers[patId] ||
-    (clipId ? buffers[`${trackId}_${clipId}`] || buffers[clipId] : undefined) ||
-    (!isNaN(Number(patId)) ? buffers[`${trackId}_${Number(patId)}`] || buffers[Number(patId)] : undefined) ||
-    (clipId && !isNaN(Number(clipId)) ? buffers[`${trackId}_${Number(clipId)}`] || buffers[Number(clipId)] : undefined)
-  );
+  const candidates = buildVocalRecordingCandidateKeys(`${trackId}_${pattern.id}`, {
+    trackId,
+    patternId: pattern.id,
+    vocalClipId: pattern.vocalClip?.id,
+  });
+  for (const key of candidates) {
+    const found = buffers[key];
+    if (found) return found;
+  }
+  return undefined;
 };

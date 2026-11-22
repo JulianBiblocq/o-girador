@@ -10,12 +10,11 @@ import { migrateAndSanitizePresetTracks } from './audioPresetTracksMigrator';
 import { restorePresetVocalRecordings } from './audioPresetVocalRestorer';
 import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
 import { restorePresetLoopState } from './audioPresetLoopRestorer';
-import { restorePresetAutomationsAndVocal, restorePresetVigilancePoints } from './presetSerializationHelpers';
+import { resolvePresetVocalTransposeSteps, restorePresetAutomationsAndVocal, restorePresetVigilancePoints } from './presetSerializationHelpers';
+import { markAutosaveBaselineClean } from '../../hooks/app-audio/autosavePayloadBuilder';
 
 export async function executeApplyPreset(
-  p: any,
-  sequencer: any,
-  audioSync: any,
+  p: any, sequencer: any, audioSync: any,
   setters: { setMasterEQ: (eq: any) => void; setMasterCompressor: (comp: any) => void; setMasterVol: (vol: number) => void; setMasterReverbVol: (vol: number) => void; setReverbDecay: (decay: number) => void; }
 ): Promise<void> {
   normalizePresetAcousticsOnLoad(p);
@@ -52,7 +51,7 @@ export async function executeApplyPreset(
   useSequencerStore.getState().resetSpeedTrainerConfig();
 
   const hasRecordedVocal = Boolean(p.metadata?.toadaPackId) || loadedTracks.some((t) =>
-    (t.instrumentIdx === 10 || t.instrumentIdx === 11) && t.patterns?.some((ptn: any) => Boolean(ptn.vocalAudioUrl || ptn.vocalClip || ptn.vocalMode === 'micro'))
+    (t.instrumentIdx === 10 || t.instrumentIdx === 11) && t.patterns?.some((ptn: any) => Boolean(ptn.hasVocalAudio || ptn.vocalAudioUrl || ptn.vocalClip || ptn.vocalMode === 'micro' || ptn.vocalMode === 'recorded' || ptn.vocalMode === 'audio'))
   );
   if (hasRecordedVocal) useAudioStore.getState().setVocalMode('voice');
 
@@ -101,7 +100,7 @@ export async function executeApplyPreset(
     currentMeasure: 0, currentExpandedMeasureIdx: 0,
     isMasterVolumeBypassed: Boolean(p.isMasterVolumeBypassed),
     globalAutomationBypass: p.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
-    vocalTransposeSteps: p.vocalTransposeSteps ?? 0,
+    vocalTransposeSteps: resolvePresetVocalTransposeSteps(p),
   });
   if (p.letras !== undefined) {
     useSequencerStore.getState().setLetras(p.letras);
@@ -136,6 +135,7 @@ export async function executeApplyPreset(
   sequencer.measureCountRef.current = 0;
   sequencer.tracksRef.current = loadedTracks;
   invalidateAudioParamsCache();
+  markAutosaveBaselineClean();
   audioSync.setCurrentMeasure(0);
   audioSync.setIsLoading(false);
 }

@@ -1,6 +1,7 @@
-
 export type { LocalLibrary } from './services/db/localLibraryStore';
+export type { VocalLookupContext } from './services/db/vocalRecordingsStore';
 export {
+  buildVocalRecordingCandidateKeys,
   saveVocalRecording,
   getVocalRecording,
   getAllVocalRecordings,

@@ -8,6 +8,7 @@ import {
   clearColdVisitorFallbackFlag,
   wasColdVisitorFallbackLoaded,
 } from './app-audio/initialPresetLoader';
+import { wasUnsavedSessionRestored } from './app-audio/autosavePayloadBuilder';
 
 interface UseAppGroupPresetLoaderParams {
   groupId?: string | null;
@@ -52,7 +53,7 @@ export function useAppGroupPresetLoader({ groupId, cloudPresets, audio }: UseApp
       return;
     }
 
-    if (hasAutoLoadedGroupRef.current === effectiveGroupId) return;
+    if (hasAutoLoadedGroupRef.current === effectiveGroupId || wasUnsavedSessionRestored()) return;
 
     let isMounted = true;
     getDefaultGroupPresetId(effectiveGroupId).then((defaultPresetId) => {

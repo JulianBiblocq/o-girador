@@ -32,7 +32,9 @@ export interface AudioState {
   removeVocalBlob: (patternId: string | number) => void;
   addVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
   setVocalBuffer: (patternId: string | number, buffer: AudioBuffer) => void;
-  setVocalBuffersBatch: (entries: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob }>) => void;
+  setVocalBuffersBatch: (
+    entries: Array<{ key: string | number; buffer: AudioBuffer; blob?: Blob; legacyAliasKey?: string | number }>
+  ) => void;
   removeVocalBuffer: (patternId: string | number) => void;
   setSelectedVocalPatternId: (id: number | null, trackId?: number | null) => void;
   unlockAudio: () => void;

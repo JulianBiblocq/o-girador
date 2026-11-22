@@ -22,8 +22,8 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
 
   const hasVocalRecording = useAudioStore(useCallback((s) => {
     if (activePatternId === undefined || activePatternId === null) return false;
-    const key = `${effectiveEditTrackId}_${activePatternId}`;
-    return Boolean(s.vocalBuffers[key] || s.vocalBlobs[key] || s.vocalBuffers[activePatternId] || s.vocalBlobs[activePatternId] || activePattern?.hasVocalAudio || activePattern?.vocalClip);
+    const key = `${effectiveEditTrackId}_${activePatternId}`, cId = activePattern?.vocalClip?.id;
+    return Boolean(s.vocalBuffers[key] || s.vocalBlobs[key] || s.vocalBuffers[activePatternId] || s.vocalBlobs[activePatternId] || (cId !== undefined && (s.vocalBuffers[`${effectiveEditTrackId}_${cId}`] || s.vocalBuffers[cId] || s.vocalBlobs[cId])) || activePattern?.hasVocalAudio || activePattern?.vocalClip);
   }, [effectiveEditTrackId, activePatternId, activePattern]));
 
   const { onOpenAlignment, onImportAudio } = useVocalInspectorActions(effectiveEditTrackId, editorState.selectedPatternId, displayedPatterns[0]?.id);

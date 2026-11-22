@@ -76,15 +76,26 @@ export const useAudioStore = create<AudioState>((set) => ({
     })),
   setVocalBuffersBatch: (entries) =>
     set((state) => {
+      if (!entries || entries.length === 0) return state;
       const nextBuffers = { ...state.vocalBuffers };
       const nextBlobs = { ...state.vocalBlobs };
+      let changed = false;
       for (const entry of entries) {
-        nextBuffers[entry.key] = entry.buffer;
-        if (entry.blob) {
+        if (nextBuffers[entry.key] !== entry.buffer) {
+          nextBuffers[entry.key] = entry.buffer;
+          changed = true;
+        }
+        if (entry.blob && nextBlobs[entry.key] !== entry.blob) {
           nextBlobs[entry.key] = entry.blob;
+          changed = true;
+        }
+        if (entry.legacyAliasKey !== undefined && !nextBuffers[entry.legacyAliasKey]) {
+          nextBuffers[entry.legacyAliasKey] = entry.buffer;
+          if (entry.blob && !nextBlobs[entry.legacyAliasKey]) nextBlobs[entry.legacyAliasKey] = entry.blob;
+          changed = true;
         }
       }
-      return { vocalBuffers: nextBuffers, vocalBlobs: nextBlobs };
+      return changed ? { vocalBuffers: nextBuffers, vocalBlobs: nextBlobs } : state;
     }),
   removeVocalBuffer: (patternId) =>
     set((state) => {

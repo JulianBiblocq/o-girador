@@ -3,6 +3,7 @@ import { instrumentsConfig } from '../../data';
 import { migrateCirclesToTracks } from '../../migration';
 import { CURRENT_AUDIO_SCALE_VERSION, normalizeToFaderPosition, sanitizeFaderPosition } from '../../utils/audioMath';
 import { normalizePatternData } from './audioPatternNormalizer';
+import { sanitizeVocalTransposeSteps } from './presetSerializationHelpers';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { sanitizeTrackLinkingAndBuses } from './audioPresetLinkSanitizer';
 import { normalizePresetAcousticsOnLoad } from './acousticNormalizer';
@@ -28,10 +29,15 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
         }
       });
     }
-    loadedTracks.forEach((t) => {
-      if (t.instrumentIdx >= instrumentsConfig.length) t.instrumentIdx = instrumentsConfig.length - 1;
-      t.patterns?.forEach((ptn) => normalizePatternData(ptn, loadedMeasures));
-    });
+    const normTrackTree = (list: any[]) => {
+      list.forEach((t) => {
+        if (typeof t.instrumentIdx === 'number' && t.instrumentIdx >= instrumentsConfig.length) t.instrumentIdx = instrumentsConfig.length - 1;
+        if (t.vocalTransposeSteps !== undefined && t.vocalTransposeSteps !== null) t.vocalTransposeSteps = sanitizeVocalTransposeSteps(t.vocalTransposeSteps, 0);
+        t.patterns?.forEach((ptn: any) => normalizePatternData(ptn, loadedMeasures));
+        if (Array.isArray(t.subTracks)) normTrackTree(t.subTracks);
+      });
+    };
+    normTrackTree(loadedTracks);
   } else if (p.circles) {
     const oldCircles = JSON.parse(JSON.stringify(p.circles));
     if (version < 2) oldCircles.forEach((c: any) => { if (c.instrumentIdx >= 4) c.instrumentIdx += 1; });

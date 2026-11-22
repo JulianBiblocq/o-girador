@@ -4,7 +4,7 @@ import { useTransportStore } from '../../stores/useTransportStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { CURRENT_AUDIO_SCALE_VERSION, faderPositionToDb } from '../../utils/audioMath';
 import { CURRENT_LUTHERIE_VERSION } from './acousticNormalizer';
-import { buildSerializedMasterFX } from './presetSerializationHelpers';
+import { buildSerializedMasterFX, sanitizeVocalTransposeSteps } from './presetSerializationHelpers';
 import { resolvePresetAlfaiaEquipment } from '../../utils/alfaiaEquipmentResolver';
 
 export function buildCurrentPresetData(
@@ -33,6 +33,7 @@ export function buildCurrentPresetData(
 
   const currentPreRoll = transportState.preRollSettings;
   const activeVocalPreset = audioState.vocalPreset || 'guide';
+  const sanitizedTranspose = sanitizeVocalTransposeSteps(storeState.vocalTransposeSteps, 0);
 
   const rawMeta = storeState.metadata || sequencer?.metadata || {};
   const cleanMetadata = {
@@ -48,6 +49,8 @@ export function buildCurrentPresetData(
     partitionImage: rawMeta.partitionImage,
     rhythmSignals: Array.isArray(rawMeta.rhythmSignals) ? rawMeta.rhythmSignals : [],
     vocalPreset: activeVocalPreset,
+    vocalTransposeSteps: sanitizedTranspose,
+    transpositionSemitones: sanitizedTranspose,
     preRollSettings: currentPreRoll,
     alfaiaEquipment: resolvePresetAlfaiaEquipment({ tracks: tracksCopy }),
     skinChorusAmount: storeState.skinChorusAmount ?? 0.75,
@@ -108,7 +111,7 @@ export function buildCurrentPresetData(
     loopMode: storeState.loopMode ?? 'infinite',
     isLoopExitRequested: false,
     isLooping: storeState.isLooping ?? true,
-    vocalTransposeSteps: storeState.vocalTransposeSteps ?? 0,
+    vocalTransposeSteps: sanitizedTranspose,
     isMasterVolumeBypassed: Boolean(storeState.isMasterVolumeBypassed),
     globalAutomationBypass: storeState.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
     skinChorusAmount: storeState.skinChorusAmount ?? 0.75,

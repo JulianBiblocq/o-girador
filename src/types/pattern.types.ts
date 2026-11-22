@@ -78,6 +78,7 @@ export interface Pattern {
   hasVocalAudio?: boolean;
   ignoreMelodyPitch?: boolean;
   hasTailBeat?: boolean;
+  vocalTransposeSteps?: number;
   packTranspositionSemitones?: number;
   sungKey?: string;
   troupeKey?: string;

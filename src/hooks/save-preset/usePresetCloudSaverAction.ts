@@ -69,6 +69,7 @@ export async function executeSavePresetToCloud({
   const finalPresetData: Preset = {
     ...freshData,
     vocalPreset: currentVocalPreset,
+    vocalTransposeSteps: freshData.vocalTransposeSteps,
     defaultDisplayMeasure: presetData?.defaultDisplayMeasure ?? freshData.defaultDisplayMeasure,
     isDraft: finalDraft,
     isShowcase: effectiveShowcase,
@@ -78,6 +79,8 @@ export async function executeSavePresetToCloud({
       toada: presetName,
       morceauId: targetDocId,
       vocalPreset: currentVocalPreset,
+      vocalTransposeSteps: freshData.vocalTransposeSteps,
+      transpositionSemitones: freshData.vocalTransposeSteps,
     } as any,
   };
 

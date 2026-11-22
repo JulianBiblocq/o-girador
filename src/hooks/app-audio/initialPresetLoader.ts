@@ -4,30 +4,24 @@ import { getDefaultGroupPresetId } from '../../cloudGroups';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { resolveEffectiveStartupGroupId } from '../../services/cloud-common/cloudTenantAuthGuard';
+import { setUnsavedSessionRestored } from './autosavePayloadBuilder';
 
 let coldVisitorFallbackActive = false;
-export function wasColdVisitorFallbackLoaded(): boolean {
-  return coldVisitorFallbackActive;
-}
-export function clearColdVisitorFallbackFlag(): void {
-  coldVisitorFallbackActive = false;
-}
+export function wasColdVisitorFallbackLoaded(): boolean { return coldVisitorFallbackActive; }
+export function clearColdVisitorFallbackFlag(): void { coldVisitorFallbackActive = false; }
 
-export async function tryLoadInitialPresetFromUrlOrHash(audio: any, _sequencer: any): Promise<boolean> {
+export async function tryLoadInitialPresetFromUrlOrHash(audio: any, _sequencer: any, cachedAutosave?: any): Promise<boolean> {
   const urlParams = new URLSearchParams(window.location.search);
   const fileUrl = urlParams.get('file');
   if (fileUrl) {
     try {
       const response = await fetch(fileUrl);
       if (response.ok) {
-        const presetData = await response.json();
-        await audio.applyPreset(presetData);
+        await audio.applyPreset(await response.json());
         window.history.replaceState({}, document.title, window.location.pathname);
         return true;
       }
-    } catch (err) {
-      console.error('[O Girador] Échec du téléchargement du fichier distant:', err);
-    }
+    } catch (err) { console.error('[O Girador] Échec du téléchargement du fichier distant:', err); }
   }
 
   const baqueParam = urlParams.get('baque');
@@ -40,6 +34,10 @@ export async function tryLoadInitialPresetFromUrlOrHash(audio: any, _sequencer: 
     }
   }
 
+  const loadPresetParam = urlParams.get('loadPreset') || urlParams.get('presetId');
+  if (loadPresetParam && cachedAutosave?.hasUnsavedChanges && cachedAutosave?.metadata?.morceauId === loadPresetParam) {
+    return false;
+  }
   if (urlParams.has('trainingId') || urlParams.has('loadPreset') || urlParams.has('presetId') || urlParams.has('loadSection') || urlParams.has('editPatternId')) {
     return true;
   }
@@ -47,8 +45,7 @@ export async function tryLoadInitialPresetFromUrlOrHash(audio: any, _sequencer: 
   const hash = window.location.hash;
   if (hash && hash.length > 1 && hash !== '#legal') {
     try {
-      const b64 = hash.substring(1);
-      const decodedStr = decodeURIComponent(escape(window.atob(b64)));
+      const decodedStr = decodeURIComponent(escape(window.atob(hash.substring(1))));
       await audio.applyPreset(JSON.parse(decodedStr));
       window.history.replaceState({}, document.title, window.location.pathname);
       return true;
@@ -58,48 +55,53 @@ export async function tryLoadInitialPresetFromUrlOrHash(audio: any, _sequencer: 
 }
 
 export async function loadInitialPresetPipeline(
-  audio: any,
-  sequencer: any,
-  userProfile: any,
-  setPresetFiles: (files: string[]) => void
+  audio: any, sequencer: any, userProfile: any, setPresetFiles: (files: string[]) => void
 ): Promise<void> {
   coldVisitorFallbackActive = false;
-  const loadedFromUrl = await tryLoadInitialPresetFromUrlOrHash(audio, sequencer);
-  let restored = loadedFromUrl;
+  setUnsavedSessionRestored(false);
 
-  if (!restored) {
-    const lastPresetId = localStorage.getItem('girador_last_loaded_preset_id');
-    if (lastPresetId) {
-      try {
-        const { getCloudPreset } = await import('../../cloudLibrary');
-        const cloudPreset = await getCloudPreset(lastPresetId);
-        if (cloudPreset && cloudPreset.tracks && cloudPreset.tracks.length > 0) {
-          const meta = cloudPreset.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' };
-          meta.morceauId = lastPresetId;
-          cloudPreset.metadata = meta;
-          await audio.applyPreset(cloudPreset);
-          audio.setActivePresetName(`cloud:${lastPresetId}`);
-          restored = true;
-        } else {
-          localStorage.removeItem('girador_last_loaded_preset_id');
-        }
-      } catch (_) {
-        localStorage.removeItem('girador_last_loaded_preset_id');
-      }
+  let savedState: any = null;
+  try {
+    const { getAutosave, clearAutosave } = await import('../../db');
+    savedState = await getAutosave();
+    if (savedState && (!Array.isArray(savedState.tracks) || savedState.tracks.length === 0)) {
+      await clearAutosave().catch(() => {});
+      savedState = null;
     }
+  } catch (_) {}
+
+  let restored = await tryLoadInitialPresetFromUrlOrHash(audio, sequencer, savedState);
+  const lastPresetId = localStorage.getItem('girador_last_loaded_preset_id');
+  const preferDirtyAutosave = Boolean(
+    savedState?.hasUnsavedChanges && (!lastPresetId || savedState?.metadata?.morceauId === lastPresetId)
+  );
+
+  if (!restored && preferDirtyAutosave && savedState) {
+    await audio.applyPreset(savedState);
+    if (lastPresetId) audio.setActivePresetName(`cloud:${lastPresetId}`);
+    setUnsavedSessionRestored(true);
+    restored = true;
   }
 
-  if (!restored) {
+  if (!restored && lastPresetId) {
     try {
-      const { getAutosave, clearAutosave } = await import('../../db');
-      const savedState = await getAutosave();
-      if (savedState?.tracks?.length > 0) {
-        await audio.applyPreset(savedState);
+      const { getCloudPreset } = await import('../../cloudLibrary');
+      const cloudPreset = await getCloudPreset(lastPresetId);
+      if (cloudPreset?.tracks?.length) {
+        const meta = cloudPreset.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' };
+        meta.morceauId = lastPresetId;
+        cloudPreset.metadata = meta;
+        await audio.applyPreset(cloudPreset);
+        audio.setActivePresetName(`cloud:${lastPresetId}`);
         restored = true;
-      } else if (savedState) {
-        await clearAutosave().catch(() => {});
-      }
-    } catch (_) {}
+      } else localStorage.removeItem('girador_last_loaded_preset_id');
+    } catch (_) { localStorage.removeItem('girador_last_loaded_preset_id'); }
+  }
+
+  if (!restored && savedState) {
+    await audio.applyPreset(savedState);
+    if (savedState.hasUnsavedChanges) setUnsavedSessionRestored(true);
+    restored = true;
   }
 
   try {
@@ -114,7 +116,7 @@ export async function loadInitialPresetPipeline(
           if (defaultPresetId) {
             const { getCloudPreset } = await import('../../cloudLibrary');
             const cloudPreset = await getCloudPreset(defaultPresetId);
-            if (cloudPreset && cloudPreset.tracks && cloudPreset.tracks.length > 0) {
+            if (cloudPreset?.tracks?.length) {
               audio.setActivePresetName(`cloud:${defaultPresetId}`);
               await audio.applyPreset(cloudPreset);
               return;
@@ -129,6 +131,8 @@ export async function loadInitialPresetPipeline(
     }
   } catch (_) {
   } finally {
-    vocalEngineService.rehydrateVocalBuffers(useSequencerStore.getState().tracks).catch(() => {});
+    if (vocalEngineService.needsRehydration()) {
+      vocalEngineService.rehydrateVocalBuffers(useSequencerStore.getState().tracks).catch(() => {});
+    }
   }
 }

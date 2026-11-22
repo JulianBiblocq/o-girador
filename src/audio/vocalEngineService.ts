@@ -34,6 +34,9 @@ export const vocalEngineService = {
   getRehydratingPromise(): Promise<void> | null {
     return VocalRehydration.getRehydratingPromise();
   },
+  needsRehydration(tracksToScan?: any[]): boolean {
+    return VocalRehydration.needsRehydration(tracksToScan);
+  },
   async rehydrateVocalBuffers(tracksToScan?: any[]): Promise<void> {
     return VocalRehydration.rehydrateVocalBuffers(tracksToScan);
   },

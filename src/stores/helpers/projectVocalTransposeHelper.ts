@@ -17,6 +17,7 @@ export function applyVocalTransposeStepsState(steps: number, set: SetFn, get: Ge
   });
   prewarmProjectVocalDspBuffers(undefined, nextSteps);
   if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('force-autosave'));
 }
 
 export function applyTransposePatternNotesState(
@@ -46,7 +47,8 @@ export function applyTransposePatternNotesState(
   });
   prewarmProjectVocalDspBuffers(undefined, nextSteps);
   if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
-  if (noteToPreview && typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('force-autosave'));
+    if (noteToPreview) window.dispatchEvent(new CustomEvent('audio-preview-voice-note', { detail: noteToPreview }));
   }
 }

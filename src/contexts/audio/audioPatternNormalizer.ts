@@ -1,13 +1,11 @@
 import { Pattern, PatternVariation, StepSculptValue } from '../../types';
+import { sanitizeVocalTransposeSteps } from './presetSerializationHelpers';
 
 function detectUnitScaleArray(arr: readonly unknown[] | undefined, allowIntegerOneAsMax = false): boolean {
   if (!Array.isArray(arr) || arr.length === 0) return false;
-  let hasFinite = false;
-  let hasPositive = false;
-  let hasFraction = false;
+  let hasFinite = false, hasPositive = false, hasFraction = false;
   for (let i = 0; i < arr.length; i++) {
-    const item = arr[i];
-    const sub = Array.isArray(item) ? item : [item];
+    const sub = Array.isArray(arr[i]) ? (arr[i] as unknown[]) : [arr[i]];
     for (let j = 0; j < sub.length; j++) {
       const n = Number(sub[j]);
       if (!Number.isFinite(n)) continue;
@@ -23,8 +21,7 @@ function detectUnitScaleArray(arr: readonly unknown[] | undefined, allowIntegerO
 function normalizeSingleNumber(raw: unknown, defaultVal: number, unitScale = false): number {
   const val = Number(raw);
   if (!Number.isFinite(val)) return defaultVal;
-  if (unitScale) return Math.round(val * 100);
-  if (val > 0 && val < 1) return Math.round(val * 100);
+  if (unitScale || (val > 0 && val < 1)) return Math.round(val * 100);
   return val;
 }
 
@@ -47,6 +44,41 @@ function sanitizeSculptArray(
   return out;
 }
 
+export function normalizeMeasureAssignments(raw: unknown, targetMeasures: number): boolean[] {
+  const safeMeasures = Math.max(1, Math.floor(Number(targetMeasures) || 1));
+  if (!raw) return Array(safeMeasures).fill(false);
+
+  if (!Array.isArray(raw)) {
+    const normalized = Array(safeMeasures).fill(false);
+    if (typeof raw === 'object') {
+      Object.entries(raw as Record<string, unknown>).forEach(([k, v]) => {
+        const mIdx = parseInt(k, 10);
+        if (!isNaN(mIdx) && mIdx >= 0 && mIdx < safeMeasures) normalized[mIdx] = Boolean(v);
+      });
+    }
+    return normalized;
+  }
+
+  if (raw.length > 0 && typeof raw[0] === 'number') {
+    const numList = raw as number[];
+    const normalized = Array(safeMeasures).fill(false);
+    const isOneBased = numList.some((n) => n === safeMeasures);
+    numList.forEach((n) => {
+      const idx = isOneBased ? n - 1 : n;
+      if (idx >= 0 && idx < safeMeasures) normalized[idx] = true;
+    });
+    return normalized;
+  }
+
+  const bools = raw.map(Boolean);
+  if (bools.length < safeMeasures) {
+    const padVal = bools[0] || false;
+    while (bools.length < safeMeasures) bools.push(padVal);
+    return bools;
+  }
+  return bools.length > safeMeasures ? bools.slice(0, safeMeasures) : bools;
+}
+
 export function normalizePatternData(p: Pattern, targetMeasures: number): void {
   if (!p.notes) p.notes = Array(p.steps).fill('');
   if (!p.lyrics) p.lyrics = Array(p.steps).fill('');
@@ -58,36 +90,15 @@ export function normalizePatternData(p: Pattern, targetMeasures: number): void {
   if (p.preRollVolumes && p.preRollVolumes === p.volumes) p.preRollVolumes = [...p.preRollVolumes];
   if (p.preRollDecays && p.preRollDecays === p.decays) p.preRollDecays = [...p.preRollDecays];
 
-  if (!p.measureAssignments) {
-    p.measureAssignments = Array(targetMeasures).fill(false);
-  } else if (!Array.isArray(p.measureAssignments)) {
-    const rawObj = p.measureAssignments as any;
-    const normalized = Array(targetMeasures).fill(false);
-    Object.entries(rawObj).forEach(([k, v]) => {
-      const mIdx = parseInt(k, 10);
-      if (!isNaN(mIdx) && mIdx >= 0 && mIdx < targetMeasures) normalized[mIdx] = Boolean(v);
-    });
-    p.measureAssignments = normalized;
-  } else if (p.measureAssignments.length > 0 && typeof p.measureAssignments[0] === 'number') {
-    const numList = p.measureAssignments as unknown as number[];
-    const normalized = Array(targetMeasures).fill(false);
-    const isOneBased = numList.some((n) => n === targetMeasures);
-    numList.forEach((n) => {
-      const idx = isOneBased ? n - 1 : n;
-      if (idx >= 0 && idx < targetMeasures) normalized[idx] = true;
-    });
-    p.measureAssignments = normalized;
-  } else if (p.measureAssignments.length < targetMeasures) {
-    for (let i = p.measureAssignments.length; i < targetMeasures; i++) {
-      p.measureAssignments.push(p.measureAssignments[0] || false);
-    }
-  } else if (p.measureAssignments.length > targetMeasures) {
-    p.measureAssignments = p.measureAssignments.slice(0, targetMeasures);
+  p.measureAssignments = normalizeMeasureAssignments(p.measureAssignments, targetMeasures);
+
+  if (p.vocalTransposeSteps !== undefined && p.vocalTransposeSteps !== null) {
+    p.vocalTransposeSteps = sanitizeVocalTransposeSteps(p.vocalTransposeSteps, 0);
   }
 
   if (
     p.vocalMode === 'audio' || p.vocalMode === 'recorded' ||
-    (p.vocalClip && p.vocalMode !== 'synth') || Boolean(p.vocalAudioData) || Boolean(p.vocalAudioUrl)
+    (p.vocalClip && p.vocalMode !== 'synth') || Boolean(p.hasVocalAudio) || Boolean(p.vocalAudioData) || Boolean(p.vocalAudioUrl)
   ) {
     p.vocalMode = 'micro';
   }
@@ -106,8 +117,7 @@ export function normalizePatternData(p: Pattern, targetMeasures: number): void {
     p.variations.forEach((v: PatternVariation) => {
       const rawVar = v as PatternVariation & { stepVolumes?: StepSculptValue[]; stepDecays?: StepSculptValue[] };
       const vLen = Array.isArray(v.steps) && v.steps.length > 0 ? v.steps.length : p.steps;
-      const srcVols = v.volumes ?? rawVar.stepVolumes;
-      const srcDecays = v.decays ?? rawVar.stepDecays;
+      const srcVols = v.volumes ?? rawVar.stepVolumes, srcDecays = v.decays ?? rawVar.stepDecays;
       if (srcVols) { v.volumes = sanitizeSculptArray(srcVols, vLen, 80, false); delete rawVar.stepVolumes; }
       if (srcDecays) { v.decays = sanitizeSculptArray(srcDecays, vLen, 100, false); delete rawVar.stepDecays; }
     });
