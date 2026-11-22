@@ -57,7 +57,8 @@ export class EngineNotePlayer {
     if (!config) return;
 
     if (strokeSymbol === '/' || strokeSymbol === '.') {
-      deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, safeTime, strokeSymbol === '/' ? 0.450 : 0.035);
+      const fadeSec = instrumentId === 'apito' ? 0.014 : (strokeSymbol === '/' ? 0.450 : 0.035);
+      deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, safeTime, fadeSec);
       return;
     }
 
@@ -88,7 +89,8 @@ export class EngineNotePlayer {
     const config = deps.configMap.get(instrumentId);
     if (strokeSymbol === '/' || strokeSymbol === '.') {
       const tNow = time !== undefined ? time : (Tone?.now() || ctx.currentTime);
-      deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, tNow, strokeSymbol === '/' ? 0.450 : 0.035);
+      const fadeSec = instrumentId === 'apito' ? 0.014 : (strokeSymbol === '/' ? 0.450 : 0.035);
+      deps.playbackCtx.barulho.fadeOutBarulho(instrumentId, tNow, fadeSec);
       return;
     }
     const stroke = config ? EngineVirtualStrokes.resolveStroke(deps.strokesMaps, instrumentId, strokeSymbol) : null;

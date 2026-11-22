@@ -9,6 +9,7 @@ import { getEffectiveRodaBreathingAmount, useSequencerStore } from '../../../sto
 import { GlobalSwing, Pattern, PatternVariation, Track } from '../../../types';
 import { isTrackMutedByPracticeMode } from '../../../utils/practiceAudioMuteGuard';
 import { getRodaStepDurationTicks } from '../../../utils/rodaTimeSigGeometry';
+import { stageWorkletApitoPreCutEvents } from '../../barulho/apitoFallbackHoldResolver';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { resolveAudibleSympathySnareTrack } from '../../groove/snareSympathyPlanner';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
@@ -122,6 +123,11 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
   for (let vPtr = 0; vPtr < variationNotes.length; vPtr += 4) {
     if (variationNotes[vPtr] >= measureStartTick && variationNotes[vPtr] < endTick) processNoteTuple(variationNotes[vPtr], variationNotes[vPtr + 1], variationNotes[vPtr + 2], variationNotes[vPtr + 3], variationNotes as any);
   }
+  stageWorkletApitoPreCutEvents({
+    seqId, measureStartSec: timing.startTimeSec, measureEndSec: timing.startTimeSec + timing.durationSec,
+    sampleRate, currentFrame, minRebuildFrame, lookaheadPoints, coveredTrackIds,
+    getTrackSlot: (tId) => engineDeps.getTrackSlot(tId), stagedEvents,
+  });
 
   if (uncoveredTrackIds.size > 0) {
     uncoveredTrackIds.forEach((id) => coveredTrackIds.delete(id));

@@ -1,7 +1,13 @@
 /**
- * baqueBounceBarulhoHelpers.ts — Primitives d'enveloppe linéaire et de création de nœuds bouclés pour Barulho Offline (< 65 lignes).
+ * baqueBounceBarulhoHelpers.ts — Primitives d'enveloppe linéaire, lookahead Bounce & pré-coupures Apito (< 120 lignes).
  */
+import type { ApitoPlannedCutEvent } from '../audio/barulho/apitoBreathCutPlanner';
 import type { BakedBarulhoAudio } from '../audio/barulho/barulhoLoopRegionAnalyzer';
+import { BarulhoLookaheadPoint, packBarulhoOriginCoord } from '../audio/barulho/barulhoRampPlanner';
+import { instrumentsConfig } from '../data';
+import { resolveTrackFromPackedData } from '../workers/compiler/compiledTrackIdResolver';
+import { resolveBounceNoteTrigger, type BaqueCycleTimingResult } from './baqueBounceTiming';
+import { getRodaStepDurationTicks } from './rodaTimeSigGeometry';
 
 export interface OfflineBarulhoGainSeg {
   t: number;
@@ -10,6 +16,7 @@ export interface OfflineBarulhoGainSeg {
 
 export interface ActiveOfflineBarulhoVoice {
   trackId: number;
+  instId?: string;
   src: AudioBufferSourceNode;
   gainNode: GainNode;
   segs: OfflineBarulhoGainSeg[];
@@ -68,4 +75,55 @@ export function isInterMeasureSustainedBarulhoCoord(prevCoord: number, nextCoord
   const prevM = (prevCoord - 1) >>> 7;
   const nextM = (nextCoord - 1) >>> 7;
   return prevStepSub === nextStepSub && prevM !== nextM;
+}
+
+export function scheduleApitoOfflinePreCutIfAny(
+  v: ActiveOfflineBarulhoVoice,
+  cuts: readonly ApitoPlannedCutEvent[],
+  tStart: number,
+  maxEndSec: number
+): void {
+  if (v.instId !== 'apito') return;
+  for (let i = 0; i < cuts.length; i++) {
+    const cut = cuts[i];
+    if (cut.trackId !== v.trackId || cut.fadeStartSec <= tStart + 0.002) continue;
+    if (cut.fadeStartSec >= maxEndSec - 0.001) break;
+    if (v.zeroStopTime !== null && v.zeroStopTime <= cut.fadeStartSec) break;
+    pushOfflineBarulhoLinearRamp(v, cut.fadeStartSec, Math.min(maxEndSec, cut.fadeStartSec + cut.fadeDurationSec), 0);
+    break;
+  }
+}
+
+export function buildOfflineBounceLookaheadPoints(
+  schedule: Float32Array | Float64Array,
+  tracks: any[],
+  baqueIdSet: Set<number>,
+  timing: BaqueCycleTimingResult,
+  globalSwing: any,
+  temperamentMap: any
+): BarulhoLookaheadPoint[] {
+  const pts: BarulhoLookaheadPoint[] = [];
+  const apitoActiveInMeasure = new Set<string>();
+  for (let i = 0; i < schedule.length / 4; i++) {
+    const packed = schedule[i * 4 + 1], tr = resolveTrackFromPackedData(packed, tracks, schedule), inst = tr ? instrumentsConfig[tr.instrumentIdx] : null;
+    if (!tr || !inst || !baqueIdSet.has(tr.id)) continue;
+    const { mIdx, circleStepIdx, triggerSec, measureBpm } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], tr, tracks, inst.id, timing, globalSwing, temperamentMap);
+    const sig = timing.measureTimeSigs?.[mIdx] || '4/4';
+    const actPtn = tr.patterns?.find((p: any) => p.measureAssignments?.[mIdx]);
+    const stepDurSec = ((60 / Math.max(20, measureBpm || 100)) / 24) * getRodaStepDurationTicks(sig, actPtn, circleStepIdx);
+    const coord = packBarulhoOriginCoord(mIdx, circleStepIdx, (packed & 1) === 1);
+    pts.push({ trackId: tr.id, instId: inst.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2], stepDurationSec: stepDurSec, originCoord: coord, seqId: mIdx });
+    if (inst.id === 'apito') apitoActiveInMeasure.add(`${tr.id}:${mIdx}`);
+  }
+  for (const tr of tracks) {
+    const inst = tr ? instrumentsConfig[tr.instrumentIdx] : null;
+    if (!tr || !inst || inst.id !== 'apito' || !baqueIdSet.has(tr.id)) continue;
+    for (let m = 0; m < timing.totalMeasures; m++) {
+      if (!apitoActiveInMeasure.has(`${tr.id}:${m}`)) {
+        pts.push({ trackId: tr.id, instId: 'apito', timeSec: timing.measureStartsSec[m] ?? 0, symbol: '/', velocity: 0, stepDurationSec: 0.15, seqId: m });
+      }
+    }
+  }
+  pts.sort((a, b) => a.timeSec - b.timeSec);
+  return pts;
 }

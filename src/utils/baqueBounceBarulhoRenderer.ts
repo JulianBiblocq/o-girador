@@ -4,10 +4,10 @@
  *   + décorrélation de phase pour pistes sœurs `rank >= 1` en `×1` (zéro flanger).
  */
 import { getOrBakeBarulhoAudioBuffer } from '../audio/barulho/barulhoLoopRegionAnalyzer';
+import { APITO_NATURAL_STOP_FADE_SEC, APITO_SAFETY_CHOKE_SEC, ApitoPlannedCutEvent, planApitoBreathCutsFromLookahead } from '../audio/barulho/apitoBreathCutPlanner';
 import {
   BARULHO_LEGATO_VEL_RAMP_SEC, BARULHO_RETRIGGER_CHOKE_SEC, BarulhoLookaheadPoint, DEFAULT_BARULHO_DOT_STOP_SEC,
-  DEFAULT_BARULHO_FADEIN_SEC, DEFAULT_BARULHO_FADEOUT_SEC, findBarulhoLookaheadIndex,
-  resolveSlashFadeOutRampSec, resolveSoftBarulhoRampSpec,
+  DEFAULT_BARULHO_FADEIN_SEC, DEFAULT_BARULHO_FADEOUT_SEC, findBarulhoLookaheadIndex, resolveSlashFadeOutRampSec, resolveSoftBarulhoRampSpec,
 } from '../audio/barulho/barulhoRampPlanner';
 import { computeEnginePeakGain } from '../audio/engine/engineStrokePlayback';
 import { resolveFrankStrokeBarulhoChokeSec } from '../audio/engine/selectiveTrackChokePhysics';
@@ -15,29 +15,25 @@ import { BARULHO_PARTNER_ATTACK_RAMP_SEC, computeBarulhoDecorrelatedReadFrame } 
 import type { SectionPlayerAcousticSpec } from '../audio/spatial/sectionSpatialAcoustics';
 import { createSpatialPlayerRouting } from '../audio/spatial/webAudioPlayerPanner';
 import { computeBarulhoSoftEntryFrame } from '../audio/worklet/processor/workletEventFlags';
-import {
-  ActiveOfflineBarulhoVoice,
-  createOfflineLoopingBarulhoNodes,
-  evalOfflineBarulhoGainAt,
-  isInterMeasureSustainedBarulhoCoord,
-  pushOfflineBarulhoLinearRamp,
-} from './baqueBounceBarulhoHelpers';
+import { ActiveOfflineBarulhoVoice, createOfflineLoopingBarulhoNodes, evalOfflineBarulhoGainAt, isInterMeasureSustainedBarulhoCoord, pushOfflineBarulhoLinearRamp, scheduleApitoOfflinePreCutIfAny } from './baqueBounceBarulhoHelpers';
 import type { OfflineTrackGraph } from './baqueBounceTrackGraph';
 
 export class OfflineBarulhoPhraseTracker {
   private readonly activeByKey = new Map<string, ActiveOfflineBarulhoVoice>();
   public readonly lookahead: readonly BarulhoLookaheadPoint[];
+  private readonly apitoCuts: readonly ApitoPlannedCutEvent[];
 
   constructor(basePoints: readonly BarulhoLookaheadPoint[], cycleDurationSec: number) {
     const pts = [...basePoints];
     if (cycleDurationSec > 0.05) {
       for (let i = 0; i < basePoints.length; i++) {
         const p = basePoints[i];
-        pts.push({ trackId: p.trackId, instId: p.instId, timeSec: p.timeSec + cycleDurationSec, symbol: p.symbol, velocity: p.velocity });
+        pts.push({ ...p, timeSec: p.timeSec + cycleDurationSec, seqId: (p.seqId ?? 0) + 10000 });
       }
     }
     pts.sort((a, b) => a.timeSec - b.timeSec);
     this.lookahead = pts;
+    this.apitoCuts = planApitoBreathCutsFromLookahead(pts);
   }
 
   private chokeKey(key: string, t: number, rampSec: number, maxEndSec: number): void {
@@ -54,12 +50,17 @@ export class OfflineBarulhoPhraseTracker {
     const t = Math.max(0, triggerSec);
     if (t >= maxEndSec - 0.001) return;
     const keys = Array.from(this.activeByKey.entries()).filter(([, v]) => v.trackId === trackId).map(([k]) => k);
-    if (symbol === '.') { keys.forEach((k) => this.chokeKey(k, t, DEFAULT_BARULHO_DOT_STOP_SEC, maxEndSec)); return; }
+    if (symbol === '.') {
+      keys.forEach((k) => this.chokeKey(k, t, this.activeByKey.get(k)?.instId === 'apito' ? APITO_NATURAL_STOP_FADE_SEC : DEFAULT_BARULHO_DOT_STOP_SEC, maxEndSec));
+      return;
+    }
     const ptIdx = findBarulhoLookaheadIndex(this.lookahead, trackId, t, '/');
-    const rampSec = ptIdx >= 0 ? resolveSlashFadeOutRampSec(this.lookahead, ptIdx) : DEFAULT_BARULHO_FADEOUT_SEC;
     for (const k of keys) {
       const v = this.activeByKey.get(k);
-      if (v && (v.zeroStopTime === null || t < v.zeroStopTime)) { v.originCoord = 0; pushOfflineBarulhoLinearRamp(v, t, Math.min(maxEndSec, t + rampSec), 0); }
+      if (v && (v.zeroStopTime === null || t < v.zeroStopTime)) {
+        const rampSec = v.instId === 'apito' ? APITO_NATURAL_STOP_FADE_SEC : (ptIdx >= 0 ? resolveSlashFadeOutRampSec(this.lookahead, ptIdx) : DEFAULT_BARULHO_FADEOUT_SEC);
+        v.originCoord = 0; pushOfflineBarulhoLinearRamp(v, t, Math.min(maxEndSec, t + rampSec), 0);
+      }
     }
   }
 
@@ -87,15 +88,18 @@ export class OfflineBarulhoPhraseTracker {
       const spec = ptIdx >= 0 ? resolveSoftBarulhoRampSpec(this.lookahead, ptIdx) : { rampSec: DEFAULT_BARULHO_FADEIN_SEC, targetVelocity: adjVel };
       const targetGain = computeEnginePeakGain(spec.targetVelocity, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false) * spatialRoute.gainCompensation;
       const existing = this.activeByKey.get(key);
-      if (existing && (existing.zeroStopTime === null || t < existing.zeroStopTime)) { pushOfflineBarulhoLinearRamp(existing, t, Math.min(maxEndSec, t + spec.rampSec), targetGain); return; }
+      if (existing && (existing.zeroStopTime === null || t < existing.zeroStopTime)) {
+        pushOfflineBarulhoLinearRamp(existing, t, Math.min(maxEndSec, t + spec.rampSec), targetGain);
+        scheduleApitoOfflinePreCutIfAny(existing, this.apitoCuts, t, maxEndSec);
+        return;
+      }
       if (existing) this.chokeKey(key, t, 0.002, maxEndSec);
-      const entrySec = (pIdx > 0 && hasLoop
-        ? computeBarulhoDecorrelatedReadFrame(pIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr)
-        : computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame)) / sr;
+      const entrySec = (pIdx > 0 && hasLoop ? computeBarulhoDecorrelatedReadFrame(pIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr) : computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame)) / sr;
       const { src, gainNode } = createOfflineLoopingBarulhoNodes(ctx, baked, spatialRoute.entryNode, pitchRate);
       const endT = Math.min(maxEndSec, t + spec.rampSec);
       gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(targetGain, endT); src.start(t, entrySec);
-      this.activeByKey.set(key, { trackId, src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: targetGain }], originCoord: 0, zeroStopTime: null });
+      const vSoft: ActiveOfflineBarulhoVoice = { trackId, instId: opts.instId, src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: targetGain }], originCoord: 0, zeroStopTime: null };
+      this.activeByKey.set(key, vSoft); scheduleApitoOfflinePreCutIfAny(vSoft, this.apitoCuts, t, maxEndSec);
       return;
     }
 
@@ -104,20 +108,23 @@ export class OfflineBarulhoPhraseTracker {
     if (existing && existing.zeroStopTime === null && isInterMeasureSustainedBarulhoCoord(existing.originCoord, originCoord)) {
       existing.originCoord = originCoord;
       pushOfflineBarulhoLinearRamp(existing, t, Math.min(maxEndSec, t + BARULHO_LEGATO_VEL_RAMP_SEC), peakGain);
+      scheduleApitoOfflinePreCutIfAny(existing, this.apitoCuts, t, maxEndSec);
       return;
     }
-    if (existing) this.chokeKey(key, t, BARULHO_RETRIGGER_CHOKE_SEC, maxEndSec);
+    if (existing) this.chokeKey(key, t, opts.instId === 'apito' ? APITO_SAFETY_CHOKE_SEC : BARULHO_RETRIGGER_CHOKE_SEC, maxEndSec);
     const { src, gainNode } = createOfflineLoopingBarulhoNodes(ctx, baked, spatialRoute.entryNode, pitchRate);
     const decorrelIdx = pIdx > 0 ? pIdx : (opts.partnerRank ?? 0);
+    let spawned: ActiveOfflineBarulhoVoice;
     if (decorrelIdx > 0 && hasLoop) {
       const entrySec = computeBarulhoDecorrelatedReadFrame(decorrelIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr) / sr;
       const endT = Math.min(maxEndSec, t + BARULHO_PARTNER_ATTACK_RAMP_SEC);
       gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(peakGain, endT); src.start(t, entrySec);
-      this.activeByKey.set(key, { trackId, src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: peakGain }], originCoord, zeroStopTime: null });
+      spawned = { trackId, instId: opts.instId, src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: peakGain }], originCoord, zeroStopTime: null };
     } else {
       gainNode.gain.setValueAtTime(peakGain, t); src.start(t, 0);
-      this.activeByKey.set(key, { trackId, src, gainNode, segs: [{ t, g: peakGain }], originCoord, zeroStopTime: null });
+      spawned = { trackId, instId: opts.instId, src, gainNode, segs: [{ t, g: peakGain }], originCoord, zeroStopTime: null };
     }
+    this.activeByKey.set(key, spawned); scheduleApitoOfflinePreCutIfAny(spawned, this.apitoCuts, t, maxEndSec);
   }
 
   public finalizeAll(maxEndSec: number): void {

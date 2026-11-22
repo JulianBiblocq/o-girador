@@ -4,7 +4,7 @@ import { ClipboardSlice, CopiedPatternClipboard } from './clipboardSliceTypes';
 import { copySongSectionData, pasteSongSectionState } from '../helpers/songSectionClipboardHelper';
 import { notifyToast } from '../../utils/toastHelper';
 import { copyAllTrackPatternsData } from '../helpers/instrumentClipboardCopyHelper';
-import { pasteAllTrackPatternsState } from '../helpers/instrumentClipboardPasteHelper';
+import { executePasteAllTrackPatternsAction } from '../helpers/instrumentClipboardPasteHelper';
 import { getInstrumentFamily, resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
 import {
   handleCopyVoiceStepsAction, handleCutVoiceStepsAction, handlePasteVoiceStepsAction,
@@ -15,12 +15,14 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
   copiedPattern: null,
   copiedSection: null,
   instrumentPatternsClipboard: null,
+  pendingPasteAllRequest: null,
   vocalNotesClipboard: null,
   voiceStepsClipboard: null,
   stepRangeClipboard: null,
 
   setCopiedPattern: (pattern) => set({ copiedPattern: pattern }),
   setCopiedSection: (section) => set({ copiedSection: section }),
+  setPendingPasteAllRequest: (req) => set({ pendingPasteAllRequest: req }),
 
   handleCopyPattern: (pattern, sourceTrackOrInst) => {
     if (!pattern) return;
@@ -98,18 +100,8 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
     }
   },
 
-  pasteAllTrackPatterns: (targetTrackId, modeOrApplyTimeline = false) => {
-    const state = get();
-    if (!state.instrumentPatternsClipboard) return;
-    const res = pasteAllTrackPatternsState(
-      state.tracks, state.instrumentPatternsClipboard, targetTrackId, modeOrApplyTimeline, state.totalMeasures, state.lang
-    );
-    if (!res) return;
-    state.pushUndoState();
-    set({ tracks: res.tracks, tracksVersion: (state.tracksVersion || 0) + 1 });
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('app-toast', { detail: { type: 'success', message: res.message } }));
-    }
+  pasteAllTrackPatterns: (targetTrackId, modeOrApplyTimeline) => {
+    executePasteAllTrackPatternsAction(get(), set, targetTrackId, modeOrApplyTimeline);
   },
 
   copySelectedNotesRange: (rangeOverride) => get().copyVoiceStepsRange(rangeOverride),

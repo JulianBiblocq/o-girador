@@ -54,7 +54,7 @@ export class EngineBarulhoPlayer {
   }
 
   public stopBarulho(instrumentId: string, time: number = this.audioContext?.currentTime || 0): void {
-    this.fadeOutBarulho(instrumentId, time, 0.018);
+    this.fadeOutBarulho(instrumentId, time, instrumentId.startsWith('apito') ? 0.006 : 0.018);
   }
 
   public stopAllBarulho(): void {

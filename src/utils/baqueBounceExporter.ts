@@ -7,7 +7,6 @@ import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
 import { getEffectiveMuteState, getEffectiveRodaBreathingAmount, getEffectiveSkinChorusAmount, useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
-import { BarulhoLookaheadPoint } from '../audio/barulho/barulhoRampPlanner';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { EngineRoundRobin } from '../audio/engine/engineRoundRobin';
 import { computeSectionTemperamentMap } from '../audio/groove/sectionTemperament';
@@ -16,6 +15,7 @@ import { buildFlatSongSchedule } from '../workers/compiler/flatScheduleBuilder';
 import { resolveTrackFromPackedData } from '../workers/compiler/compiledTrackIdResolver';
 import { audioBufferToWav } from './audio-buffer/audioBufferWavConverter';
 import { OfflineBarulhoPhraseTracker } from './baqueBounceBarulhoRenderer';
+import { buildOfflineBounceLookaheadPoints } from './baqueBounceBarulhoHelpers';
 import { buildOfflineTrackGraph } from './baqueBounceTrackGraph';
 import { processOfflineStereoArraysThroughMasterBus } from '../audio/worklet/master-bus/masterBusProcessor';
 import { calibrateBounceLoudnessInPlace } from './bounceLoudnessCalibrator';
@@ -65,14 +65,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
   const strokesMaps = EngineVirtualStrokes.buildStrokesMaps(instrumentAudioConfigs);
   const configMap = new Map(instrumentAudioConfigs.map((c) => [c.id, c]));
   const sampleCache = new Map<string, AudioBuffer>(), offlineRR = new EngineRoundRobin();
-
-  const lookaheadPts: BarulhoLookaheadPoint[] = [];
-  for (let i = 0; i < schedule.length / 4; i++) {
-    const packed = schedule[i * 4 + 1], track = resolveTrackFromPackedData(packed, slicedAllTracks, schedule), inst = track ? instrumentsConfig[track.instrumentIdx] : null;
-    if (!track || !inst || !baqueTrackIdSet.has(track.id)) continue;
-    const { triggerSec } = resolveBounceNoteTrigger(schedule[i * 4], packed, schedule[i * 4 + 3], track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
-    lookaheadPts.push({ trackId: track.id, instId: inst.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
-  }
+  const lookaheadPts = buildOfflineBounceLookaheadPoints(schedule, slicedAllTracks as any, baqueTrackIdSet, timing, globalSwing, temperamentMap);
   const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timing.totalDurationSec);
 
   const chorusAmount = getEffectiveSkinChorusAmount(state), breathingAmount = getEffectiveRodaBreathingAmount(state);

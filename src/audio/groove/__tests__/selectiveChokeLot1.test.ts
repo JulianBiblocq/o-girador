@@ -101,7 +101,7 @@ function goertzelMag(sig: readonly number[], start: number, count: number, freqH
   assert.equal(vAlfD.expectedEnd, 1.0, 'Alfaia X and C must NEVER choke ongoing skin resonance');
 }
 
-// 3. Verrou 3 : Monophonie Apito `L` (legato multi-mesures) <-> `C` (20 ms) & Timbal Low-Pass Choke `< 160 Hz` (15 ms / 150 ms)
+// 3. Verrou 3 : Monophonie Apito `L` (legato multi-mesures) <-> `C` (6 ms safety choke) & Timbal Low-Pass Choke `< 160 Hz` (15 ms / 150 ms)
 {
   const qAp = new WorkletEventQueue(), pAp = new WorkletVoicePoolSoa(), smpAp = [makeSample(() => 0.4, 1.5, true)];
   const spL = resolveTrackPhysicsSpec('apito', 'L', true), spC = resolveTrackPhysicsSpec('apito', 'C', false), coord0 = packBarulhoOriginCoord(0, 0);
@@ -115,7 +115,7 @@ function goertzelMag(sig: readonly number[], start: number, count: number, freqH
   assert.equal(pAp.voiceState[0], VOICE_STATE_ACTIVE, 'Multi-measure legato Apito L must stay active across M1->M2');
   fAp = runDsp(10, fAp, qAp, pAp, smpAp);
   assert.equal(pAp.voiceState[0], VOICE_STATE_CHOKING);
-  assert.ok(pAp.voiceChokeFramesLeft[0] === 960 - 256 && pAp.voiceState[1] === VOICE_STATE_ACTIVE);
+  assert.ok(pAp.voiceChokeFramesLeft[0] === Math.ceil(0.006 * SR) - 256 && pAp.voiceState[1] === VOICE_STATE_ACTIVE);
   runDsp(16, fAp, qAp, pAp, smpAp);
   assert.equal(pAp.voiceState[0], VOICE_STATE_FREE); assert.equal(pAp.voiceState[1], VOICE_STATE_CHOKING);
 

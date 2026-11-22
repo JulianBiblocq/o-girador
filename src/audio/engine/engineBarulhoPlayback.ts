@@ -57,9 +57,13 @@ export function playBarulhoStroke(
     ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, Infinity));
   } else {
     ctx.scheduledHits.add(source);
-    const hasCustomStepDur = typeof maxPreviewDurSec === 'number' && maxPreviewDurSec > 0;
-    const holdDurSec = hasCustomStepDur ? Math.max(0.045, maxPreviewDurSec) : 0.77;
-    const fadeOutSec = hasCustomStepDur ? 0.028 : 0.18;
+    const hasCustomStepDur = typeof maxPreviewDurSec === 'number' && maxPreviewDurSec !== 0;
+    const isApitoPreCut = instrumentId === 'apito' && typeof maxPreviewDurSec === 'number' && maxPreviewDurSec < 0;
+    const rawHoldSec = typeof maxPreviewDurSec === 'number' ? Math.abs(maxPreviewDurSec) : 0;
+    const holdDurSec = hasCustomStepDur ? Math.max(instrumentId === 'apito' ? 0.008 : 0.045, rawHoldSec) : 0.77;
+    const fadeOutSec = instrumentId === 'apito'
+      ? (isApitoPreCut ? 0.012 : 0.014)
+      : (hasCustomStepDur ? 0.028 : 0.18);
     const holdEnd = time + holdDurSec, expectedEnd = holdEnd + fadeOutSec;
 
     ctx.barulho.activeBarulhoNodes.set(barKey, source);

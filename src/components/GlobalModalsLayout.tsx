@@ -10,6 +10,7 @@ import { ToadaQuickDeployPrompt } from './ToadaQuickDeployPrompt';
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { CordelCustomDialogPortal } from './modals/CordelCustomDialogPortal';
 import { InstrumentDetailEditorOverlay } from './modals/InstrumentDetailEditorOverlay';
+import { PasteAllPatternsChoiceModal } from './modals/PasteAllPatternsChoiceModal';
 
 const ExportMenuModal = lazyWithRetry(() => import('./ExportMenuModal').then((m) => ({ default: m.ExportMenuModal })), 'ExportMenuModal');
 const VisitorAuthModal = lazyWithRetry(() => import('./VisitorAuthModal').then((m) => ({ default: m.VisitorAuthModal })), 'VisitorAuthModal');
@@ -102,11 +103,12 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = (props) => 
       />
 
       {props.toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
+        <div className="fixed bottom-8 right-8 bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_var(--cordel-ink-dark)] z-[100] animate-bounce">
           {props.toastMessage}
         </div>
       )}
 
+      <PasteAllPatternsChoiceModal />
       <ToadaQuickDeployPrompt />
       {tempRecording !== null && <VocalValidationModal />}
       <BluetoothOnboardingFlow lang={sequencer.lang} />

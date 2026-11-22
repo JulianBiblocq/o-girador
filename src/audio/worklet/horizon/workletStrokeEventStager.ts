@@ -39,9 +39,10 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
   if (strokeSymbol === '/' || strokeSymbol === '.') {
     const barOp = resolveBarulhoOpForSymbol(strokeSymbol, false, instId);
     const ptIdx = strokeSymbol === '/' ? findBarulhoLookaheadIndex(lookaheadPoints, trackId, swungTimeSec, '/') : -1;
+    const dotSec = instId === 'apito' ? 0.014 : DEFAULT_BARULHO_DOT_STOP_SEC;
     const rampSec = strokeSymbol === '/'
-      ? (ptIdx >= 0 && lookaheadPoints ? resolveSlashFadeOutRampSec(lookaheadPoints, ptIdx) : 0.450)
-      : DEFAULT_BARULHO_DOT_STOP_SEC;
+      ? (ptIdx >= 0 && lookaheadPoints ? resolveSlashFadeOutRampSec(lookaheadPoints, ptIdx) : (instId === 'apito' ? 0.014 : 0.450))
+      : dotSec;
     const { chokeMode, voiceClass } = resolveTrackPhysicsSpec(instId, strokeSymbol, true);
     stagedEvents.push(triggerFrame, trackId, slot, 0, 0, 1.0, rampSec, 1.0, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, false, barOp, 0));
     return 'ok';

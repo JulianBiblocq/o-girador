@@ -7,7 +7,7 @@ import { instrumentsConfig } from '../../../data';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
 import { GlobalSwing, Track } from '../../../types';
 import { getRodaStepDurationTicks } from '../../../utils/rodaTimeSigGeometry';
-import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
+import { BarulhoLookaheadPoint, packBarulhoOriginCoord } from '../../barulho/barulhoRampPlanner';
 import { ProjectedHorizonMeasure } from './percussionHorizonProjection';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
 import { resolveTrackFromPackedData } from '../../../workers/compiler/compiledTrackIdResolver';
@@ -46,6 +46,7 @@ export function buildHorizonBarulhoLookaheadPoints(
       const circleStepIdx = (packedData >> 16) & 0x3F;
       const symbol = String.fromCharCode((packedData >> 9) & 0x7F);
       const isTuplet = ((packedData >> 1) & 1) === 1;
+      const isSecondStroke = (packedData & 1) === 1;
       const tickDurSec = timing.instantTickDurSec[tickInMeasure];
       const baseStepAudioSec = timing.startTimeSec + timing.tickOffsetsSec[tickInMeasure];
       const activePattern = resolveActivePatternForMeasure(track, mutTracks, timing.measureIdx, soloPatternPlayId);
@@ -59,9 +60,13 @@ export function buildHorizonBarulhoLookaheadPoints(
       });
       const microSec = (microPct / 100) * stepDurationSec * 0.5;
       const timeSec = baseStepAudioSec + microSec + engineDeps.getTrackUnisonDelaySec(track.id) + swingSec;
+      const originCoord = packBarulhoOriginCoord(timing.measureIdx, circleStepIdx, isSecondStroke);
 
-      points.push({ trackId: track.id, instId: inst.id, timeSec, symbol, velocity });
+      points.push({ trackId: track.id, instId: inst.id, timeSec, symbol, velocity, stepDurationSec, originCoord, seqId: pm.seqId });
+      apitoTracksWithHits.add(track.id);
     };
+
+    const apitoTracksWithHits = new Set<number>();
 
     if (flatCompiledSchedule && flatCompiledSchedule.length > 0) {
       let lo = 0, hi = (flatCompiledSchedule.length >>> 2) - 1;
@@ -85,6 +90,13 @@ export function buildHorizonBarulhoLookaheadPoints(
       if (absTick >= measureStartTick && absTick < endTick) {
         pushTuple(absTick, vNotes[vPtr + 1], vNotes[vPtr + 2], vNotes[vPtr + 3], vNotes as any);
       }
+    }
+    for (let ti = 0; ti < tracks.length; ti++) {
+      const tr = tracks[ti], inst = tr ? instrumentsConfig[tr.instrumentIdx] : undefined;
+      if (!tr || tr.isBusFolder || tr.isLinkFolder || inst?.id !== 'apito' || apitoTracksWithHits.has(tr.id)) continue;
+      const actPtn = resolveActivePatternForMeasure(tr, mutTracks, timing.measureIdx, soloPatternPlayId);
+      const hasAny = Boolean(actPtn?.activeSteps?.some((s: any) => Array.isArray(s) ? s.some((x: any) => x && x !== '0') : Boolean(s && s !== '0' && s !== 0)));
+      if (!hasAny) points.push({ trackId: tr.id, instId: 'apito', timeSec: timing.startTimeSec, symbol: '/', velocity: 0, stepDurationSec: 0.15, seqId: pm.seqId });
     }
   }
 

@@ -4,6 +4,8 @@ import { instrumentsConfig } from '../../data';
 import { getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { AudioEngine } from '../../AudioEngine';
+import { resolveFallbackApitoHoldSpec } from '../../audio/barulho/apitoFallbackHoldResolver';
+import { isApitoSustainSymbol } from '../../audio/barulho/apitoBreathCutPlanner';
 import { isTrackCoveredInWorkletHorizon } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from './percussionSwingHelper';
 import { getLiveVariationAudioOverride } from './liveVariationLookaheadEngine';
@@ -73,7 +75,12 @@ function triggerPackedNote(
         }, triggerTime);
       }
     } else {
-      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier);
+      let maxBarulhoDurSec: number | undefined;
+      if (inst.id === 'apito' && isApitoSustainSymbol(strokeSymbol)) {
+        const spec = resolveFallbackApitoHoldSpec(activePattern?.activeSteps, circleStepIdx, stepDurSec);
+        maxBarulhoDurSec = spec.fadeOutSec <= 0.0125 ? -spec.holdDurSec : spec.holdDurSec;
+      }
+      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier, false, maxBarulhoDurSec);
     }
   }
   if (!isDocHidden && !storeState.isPreRolling && currentMeasureIdx >= 0 && !isPastCatchupHit) {

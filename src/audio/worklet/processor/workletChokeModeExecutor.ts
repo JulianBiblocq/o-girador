@@ -82,7 +82,8 @@ export function executeWorkletVoiceChokeMode(
     const opp = mode === CHOKE_SHAKER_POS_25MS ? VOICE_CLASS_SHAKER_NEG : (mode === CHOKE_SHAKER_NEG_25MS ? VOICE_CLASS_SHAKER_POS : -1);
     if (isBar || cls === VOICE_CLASS_SHAKER_LONG || cls === opp) phys.chokeSlot(v, f25, startInBlock, voiceState, chokeStart, chokeLeft, chokeDelta, barulhoMode);
   } else if (mode === CHOKE_APITO_20MS) {
-    if (cls === VOICE_CLASS_APITO_SHORT || (!isBarOp && isBar)) phys.chokeSlot(v, f20, startInBlock, voiceState, chokeStart, chokeLeft, chokeDelta, barulhoMode);
+    const f6 = Math.max(1, Math.ceil(0.006 * sr));
+    if (cls === VOICE_CLASS_APITO_SHORT || (!isBarOp && isBar)) phys.chokeSlot(v, f6, startInBlock, voiceState, chokeStart, chokeLeft, chokeDelta, barulhoMode);
   } else if (mode === CHOKE_TIMBAL_BASS_22MS) {
     if (isBar) phys.chokeSlot(v, f20, startInBlock, voiceState, chokeStart, chokeLeft, chokeDelta, barulhoMode);
   } else if (mode === CHOKE_TIMBAL_OPEN_20MS) {

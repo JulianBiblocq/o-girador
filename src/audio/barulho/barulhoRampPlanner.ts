@@ -16,6 +16,9 @@ export interface BarulhoLookaheadPoint {
   timeSec: number;
   symbol: string;
   velocity: number;
+  stepDurationSec?: number;
+  originCoord?: number;
+  seqId?: number;
 }
 
 export interface SoftBarulhoRampSpec {
@@ -68,6 +71,7 @@ export function resolveSlashFadeOutRampSec(
 ): number {
   const cur = points[currentIndex];
   if (!cur) return DEFAULT_BARULHO_FADEOUT_SEC;
+  const fallbackSec = cur.instId === 'apito' ? 0.014 : DEFAULT_BARULHO_FADEOUT_SEC;
 
   for (let j = currentIndex + 1; j < points.length; j++) {
     const next = points[j];
@@ -75,11 +79,12 @@ export function resolveSlashFadeOutRampSec(
     const dt = next.timeSec - cur.timeSec;
     if (dt <= 0.005) continue;
     if (next.symbol === '/') continue;
-    if (isSoftLoopLookaheadPoint(next)) return DEFAULT_BARULHO_FADEOUT_SEC;
-    return Math.max(DEFAULT_BARULHO_DOT_STOP_SEC, dt);
+    if (isSoftLoopLookaheadPoint(next)) return fallbackSec;
+    if (cur.instId === 'apito' && next.symbol !== '.') return 0.014;
+    return Math.max(cur.instId === 'apito' ? 0.014 : DEFAULT_BARULHO_DOT_STOP_SEC, dt);
   }
 
-  return DEFAULT_BARULHO_FADEOUT_SEC;
+  return fallbackSec;
 }
 
 export function findBarulhoLookaheadIndex(

@@ -27,7 +27,7 @@ export function resolveFrankStrokeBarulhoChokeSec(instId: string, sym: string): 
   if (instId === 'agbe' && (sym === 'D' || sym === 'E' || sym === 'S' || sym === 's')) return 0.025;
   if (instId === 'mineiro' && (sym === 'P' || sym === 'T')) return 0.025;
   if (instId === 'gongue' && (sym === 'X' || sym === 'x' || sym === 'G' || sym === 'A')) return 0.020;
-  if (instId === 'apito') return 0.020;
+  if (instId === 'apito') return 0.006;
   if (instId === 'timbal' && (TIMBAL_LP_TRIGGERS.has(sym) || TIMBAL_HIGH_VOICES.has(sym) || sym === 'G' || sym === 'g')) return 0.020;
   return 0.018;
 }
@@ -98,8 +98,8 @@ export function applyNonAlfaiaSelectiveChoke(
     if (strokeSymbol === 'l' || strokeSymbol === '/' || strokeSymbol === '.') return;
     for (const v of voices) {
       const sym = v?.strokeSymbol;
-      if (v?.gainNode && (sym === 'C' || sym === 'c' || sym === 'w') && v.time < time && time < v.expectedEnd) {
-        ops.chokeVoiceIn(v, time, 0.020);
+      if (v?.gainNode && (sym === 'C' || sym === 'c' || sym === 'w' || sym === 'L' || sym === 'W') && v.time < time && time < v.expectedEnd) {
+        ops.chokeVoiceIn(v, time, 0.006);
       }
     }
     return;

@@ -51,21 +51,39 @@ export interface EditorStepRangeActionParams {
   selectedStepIdx: number | null;
 }
 
+export interface PasteAllPatternsOptions {
+  mode: 'replace' | 'append';
+  applyTimeline?: boolean;
+}
+
+export type PasteAllPatternsModeOrOptions =
+  | boolean
+  | 'libraryOnly'
+  | 'libraryAndTimeline'
+  | PasteAllPatternsOptions;
+
+export interface PendingPasteAllRequest {
+  targetTrackId: number;
+  defaultApplyTimeline: boolean;
+}
+
 export interface ClipboardSlice {
   copiedPattern: CopiedPatternClipboard | null;
   copiedSection: any | null;
   instrumentPatternsClipboard: InstrumentPatternsClipboard | null;
+  pendingPasteAllRequest: PendingPasteAllRequest | null;
   vocalNotesClipboard: string[] | null;
   voiceStepsClipboard: VoiceStepsClipboard | null;
   stepRangeClipboard: StepRangeClipboard | null;
 
   setCopiedPattern: (pattern: CopiedPatternClipboard | null) => void;
   setCopiedSection: (section: any | null) => void;
+  setPendingPasteAllRequest: (req: PendingPasteAllRequest | null) => void;
   handleCopyPattern: (pattern: Pattern, sourceTrackOrInst?: number | string) => void;
   handleCopySongSection: (section: SongSection) => void;
   handlePasteSongSection: (destStartMeasure: number) => void;
   copyAllTrackPatterns: (trackId: number) => void;
-  pasteAllTrackPatterns: (targetTrackId: number, modeOrApplyTimeline?: boolean | 'libraryOnly' | 'libraryAndTimeline') => void;
+  pasteAllTrackPatterns: (targetTrackId: number, modeOrApplyTimeline?: PasteAllPatternsModeOrOptions) => void;
   copySelectedNotesRange: (rangeOverride?: SelectedStepRange | null) => void;
   pasteNotesOnlyStartingAt: (targetTrackId: number, targetPatternId: number, startIsPreRoll: boolean, startStepIdx: number) => void;
   copyVoiceStepsRange: (rangeOverride?: SelectedStepRange | null, trackIdOverride?: number, patternIdOverride?: number) => void;
