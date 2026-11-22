@@ -1,7 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { subscribeToTick, unsubscribeFromTick } from '../useAudioSync';
+import { getActiveVariationIdForTrack } from '../audio-sync/liveVariationLookaheadEngine';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
+import { findConcretePatternOwnerTrack, isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { Pattern } from '../../types';
 
 interface UseGridPercussionTickParams {
@@ -15,68 +18,89 @@ export function useGridPercussionTick({
   gridRef,
   trackId,
   pattern,
-  instrumentType
+  instrumentType,
 }: UseGridPercussionTickParams): void {
   const lastActiveElRef = useRef<HTMLElement | null>(null);
-  const lastStepIdxRef = useRef<number>(-1);
+  const lastHighlightKeyRef = useRef<string>('');
 
   useEffect(() => {
     if (instrumentType === 'voice') return;
 
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+    const clearHighlight = () => {
+      if (lastActiveElRef.current) {
+        lastActiveElRef.current.classList.remove('live-playhead-highlight');
+        lastActiveElRef.current = null;
+      }
+      lastHighlightKeyRef.current = '';
+    };
+
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; measureSeqId?: number }) => {
       if (!detail || !gridRef.current) return;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
-
-      const isEco = useSequencerStore.getState().isEcoMode;
-      if (isEco) return;
-
-      const soloPlayId = useTransportStore.getState().soloPatternPlayId;
+      const { step, measure, maxTicks, ratio = step / maxTicks, measureSeqId } = detail;
       const storeState = useSequencerStore.getState();
-      const trackObj = storeState.tracks.find(t => t.id === trackId);
+      if (storeState.isEcoMode) return;
+
+      const { soloPatternPlayId: soloPlayId, soloPatternVariationId: soloVarId } = useTransportStore.getState();
+      const tracks = storeState.tracks;
+      const trackObj = tracks.find((t) => t.id === trackId);
       if (!trackObj) return;
 
       const isCurrentPlaying = (() => {
         if (soloPlayId !== undefined && soloPlayId !== null) {
           if (String(pattern?.id) === String(soloPlayId)) return true;
-          const soloTrack = storeState.tracks.find(t => t.patterns?.some(p => String(p.id) === String(soloPlayId)));
+          const soloTrack = findConcretePatternOwnerTrack(tracks, soloPlayId);
           if (!soloTrack) return false;
+          const ownerMaster = isSlaveTrack(soloTrack, tracks) ? resolveMasterTrack(soloTrack.id, tracks)?.id : (soloTrack.isLinkMaster ? soloTrack.id : null);
+          const myMaster = isSlaveTrack(trackObj, tracks) ? resolveMasterTrack(trackObj.id, tracks)?.id : (trackObj.isLinkMaster ? trackObj.id : null);
           const isSameFamily = soloTrack.id === trackId ||
-            (trackObj.linkedToTrackId && (String(trackObj.linkedToTrackId) === String(soloTrack.linkedToTrackId) || String(trackObj.linkedToTrackId) === String(soloTrack.id))) ||
-            (trackObj.busId && String(trackObj.busId) === String(soloTrack.id)) ||
-            (soloTrack.linkedToTrackId && String(soloTrack.linkedToTrackId) === String(trackId)) ||
-            (soloTrack.busId && String(soloTrack.busId) === String(trackId));
-          if (isSameFamily) {
-            const soloPtn = soloTrack.patterns?.find(p => String(p.id) === String(soloPlayId));
-            if (soloPtn && pattern?.name?.trim().toLowerCase() === soloPtn.name?.trim().toLowerCase()) return true;
-            const sIdx = soloTrack.patterns?.findIndex(p => String(p.id) === String(soloPlayId));
-            if (sIdx !== undefined && sIdx >= 0 && trackObj.patterns?.[sIdx]?.id === pattern?.id) return true;
-          }
-          return false;
+            (ownerMaster !== null && ownerMaster !== undefined && myMaster !== null && myMaster !== undefined && String(ownerMaster) === String(myMaster)) ||
+            (soloTrack.isLinkFolder && (String(trackObj.linkedToTrackId) === String(soloTrack.id) || String(trackObj.busId) === String(soloTrack.id)));
+          if (!isSameFamily) return false;
+          const soloPtn = soloTrack.patterns?.find((p: any) => String(p.id) === String(soloPlayId));
+          if (soloPtn && pattern?.name?.trim().toLowerCase() === soloPtn.name?.trim().toLowerCase()) return true;
+          const sIdx = soloTrack.patterns?.findIndex((p: any) => String(p.id) === String(soloPlayId));
+          return Boolean(sIdx !== undefined && sIdx >= 0 && trackObj.patterns?.[sIdx]?.id === pattern?.id);
         }
         return pattern?.measureAssignments?.[measure] === true;
       })();
 
-      if (!isCurrentPlaying || step < 0) {
-        if (lastActiveElRef.current) {
-          lastActiveElRef.current.classList.remove('live-playhead-highlight');
-          lastActiveElRef.current = null;
+      if (!isCurrentPlaying || step < 0) { clearHighlight(); return; }
+
+      let activeVarId: string | null = null;
+      if (soloPlayId !== null && soloPlayId !== undefined && soloVarId === 'base') {
+        activeVarId = null;
+      } else if (soloPlayId !== null && soloPlayId !== undefined && isSpecificSoloVariationId(soloVarId)) {
+        activeVarId = resolveTargetedSoloVariation(pattern, tracks, soloPlayId, soloVarId)?.id ?? null;
+      } else {
+        const rawVarId = getActiveVariationIdForTrack(measureSeqId, measure, trackId);
+        if (rawVarId) {
+          const ownMatch = pattern?.variations?.find((v) => String(v.id) === String(rawVarId));
+          activeVarId = ownMatch ? ownMatch.id : null;
         }
-        lastStepIdxRef.current = -1;
-        return;
       }
 
-      const stepsCount = pattern?.steps ?? 16;
+      const activeVarObj = activeVarId ? pattern?.variations?.find((v) => String(v.id) === String(activeVarId)) : null;
+      const stepsCount = activeVarObj?.steps?.length ?? pattern?.steps ?? 16;
       const activeStepIdx = Math.min(stepsCount - 1, Math.max(0, Math.floor(ratio * stepsCount)));
+      const nextKey = `${activeVarId ?? 'base'}:${activeStepIdx}`;
 
-      if (activeStepIdx !== lastStepIdxRef.current) {
-        lastStepIdxRef.current = activeStepIdx;
+      if (nextKey !== lastHighlightKeyRef.current) {
         if (lastActiveElRef.current) {
           lastActiveElRef.current.classList.remove('live-playhead-highlight');
           lastActiveElRef.current = null;
         }
+        lastHighlightKeyRef.current = nextKey;
 
-        const cellEl = gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"] .step-input-cell, [data-step-index="${activeStepIdx}"].voice-step-cell`);
-        const targetEl = cellEl || gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"]`);
+        let targetEl: HTMLElement | null = null;
+        if (activeVarId) {
+          const cardRoot = gridRef.current.closest<HTMLElement>('[data-pattern-card]') || gridRef.current;
+          targetEl =
+            cardRoot.querySelector<HTMLElement>(`[data-variation-id="${activeVarId}"][data-step-index="${activeStepIdx}"].step-input-cell`) ||
+            cardRoot.querySelector<HTMLElement>(`[data-variation-id="${activeVarId}"][data-step-index="${activeStepIdx}"] .step-input-cell`);
+        } else {
+          const cellEl = gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"] .step-input-cell, [data-step-index="${activeStepIdx}"].voice-step-cell`);
+          targetEl = cellEl || gridRef.current.querySelector<HTMLElement>(`[data-step-index="${activeStepIdx}"]`);
+        }
 
         if (targetEl) {
           targetEl.classList.add('live-playhead-highlight');
@@ -86,13 +110,6 @@ export function useGridPercussionTick({
     };
 
     subscribeToTick(handleTick);
-    return () => {
-      unsubscribeFromTick(handleTick);
-      if (lastActiveElRef.current) {
-        lastActiveElRef.current.classList.remove('live-playhead-highlight');
-        lastActiveElRef.current = null;
-      }
-      lastStepIdxRef.current = -1;
-    };
-  }, [trackId, pattern?.id, pattern?.steps, pattern?.name, instrumentType, gridRef]);
+    return () => { unsubscribeFromTick(handleTick); clearHighlight(); };
+  }, [trackId, pattern, instrumentType, gridRef]);
 }

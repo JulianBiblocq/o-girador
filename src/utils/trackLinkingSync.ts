@@ -25,7 +25,25 @@ export function reconcileSlavePatterns(slave: TrackGroup, master: TrackGroup): {
     const nextBeatRes = mPtn.beatResolutions ? [...mPtn.beatResolutions] : existing.beatResolutions;
     const nextAllowVar = mPtn.measureAllowVariations ? [...mPtn.measureAllowVariations] : existing.measureAllowVariations;
     const nextTimeSig = mPtn.timeSignature ?? existing.timeSignature;
+    const mVars = Array.isArray(mPtn.variations) ? mPtn.variations : [];
+    const curVars = Array.isArray(existing.variations) ? existing.variations : [];
+    let varsChanged = curVars.length !== mVars.length;
+    const syncedVars = mVars.map((mv, vIdx) => {
+      const ev = curVars.find((v) => String(v.id) === String(mv.id)) ||
+        curVars.find((v) => v.name?.trim().toLowerCase() === mv.name?.trim().toLowerCase()) ||
+        curVars[vIdx];
+      if (!ev) {
+        varsChanged = true;
+        return cloneMasterPatternForSlave({ ...mPtn, variations: [mv] }, slave, copyAssigns).variations![0];
+      }
+      if (ev.id !== mv.id || ev.name !== mv.name || ev.probability !== mv.probability || Boolean(ev.playFirstTimeOnly) !== Boolean(mv.playFirstTimeOnly)) {
+        varsChanged = true;
+      }
+      return { ...ev, id: mv.id, name: mv.name, probability: mv.probability, playFirstTimeOnly: mv.playFirstTimeOnly };
+    });
+
     if (
+      varsChanged ||
       String(existing.id) !== String(mPtn.id) ||
       existing.name !== mPtn.name ||
       existing.steps !== mPtn.steps ||
@@ -42,6 +60,7 @@ export function reconcileSlavePatterns(slave: TrackGroup, master: TrackGroup): {
       id: mPtn.id,
       name: mPtn.name,
       steps: mPtn.steps,
+      variations: syncedVars,
       ...(nextTimeSig ? { timeSignature: nextTimeSig } : {}),
       ...(nextBeatRes ? { beatResolutions: nextBeatRes } : {}),
       ...(nextAllowVar ? { measureAllowVariations: nextAllowVar } : {}),
@@ -84,10 +103,24 @@ export function syncMasterPatternsToLinkedFamily(tracks: TrackGroup[], sourceTra
     }
     if (linkFolderIdStr && String(t.id) === linkFolderIdStr && t.isLinkFolder) {
       const curBp = t.patterns || [], mP = master.patterns || [];
-      const isIdentical = curBp.length === mP.length && curBp.every((p, i) => p.id === mP[i].id && p.name === mP[i].name && boolArraysEqual(p.measureAssignments, mP[i].measureAssignments));
+      const isIdentical = curBp.length === mP.length && curBp.every((p, i) =>
+        p.id === mP[i].id && p.name === mP[i].name &&
+        boolArraysEqual(p.measureAssignments, mP[i].measureAssignments) &&
+        boolArraysEqual(p.measureAllowVariations, mP[i].measureAllowVariations) &&
+        (p.variations?.length || 0) === (mP[i].variations?.length || 0)
+      );
       if (!isIdentical) {
         anyChanged = true;
-        return { ...t, patterns: mP.map((p) => ({ ...p, measureAssignments: [...(p.measureAssignments || [])] })), selectedPatternId: master.selectedPatternId };
+        return {
+          ...t,
+          patterns: mP.map((p) => ({
+            ...p,
+            measureAssignments: [...(p.measureAssignments || [])],
+            ...(p.measureAllowVariations ? { measureAllowVariations: [...p.measureAllowVariations] } : {}),
+            ...(p.variations ? { variations: [...p.variations] } : {}),
+          })),
+          selectedPatternId: master.selectedPatternId,
+        };
       }
     }
     return t;

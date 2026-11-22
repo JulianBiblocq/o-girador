@@ -1,5 +1,5 @@
 import { getMaxTicks } from '../../data';
-import { pushWorkletHorizonAtMeasureBoundary } from '../../audio/worklet/horizon/percussionHorizonPusher';
+import { getCurrentWorkletMeasureSeqId, pushWorkletHorizonAtMeasureBoundary } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { areAllStudioWindowsHidden } from '../../audio/visualTickBuffer';
 import { nextRandom, getMeasureStartTick } from './audioParamsCache';
 import { advanceMeasureOnTickBoundary } from './measureAdvanceHelper';
@@ -49,17 +49,6 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
     activeEngine.schedulingMeasure = currentMeasureIdx;
   }
   const isCatchupPastTick = Boolean(activeEngine && time < activeEngine.getCurrentTime() - 0.015);
-
-  if (!isCatchupPastTick || stepIdx === 0) {
-    dispatchVisualTick({
-      time, stepIdx, currentTicks, currentMeasureIdx, totalMeasures: ctx.totalMeasuresRef.current,
-      soloPatternPlayId: ctx.soloPatternPlayIdRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
-      measureBpms: ctx.measureBpmsRef.current, anchoredMeasureStartSecRef: ctx.anchoredMeasureStartSecRef,
-      anchoredMeasureIdxRef: ctx.anchoredMeasureIdxRef, sectionIteration: ctx.sectionIterationRef.current,
-      loopIteration: ctx.currentLoopIterationRef?.current ?? 1, isDocHidden,
-    });
-  }
-
   const currentBpm = ctx.measureBpmsRef.current?.[currentMeasureIdx] || ctx.measureBpmsRef.current?.[0] || 100;
   const tick96nSec = (60 / currentBpm) / 24;
 
@@ -75,10 +64,13 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
   if (shouldScheduleAutomation) {
     if (ctx.lastScheduledMeasureRef) ctx.lastScheduledMeasureRef.current = currentMeasureIdx;
     const totalM = ctx.totalMeasuresRef.current || 1;
+    const isSoloActive = ctx.soloPatternPlayIdRef.current !== null && ctx.soloPatternPlayIdRef.current !== undefined;
     const isAtLoopEnd = ctx.isLoopRegionActiveRef.current && ctx.loopEndRef.current !== null && currentMeasureIdx === ctx.loopEndRef.current && !ctx.isLoopExitRequestedRef?.current;
-    const predictedNextMeasure = (ctx.pendingMeasureRef?.current !== null && ctx.pendingMeasureRef?.current !== undefined)
-      ? ctx.pendingMeasureRef.current
-      : (isAtLoopEnd ? (ctx.loopStartRef.current ?? 0) : (currentMeasureIdx + 1) % totalM);
+    const predictedNextMeasure = isSoloActive
+      ? currentMeasureIdx
+      : (ctx.pendingMeasureRef?.current !== null && ctx.pendingMeasureRef?.current !== undefined)
+        ? ctx.pendingMeasureRef.current
+        : (isAtLoopEnd ? (ctx.loopStartRef.current ?? 0) : (currentMeasureIdx + 1) % totalM);
 
     const measureDurationSec = (currentTicks / 24) * (60 / currentBpm);
     const virtualMeasureStartSec = stepIdx > 0 ? time - (stepIdx / currentTicks) * measureDurationSec : time;
@@ -89,15 +81,26 @@ export function executeTickStep(time: number, ctx: TickStepContext): boolean {
 
     advanceLiveVariationLookahead({
       currentMeasureIdx, nextMeasureIdx: predictedNextMeasure,
-      currentMeasureStartTick: ctx.currentMeasureStartTickRef.current, tracks: ctx.tracksRef.current,
-      measureTimeSigs: ctx.measureTimeSigsRef.current, soloPatternPlayId: ctx.soloPatternPlayIdRef.current,
-      soloPatternVariationId: ctx.soloPatternVariationIdRef.current, activeVariationsRef: ctx.activeVariationsRef,
-      currentMeasureSeqId,
+      currentMeasureStartTick: ctx.currentMeasureStartTickRef.current,
+      nextMeasureStartTick: getMeasureStartTick(predictedNextMeasure, ctx.measureTimeSigsRef.current),
+      tracks: ctx.tracksRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
+      soloPatternPlayId: ctx.soloPatternPlayIdRef.current, soloPatternVariationId: ctx.soloPatternVariationIdRef.current,
+      activeVariationsRef: ctx.activeVariationsRef, currentMeasureSeqId,
     });
 
     scheduleMeasureAutomationRamps({
       tracks: ctx.tracksRef.current, currentMeasureIdx,
       prevMeasureIdx: currentMeasureIdx === 0 ? totalM - 1 : currentMeasureIdx - 1, measureDurationSec, time: virtualMeasureStartSec,
+    });
+  }
+
+  if (!isCatchupPastTick || stepIdx === 0) {
+    dispatchVisualTick({
+      time, stepIdx, currentTicks, currentMeasureIdx, totalMeasures: ctx.totalMeasuresRef.current,
+      soloPatternPlayId: ctx.soloPatternPlayIdRef.current, measureTimeSigs: ctx.measureTimeSigsRef.current,
+      measureBpms: ctx.measureBpmsRef.current, anchoredMeasureStartSecRef: ctx.anchoredMeasureStartSecRef,
+      anchoredMeasureIdxRef: ctx.anchoredMeasureIdxRef, sectionIteration: ctx.sectionIterationRef.current,
+      loopIteration: ctx.currentLoopIterationRef?.current ?? 1, measureSeqId: getCurrentWorkletMeasureSeqId(), isDocHidden,
     });
   }
 

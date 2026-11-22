@@ -1,9 +1,9 @@
 /**
- * fullSongBounceTiming.ts — Déroulé complet (sections, boucles, 1ª VEZ, rampes BPM + queue 1.8 s) (< 130 lignes).
+ * fullSongBounceTiming.ts — Déroulé complet (sections, boucles, 1ª VEZ, variations, rampes BPM + queue 1.8 s) (< 110 lignes).
  */
-import { getVariationSculptArrays } from '../../utils/soloVariationMatcher';
 import { getBeatsPerMeasure, getExpandedMeasures } from '../measureHelpers';
 import type { BaqueCycleTimingResult } from '../baqueBounceTiming';
+import { unrollTracksWithVariations } from './unrollTracksVariationsHelper';
 
 export const FULL_BOUNCE_TAIL_SEC = 1.8;
 
@@ -87,34 +87,10 @@ export function buildFullSongUnrolledTimeline(
   };
 }
 
-export function unrollTracksForFullSong(tracks: any[], expanded: Array<{ baseMeasure: number; iteration: number }>): any[] {
-  let syntheticPatId = 900000;
-  return tracks.map((t) => {
-    const mapArr = <T>(arr: T[] | undefined): T[] | undefined =>
-      Array.isArray(arr) && arr.length > 0 ? expanded.map((e) => arr[e.baseMeasure] as T) : arr;
-    const nextPatterns: any[] = [];
-    for (const p of t.patterns || []) {
-      const assignAll = expanded.map((e) => Boolean(p.measureAssignments?.[e.baseMeasure]));
-      const firstVar = Array.isArray(p.variations) ? p.variations.find((v: any) => v?.playFirstTimeOnly) : null;
-      const hasIter1 = assignAll.some((on, idx) => on && expanded[idx].iteration === 1);
-      const hasIterLater = assignAll.some((on, idx) => on && expanded[idx].iteration > 1);
-      if (firstVar && hasIter1) {
-        const s = getVariationSculptArrays(p, firstVar);
-        const varPat = {
-          ...p, id: hasIterLater ? ++syntheticPatId : p.id, activeSteps: s.steps, volumes: s.volumes,
-          decays: s.decays, microtimings: s.microtimings, beatResolutions: s.beatResolutions,
-          notes: firstVar.notes || p.notes, lyrics: firstVar.lyrics || p.lyrics, variations: [],
-          measureAssignments: assignAll.map((on, idx) => on && expanded[idx].iteration === 1),
-        };
-        nextPatterns.push(varPat);
-        if (hasIterLater) nextPatterns.push({ ...p, variations: [], measureAssignments: assignAll.map((on, idx) => on && expanded[idx].iteration > 1) });
-      } else {
-        nextPatterns.push({ ...p, measureAssignments: assignAll });
-      }
-    }
-    return {
-      ...t, patternOverrides: undefined, measureVols: mapArr(t.measureVols),
-      measurePans: mapArr(t.measurePans), measureReverbSends: mapArr(t.measureReverbSends), patterns: nextPatterns,
-    };
-  });
+export function unrollTracksForFullSong(
+  tracks: any[],
+  expanded: Array<{ baseMeasure: number; iteration: number }>,
+  randomSource: () => number = Math.random
+): any[] {
+  return unrollTracksWithVariations(tracks, expanded, randomSource);
 }

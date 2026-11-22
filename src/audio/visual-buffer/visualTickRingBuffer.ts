@@ -39,6 +39,7 @@ function copyTickEvent(dst: VisualTickEvent, src: VisualTickEvent): void {
   dst.measureDuration = src.measureDuration; dst.targetStartTime = src.targetStartTime;
   dst.isPreRoll = !!src.isPreRoll; dst.preRollMeasureIndex = src.preRollMeasureIndex ?? 0;
   dst.preRollTotalMeasures = src.preRollTotalMeasures ?? 1; dst.preRollBeat = src.preRollBeat ?? 0;
+  dst.measureSeqId = src.measureSeqId;
 }
 
 export function setLastAudibleTick(val: VisualTickEvent | null): void {

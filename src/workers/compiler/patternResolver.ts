@@ -1,5 +1,5 @@
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
-import { isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
+import { findConcretePatternOwnerTrack, isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
 
 const hasActiveStrokes = (ptn: any): boolean =>
   Boolean(ptn?.activeSteps?.some((s: any) => Array.isArray(s) ? s.some((x: any) => x && x !== '0') : (s && s !== '0' && s !== 0)));
@@ -17,7 +17,7 @@ export function resolveActivePattern(
     const ownMatch = track.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
     if (ownMatch) return ownMatch;
 
-    const soloOwner = tracks.find((t: any) => t.patterns?.some((p: any) => String(p.id) === String(soloPatternPlayId)));
+    const soloOwner = findConcretePatternOwnerTrack(tracks, soloPatternPlayId);
     const soloPtn = soloOwner?.patterns?.find((p: any) => String(p.id) === String(soloPatternPlayId));
     if (!soloOwner || !soloPtn) return null;
 
@@ -25,12 +25,16 @@ export function resolveActivePattern(
       soloOwner.isLinkFolder && !track.isBusFolder && !track.isLinkFolder &&
       (String(track.linkedToTrackId) === String(soloOwner.id) || String(track.busId) === String(soloOwner.id))
     );
-    const isSlaveOfMaster = Boolean(
-      soloOwner.isLinkMaster && isSlave &&
-      String(resolveMasterTrack(track.id, tracks)?.id) === String(soloOwner.id)
+    const ownerMasterId = isSlaveTrack(soloOwner, tracks) ? resolveMasterTrack(soloOwner.id, tracks)?.id : (soloOwner.isLinkMaster ? soloOwner.id : null);
+    const trackMasterId = isSlave ? resolveMasterTrack(track.id, tracks)?.id : (track.isLinkMaster ? track.id : null);
+    const isSameLinkedFamily = Boolean(
+      !track.isBusFolder && !track.isLinkFolder &&
+      ownerMasterId !== null && ownerMasterId !== undefined &&
+      trackMasterId !== null && trackMasterId !== undefined &&
+      String(ownerMasterId) === String(trackMasterId)
     );
 
-    if (isMemberOfLinkFolder || isSlaveOfMaster) {
+    if (isMemberOfLinkFolder || isSameLinkedFamily) {
       let matchedPtn = track.patterns?.find((p: any) => String(p.id) === String(soloPtn.id));
       if (!matchedPtn && soloPtn.name) {
         matchedPtn = track.patterns?.find((p: any) => p.name?.trim().toLowerCase() === soloPtn.name?.trim().toLowerCase());
@@ -91,6 +95,18 @@ export function resolvePatternVariation(
   if (isSoloPlayActive && soloPatternVariationId === 'base') return null;
   if (!activePattern.variations || activePattern.variations.length === 0) return null;
 
+  if (isSoloPlayActive) {
+    const regular = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
+    const pool = regular.length > 0 ? regular : activePattern.variations;
+    const rand = nextRand() * 100;
+    let sum = 0;
+    for (const variation of pool) {
+      if (rand >= sum && rand < sum + variation.probability) return variation;
+      sum += variation.probability;
+    }
+    return null;
+  }
+
   const isFirstTime = currentPlayCount === 0;
   if (isFirstTime) {
     const firstTimeVariations = activePattern.variations.filter((v: any) => v.playFirstTimeOnly);
@@ -98,7 +114,7 @@ export function resolvePatternVariation(
   }
 
   if (!isolateBaseOnly) {
-    const allowImprov = isSoloPlayActive || (activePattern.measureAllowVariations ? activePattern.measureAllowVariations[measureIdx] : true);
+    const allowImprov = activePattern.measureAllowVariations ? activePattern.measureAllowVariations[measureIdx] !== false : true;
     if (allowImprov) {
       const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
       if (validVariations.length > 0) {

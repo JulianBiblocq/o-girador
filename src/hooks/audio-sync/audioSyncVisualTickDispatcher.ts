@@ -20,6 +20,7 @@ export interface VisualTickDispatchParams {
   anchoredMeasureIdxRef: React.MutableRefObject<number>;
   sectionIteration: number;
   loopIteration?: number;
+  measureSeqId?: number;
   isDocHidden: boolean;
 }
 
@@ -30,13 +31,13 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
     currentTicks,
     currentMeasureIdx,
     totalMeasures,
-    soloPatternPlayId,
     measureTimeSigs,
     measureBpms,
     anchoredMeasureStartSecRef,
     anchoredMeasureIdxRef,
     sectionIteration,
     loopIteration = 1,
+    measureSeqId,
     isDocHidden,
   } = params;
 
@@ -82,6 +83,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
       preRollMeasureIndex: 0,
       preRollTotalMeasures: 1,
       preRollBeat: currentBeatIndex,
+      measureSeqId,
     });
   }
 }

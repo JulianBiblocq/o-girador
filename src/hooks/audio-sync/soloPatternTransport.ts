@@ -13,8 +13,10 @@ import { instrumentsConfig } from '../../data';
 import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 import { restoreStoreChannelGains } from './realtimeFaderAudioUpdater';
 import { clearFreeze } from './frozenPlaybackState';
+import { resetWorkletHorizonState } from '../../audio/worklet/horizon/percussionHorizonPusher';
+import { findConcretePatternOwnerTrack } from '../../utils/soloVariationMatcher';
 import { resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
-import { openSoloFamilyAndBusGains, primeSoloVariationLookahead } from './soloPatternSetupHelper';
+import { openSoloFamilyAndBusGains, primeSoloVariationLookahead, tryHotSwapSoloPattern } from './soloPatternSetupHelper';
 
 export interface SoloTransportContext {
   tracksRef: { current: Track[] };
@@ -50,25 +52,29 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   if (Tone.start) { try { await Tone.start(); } catch (_) {} }
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
+  const currentTracks = ctx.tracksRef.current;
+  const soloTrack = findConcretePatternOwnerTrack(currentTracks, patternId);
+  const soloPattern = soloTrack?.patterns?.find((p: any) => String(p.id) === String(patternId));
+  const firstAssignedMeasure = soloPattern?.measureAssignments?.findIndex((a: boolean) => a === true) ?? -1;
+  const targetMeasure = firstAssignedMeasure >= 0 ? firstAssignedMeasure : 0;
+  const effectiveVarId = variationId || 'ensemble';
+  const rawSigs = ctx.measureTimeSigsRef?.current;
+  const totalMeasures = ctx.totalMeasuresRef?.current || 1;
+  const timeSigs: string[] = Array.isArray(rawSigs) ? rawSigs : Array.from({ length: totalMeasures }, (_, i) => rawSigs?.[i] || '4/4');
+
+  if (tryHotSwapSoloPattern({ patternId, effectiveVarId, targetMeasure, totalMeasures, timeSigs, soloTrack, currentTracks, activeEngine, ctx })) {
+    return;
+  }
+
   activeEngine?.stop(); Tone.Transport.stop(); activeEngine?.stopAllBarulho();
   activeEngine?.purgeScheduledHits();
   stopAllNativeOscillators(); vocalEngineService.stopAllVocalPlayback();
   clearFreeze(); useTransportStore.getState().setIsPaused(false);
   flushVisualBuffers(); purgeVisualTickBuffer(); setLastAudibleTick(null);
+  resetWorkletHorizonState();
   resetLiveVariationLookahead(ctx.activeVariationsRef);
 
-  const currentTracks = ctx.tracksRef.current;
-  const soloTrack = currentTracks.find((t) => t.patterns && t.patterns.some((p) => String(p.id) === String(patternId)));
-  const soloPattern = soloTrack?.patterns?.find((p) => String(p.id) === String(patternId));
-  const firstAssignedMeasure = soloPattern?.measureAssignments?.findIndex((a: boolean) => a === true) ?? -1;
-  const targetMeasure = firstAssignedMeasure >= 0 ? firstAssignedMeasure : 0;
-  const effectiveVarId = variationId || 'ensemble';
-
-  openSoloFamilyAndBusGains({
-    soloTrack, currentTracks, channels: ctx.channels,
-    busChannels: ctx.busChannels, savedSoloMuteStateRef: ctx.savedSoloMuteStateRef,
-  });
-
+  openSoloFamilyAndBusGains({ soloTrack, currentTracks, channels: ctx.channels, busChannels: ctx.busChannels, savedSoloMuteStateRef: ctx.savedSoloMuteStateRef });
   if (ctx.soloPatternPlayIdRef) ctx.soloPatternPlayIdRef.current = patternId;
   if (ctx.soloPatternVariationIdRef) ctx.soloPatternVariationIdRef.current = effectiveVarId;
   useTransportStore.getState().setSoloPatternPlayback(patternId, effectiveVarId);
@@ -77,19 +83,10 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   ctx.measureCountRef.current = targetMeasure; ctx.isPlaybackEndingRef.current = false;
   ctx.setCurrentMeasure(targetMeasure); Tone.Transport.seconds = 0; ctx.lastPlayedSignalIdRef.current = null;
 
-  const rawSigs = ctx.measureTimeSigsRef?.current;
-  const totalMeasures = ctx.totalMeasuresRef?.current || 1;
-  const timeSigs: string[] = Array.isArray(rawSigs) ? rawSigs : Array.from({ length: totalMeasures }, (_, i) => rawSigs?.[i] || '4/4');
-
   if (ctx.flatCompiledScheduleRef) {
-    ctx.flatCompiledScheduleRef.current = buildFlatSongSchedule(
-      currentTracks, totalMeasures, timeSigs, instrumentsConfig, patternId, effectiveVarId, false
-    ) as any;
+    ctx.flatCompiledScheduleRef.current = buildFlatSongSchedule(currentTracks, totalMeasures, timeSigs, instrumentsConfig, patternId, effectiveVarId, false) as any;
   }
-  primeSoloVariationLookahead({
-    targetMeasure, totalMeasures, currentTracks, measureTimeSigs: timeSigs,
-    patternId, effectiveVarId, activeVariationsRef: ctx.activeVariationsRef,
-  });
+  primeSoloVariationLookahead({ targetMeasure, totalMeasures, currentTracks, measureTimeSigs: timeSigs, patternId, effectiveVarId, activeVariationsRef: ctx.activeVariationsRef });
 
   if (activeEngine) {
     try { await activeEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(currentTracks)); } catch (_) {}
@@ -100,13 +97,7 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   }
 
   ctx.setIsLoading(true);
-  try {
-    if (Tone.loaded) await Tone.loaded();
-    await new Promise((resolve) => setTimeout(resolve, 60));
-  } catch (_) {} finally {
-    ctx.setIsLoading(false);
-  }
-
+  try { if (Tone.loaded) await Tone.loaded(); await new Promise((resolve) => setTimeout(resolve, 60)); } catch (_) {} finally { ctx.setIsLoading(false); }
   cancelAudioContextAutoSuspend();
   await safeResumeAudioContext();
   if (Tone.Transport.state !== 'started') Tone.Transport.start();
@@ -125,6 +116,7 @@ export function handleStopSoloPattern(ctx: SoloTransportContext): void {
   if (ctx.soloPatternVariationIdRef) ctx.soloPatternVariationIdRef.current = null;
   useTransportStore.getState().setSoloPatternPlayback(null, null);
   ctx.soloLoopCycleRef.current = 0;
+  resetWorkletHorizonState();
   resetLiveVariationLookahead(ctx.activeVariationsRef);
   const activeEngine = ctx.audioEngine || getAudioEngine();
   activeEngine?.purgeScheduledHits();

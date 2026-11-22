@@ -21,7 +21,7 @@ export function getOrRollMeasureVariationForHorizon(params: {
   tracks: Track[]; soloPatternPlayId: number | null; soloPatternVariationId: string | null;
 }): MeasureVariationSnapshot {
   const existing = snapshotsBySeqId.get(params.seqId);
-  if (existing && existing.measureIdx === params.measureIdx) return existing;
+  if (existing && existing.measureIdx === params.measureIdx && existing.measureStartTick === params.measureStartTick) return existing;
   const prevSnap = snapshotsBySeqId.get(params.seqId - 1);
   const preceding = prevSnap ? prevSnap.patternIdByTrackId : lastHorizonPatternIdByTrack;
   const snap = rollMeasureVariations(
@@ -35,10 +35,20 @@ export function getOrRollMeasureVariationForHorizon(params: {
   return snap;
 }
 
-export function invalidateFutureVariationSnapshots(afterSeqId: number): void {
-  for (const k of snapshotsBySeqId.keys()) { if (k > afterSeqId) snapshotsBySeqId.delete(k); }
-  const baseSnap = snapshotsBySeqId.get(afterSeqId) ?? currentSnapshot;
+export function invalidateFutureVariationSnapshots(afterSeqId: number, includeCurrent = false): void {
+  for (const k of snapshotsBySeqId.keys()) { if (includeCurrent ? k >= afterSeqId : k > afterSeqId) snapshotsBySeqId.delete(k); }
+  const baseSnap = snapshotsBySeqId.get(includeCurrent ? afterSeqId - 1 : afterSeqId) ?? currentSnapshot;
   lastHorizonPatternIdByTrack = baseSnap ? { ...baseSnap.patternIdByTrackId } : { ...lastPlayedPatternIdByTrack };
+}
+
+export function syncCurrentVariationOverrideFromSeq(seqId: number, activeVariationsRef?: { current: Record<number, any> }): void {
+  const snap = snapshotsBySeqId.get(seqId);
+  if (!snap) return;
+  currentSnapshot = snap;
+  snapshotsByMeasure.set(snap.measureIdx, snap);
+  currentVariedTrackIds = snap.variedTrackIds;
+  currentVariationNotes = snap.variationNotes;
+  if (activeVariationsRef) activeVariationsRef.current = snap.stepsByTrackId;
 }
 
 export function resetLiveVariationLookahead(activeVariationsRef?: { current: Record<number, any> }): void {
@@ -92,8 +102,7 @@ export function syncStepExploreVariationSnapshots(params: {
   const getOrRoll = (mIdx: number, preceding: Record<number, number | null>): MeasureVariationSnapshot => {
     const cached = snapshotsByMeasure.get(mIdx);
     if (cached) return cached;
-    const sig = measureTimeSigs?.[mIdx] || '4/4';
-    const rolled = rollMeasureVariations(-1, mIdx, 0, sig, tracks, soloPatternPlayId, soloPatternVariationId, preceding);
+    const rolled = rollMeasureVariations(-1, mIdx, 0, measureTimeSigs?.[mIdx] || '4/4', tracks, soloPatternPlayId, soloPatternVariationId, preceding);
     snapshotsByMeasure.set(mIdx, rolled);
     return rolled;
   };
@@ -123,6 +132,10 @@ export function syncLiveVariationRodaVisualFrame(isPlaying: boolean, visualMeasu
 
 export function getMeasureVariationSnapshot(measureIdx: number): MeasureVariationSnapshot | undefined {
   return snapshotsByMeasure.get(measureIdx) ?? (currentSnapshot?.measureIdx === measureIdx ? currentSnapshot : undefined);
+}
+export function getActiveVariationIdForTrack(seqId: number | undefined, measureIdx: number, trackId: number): string | null {
+  const snap = (seqId !== undefined && seqId > 0 ? snapshotsBySeqId.get(seqId) : undefined) ?? snapshotsByMeasure.get(measureIdx) ?? currentSnapshot;
+  return snap?.variedPatternsByTrackId.get(trackId)?.variation?.id ?? null;
 }
 export function getLiveVariationAudioOverride() { return { variedTrackIds: currentVariedTrackIds, variationNotes: currentVariationNotes }; }
 export function getLiveVariationRodaSnapshots(targetNextMeasureIdx?: number) {

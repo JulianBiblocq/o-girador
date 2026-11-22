@@ -20,6 +20,10 @@ export const handleTimelinePatternVariationToggleState = (
   return syncPatternAcrossLinkedFamily(tracks, targetTrackId, patternId, (p) => {
     const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(totalMeasures).fill(true);
     currentAllow[measureIdx] = val;
-    return { ...p, measureAllowVariations: currentAllow };
+    const currentManual = Array.isArray((p as any).measureAllowVariationsManual)
+      ? [...(p as any).measureAllowVariationsManual]
+      : Array(totalMeasures).fill(false);
+    currentManual[measureIdx] = true;
+    return { ...p, measureAllowVariations: currentAllow, measureAllowVariationsManual: currentManual } as any;
   });
 };

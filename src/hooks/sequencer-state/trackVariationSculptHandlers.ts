@@ -45,18 +45,33 @@ export function createTrackVariationSculptHandlers(ctx: VariationSculptContext) 
     const newVarId = Date.now().toString();
     setTracks((prev) => syncPatternAcrossLinkedFamily(prev, trackId, patternId, (p) => {
       const currentVars = p.variations || [];
+      const isFirstCreated = currentVars.length === 0;
       const newVar = {
         id: newVarId,
         name: `Var ${currentVars.length + 1}`,
         steps: [...p.activeSteps],
         probability: 30,
-        playFirstTimeOnly: currentVars.length === 0,
+        playFirstTimeOnly: false,
         volumes: p.volumes ? [...p.volumes] : undefined,
         decays: p.decays ? [...p.decays] : undefined,
         microtimings: p.microtimings ? [...p.microtimings] : undefined,
         beatResolutions: p.beatResolutions ? [...p.beatResolutions] : undefined,
       };
-      return { ...p, variations: [...currentVars, newVar] };
+      let nextAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+      if (isFirstCreated && Array.isArray(p.measureAssignments)) {
+        const manual = (p as any).measureAllowVariationsManual as boolean[] | undefined;
+        const baseAllow = nextAllow ? [...nextAllow] : Array(p.measureAssignments.length).fill(true);
+        while (baseAllow.length < p.measureAssignments.length) baseAllow.push(true);
+        p.measureAssignments.forEach((assigned, mIdx) => {
+          if (assigned && !manual?.[mIdx]) baseAllow[mIdx] = true;
+        });
+        nextAllow = baseAllow;
+      }
+      return {
+        ...p,
+        variations: [...currentVars, newVar],
+        ...(nextAllow ? { measureAllowVariations: nextAllow } : {}),
+      };
     }));
   };
 

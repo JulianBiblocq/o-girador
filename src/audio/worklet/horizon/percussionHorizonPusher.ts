@@ -3,7 +3,7 @@
  * - Pousse `[M, M+1, M+2]` dans `PercussionWorkletManager` avec lookahead Barulho multi-mesures (incluant `swingSec`).
  */
 
-import { getOrRollMeasureVariationForHorizon, invalidateFutureVariationSnapshots } from '../../../hooks/audio-sync/liveVariationLookaheadEngine';
+import { getOrRollMeasureVariationForHorizon, invalidateFutureVariationSnapshots, syncCurrentVariationOverrideFromSeq } from '../../../hooks/audio-sync/liveVariationLookaheadEngine';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { registerLiveBalancoHorizonRebuilder } from '../../groove/liveBalancoMorph';
 import { buildHorizonBarulhoLookaheadPoints } from './percussionHorizonBarulhoLookahead';
@@ -111,17 +111,23 @@ export function pushWorkletHorizonAtMeasureBoundary(
   return currentMeasureSeqId;
 }
 
-export function rebuildWorkletHorizonFromNow(reason: 'edit' | 'bpm' | 'queued' | 'sample' = 'edit'): void {
+export function rebuildWorkletHorizonFromNow(reason: 'edit' | 'bpm' | 'queued' | 'sample' | 'solo' = 'edit'): void {
   if (!lastHorizonCtx || currentMeasureSeqId <= 0) return;
   const engine = lastHorizonCtx.engine;
   if (!engine || !engine.workletReady || !engine.getIsPlaying()) return;
   const sampleRate = engine.getSampleRate(), curEntry = pushedBySeqId.get(currentMeasureSeqId);
   const minSafeFrame = Math.ceil((engine.getCurrentTime() + 0.015) * sampleRate);
   const safeRebuildFrame = reason === 'queued' && curEntry ? Math.max(minSafeFrame, curEntry.endFrame) : minSafeFrame;
-  if (reason === 'queued' || reason === 'edit') invalidateFutureVariationSnapshots(currentMeasureSeqId);
+  if (reason === 'solo') {
+    invalidateFutureVariationSnapshots(currentMeasureSeqId, true);
+    for (const seq of pushedBySeqId.keys()) if (seq >= currentMeasureSeqId) pushedBySeqId.delete(seq);
+  } else if (reason === 'queued' || reason === 'edit') {
+    invalidateFutureVariationSnapshots(currentMeasureSeqId);
+  }
   engine.purgeWorkletFromFrame(safeRebuildFrame);
   engine.purgeRoundRobinFromTime(safeRebuildFrame / sampleRate);
   projectAndPushHorizon(lastHorizonCtx, safeRebuildFrame);
+  if (reason === 'solo') syncCurrentVariationOverrideFromSeq(currentMeasureSeqId, lastHorizonCtx.activeVariationsRef);
 }
 
 registerLiveBalancoHorizonRebuilder(() => rebuildWorkletHorizonFromNow('bpm'));

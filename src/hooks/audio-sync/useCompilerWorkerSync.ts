@@ -17,6 +17,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
   const compilerWorkerRef = useRef<Worker | null>(null);
   const lastActiveInstrumentSigRef = useRef('');
 
+  const pendingSoloRebuildRef = useRef(false);
   useEffect(() => {
     const worker = new Worker(
       new URL('../../workers/audioCompiler.worker.ts', import.meta.url),
@@ -34,7 +35,9 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
           attachCompiledTrackIds(e.data.data, e.data.compiledTrackIds);
         }
         flatCompiledScheduleRef.current = e.data.data;
-        rebuildWorkletHorizonFromNow('edit');
+        const reason = pendingSoloRebuildRef.current ? 'solo' : 'edit';
+        pendingSoloRebuildRef.current = false;
+        rebuildWorkletHorizonFromNow(reason);
       }
     };
 
@@ -52,7 +55,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
     const worker = compilerWorkerRef.current;
     if (!worker) return;
     setIsCompiling(true);
-    const isolateBaseOnly = useSequencerStore.getState().isolateBaseOnly;
+    const isolateBaseOnly = soloId !== null ? false : useSequencerStore.getState().isolateBaseOnly;
     worker.postMessage({
       action: 'compileSong',
       tracks: stateTracks,
@@ -104,6 +107,7 @@ export function useCompilerWorkerSync({ flatCompiledScheduleRef }: UseCompilerWo
       if (state.soloPatternPlayId !== lastSoloPatternPlayId || state.soloPatternVariationId !== lastSoloPatternVariationId) {
         lastSoloPatternPlayId = state.soloPatternPlayId;
         lastSoloPatternVariationId = state.soloPatternVariationId;
+        pendingSoloRebuildRef.current = true;
         triggerCompile();
       }
     });

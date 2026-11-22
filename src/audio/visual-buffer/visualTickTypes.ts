@@ -24,6 +24,7 @@ export interface VisualTickEvent {
   preRollMeasureIndex?: number;
   preRollTotalMeasures?: number;
   preRollBeat?: number;
+  measureSeqId?: number;
 }
 
 export interface VisualHitTriggerEvent {

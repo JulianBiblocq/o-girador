@@ -64,6 +64,18 @@ export function resolveCurrentPattern(options: ResolveCurrentPatternOptions): Re
     matchedVariation = resolveTargetedSoloVariation(pattern, tracks, soloPatternPlayId, soloPatternVariationId);
   } else if (isSolo && soloPatternVariationId === 'base') {
     matchedVariation = null;
+  } else if (isSolo && pattern.variations && pattern.variations.length > 0) {
+    const regular = pattern.variations.filter((v) => !v.playFirstTimeOnly);
+    const pool = regular.length > 0 ? regular : pattern.variations;
+    const rand = randomSource() * 100;
+    let sum = 0;
+    for (const variation of pool) {
+      if (rand >= sum && rand < sum + variation.probability) {
+        matchedVariation = variation;
+        break;
+      }
+      sum += variation.probability;
+    }
   } else if (pattern.variations && pattern.variations.length > 0) {
     const isEligibleForFirstPass = currentPlayCount === 0 && !isFirstPassConsumed;
     if (isEligibleForFirstPass) {
@@ -75,10 +87,7 @@ export function resolveCurrentPattern(options: ResolveCurrentPatternOptions): Re
     }
 
     if (!matchedVariation && !isolateBaseOnly) {
-      const allowImprov =
-        isSolo ||
-        (pattern.measureAllowVariations ? pattern.measureAllowVariations[measureIdx] !== false : true);
-
+      const allowImprov = pattern.measureAllowVariations ? pattern.measureAllowVariations[measureIdx] !== false : true;
       if (allowImprov) {
         const validVariations = pattern.variations.filter((v) => !v.playFirstTimeOnly);
         if (validVariations.length > 0) {

@@ -25,6 +25,19 @@ export function getVariationSculptArrays(pattern: Pattern, variation: PatternVar
   };
 }
 
+export function findConcretePatternOwnerTrack(
+  tracks: readonly any[] | undefined,
+  patternId: number | string | null | undefined
+): any | undefined {
+  if (!tracks || tracks.length === 0 || patternId === null || patternId === undefined) return undefined;
+  const pid = String(patternId);
+  return (
+    tracks.find((t: any) => t && !t.isBusFolder && !t.isLinkFolder && t.isLinkMaster && t.patterns?.some((p: any) => String(p.id) === pid)) ||
+    tracks.find((t: any) => t && !t.isBusFolder && !t.isLinkFolder && t.patterns?.some((p: any) => String(p.id) === pid)) ||
+    tracks.find((t: any) => t?.patterns?.some((p: any) => String(p.id) === pid))
+  );
+}
+
 export function resolveTargetedSoloVariation(
   pattern: Pattern | null | undefined,
   tracks: readonly any[] | undefined,
@@ -52,9 +65,7 @@ export function resolveTargetedSoloVariation(
 
   if (!tracks || tracks.length === 0) return null;
 
-  const soloOwner = tracks.find((t: any) =>
-    t?.patterns?.some((p: any) => String(p.id) === String(soloPatternPlayId))
-  );
+  const soloOwner = findConcretePatternOwnerTrack(tracks, soloPatternPlayId);
   const soloPtn: Pattern | undefined = soloOwner?.patterns?.find(
     (p: any) => String(p.id) === String(soloPatternPlayId)
   );
