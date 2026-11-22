@@ -16,6 +16,7 @@ export const useWizardStore = create<WizardState>((set) => ({
   wizardData: {},
   placedInstruments: [],
   hasToada: false,
+  hasApito: false,
   wizardLang: 'fr',
   alfaiaGroupingMode: 'bloc',
   selectedBasePatternId: 'luanda',
@@ -38,6 +39,10 @@ export const useWizardStore = create<WizardState>((set) => ({
   setStep: (step) => set({ step }),
   updateWizardData: (data) => set((state) => ({ wizardData: { ...state.wizardData, ...data } })),
   addPlacedInstrument: (type, x, y) => {
+    if ((type || '').toLowerCase() === 'apito') {
+      set({ hasApito: true });
+      return { id: 'apito_mestre', instrumentType: 'apito', x: 50, y: 100 };
+    }
     const item: PlacedInstrument = { id: `${type}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`, instrumentType: type, x, y };
     set((state) => ({ placedInstruments: [...state.placedInstruments, item] }));
     return item;
@@ -46,9 +51,16 @@ export const useWizardStore = create<WizardState>((set) => ({
     set((state) => ({ placedInstruments: state.placedInstruments.map((i) => (i.id === id ? { ...i, x, y } : i)) })),
   removePlacedInstrument: (id) =>
     set((state) => ({ placedInstruments: state.placedInstruments.filter((i) => i.id !== id) })),
-  setPlacedInstruments: (placedInstruments) => set({ placedInstruments }),
+  setPlacedInstruments: (raw) =>
+    set(() => {
+      const hadApito = raw.some((i) => (i.instrumentType || '').toLowerCase() === 'apito');
+      const placedInstruments = raw.filter((i) => (i.instrumentType || '').toLowerCase() !== 'apito');
+      return hadApito ? { placedInstruments, hasApito: true } : { placedInstruments };
+    }),
   toggleToada: () => set((state) => ({ hasToada: !state.hasToada })),
   setHasToada: (hasToada) => set({ hasToada }),
+  toggleApito: () => set((state) => ({ hasApito: !state.hasApito })),
+  setHasApito: (hasApito) => set({ hasApito }),
 
   toggleWizardLang: () => set((state) => ({ wizardLang: state.wizardLang === 'fr' ? 'pt' : 'fr' })),
   setAlfaiaGroupingMode: (alfaiaGroupingMode) => set({ alfaiaGroupingMode }),
@@ -94,7 +106,7 @@ export const useWizardStore = create<WizardState>((set) => ({
 
   resetWizard: () =>
     set({
-      isIntroModalOpen: false, isWizardOpen: false, step: 1, wizardData: {}, placedInstruments: [], hasToada: false,
+      isIntroModalOpen: false, isWizardOpen: false, step: 1, wizardData: {}, placedInstruments: [], hasToada: false, hasApito: false,
       wizardLang: 'fr', alfaiaGroupingMode: 'bloc', selectedBasePatternId: 'luanda',
       selectedCloudSectionId: null, selectedCloudSectionName: null, selectedCloudSectionData: null,
       structurePreset: 'loop1', selectedSwingId: 'maracatu', swingIntensities: { ...INITIAL_SWING }, selectedSignIds: [],

@@ -18,6 +18,7 @@ const ROLE_NOMINAL_TRIM_DB: Record<string, number> = {
   timbal: -1.0,
   agbe: -2.0,
   mineiro: -2.5,
+  apito: 0.0,
 };
 
 /**
@@ -52,4 +53,5 @@ export const WIZard_DEFAULT_PREVIEW_STROKE: Record<string, string> = {
   agbe: 'D',
   mineiro: 'P',
   timbal: 'A',
+  apito: 'C',
 };

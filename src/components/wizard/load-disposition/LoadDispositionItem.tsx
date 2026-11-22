@@ -75,6 +75,11 @@ export const LoadDispositionItem: React.FC<LoadDispositionItemProps> = ({
             [+ {lang === 'fr' ? 'Chant / Toada' : 'Canto / Toada'}]
           </span>
         )}
+        {preset.hasApito && (
+          <span className="ml-2 inline-block text-[10px] text-[var(--cordel-accent-readable)] font-bold">
+            [+ Apito]
+          </span>
+        )}
       </div>
     </div>
   );

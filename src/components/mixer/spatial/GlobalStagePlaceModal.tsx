@@ -11,7 +11,7 @@ import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { applyMonoCompatiblePan } from '../../../utils/audio/monoCompatiblePan';
 import { safeRampDb, safeRampPan } from '../../../utils/audio/safeAudioParamRamp';
 import { GlobalStageConeCanvas } from './GlobalStageConeCanvas';
-import { buildGlobalStagePawns, computeUpdatedSquadPlayerFromStage, type GlobalStagePawnItem } from './globalStagePawnModel';
+import { buildGlobalStagePawns, computeUpdatedSquadPlayerFromStage, isApitoTrack, type GlobalStagePawnItem } from './globalStagePawnModel';
 
 interface GlobalStagePlaceModalProps {
   onClose: () => void;
@@ -43,13 +43,14 @@ export const GlobalStagePlaceModal: React.FC<GlobalStagePlaceModalProps> = ({ on
     () => buildGlobalStagePawns(tracks, globalBypass, stageW, stageH, resolveLabel),
     [tracks, globalBypass, stageW, stageH, resolveLabel]
   );
+  const hasApito = useMemo(() => tracks.some((t) => Boolean(t && !t.isHidden && isApitoTrack(t))), [tracks]);
 
   const handleUpdatePawnMix = (
     pawn: GlobalStagePawnItem, nextPan: number, nextFaderDb: number, nextFaderPos: number, isFinal: boolean
   ) => {
     const st = useSequencerStore.getState();
     const track = st.tracks.find((t) => t.id === pawn.trackId);
-    if (!track) return;
+    if (!track || isApitoTrack(track)) return;
 
     if (pawn.playerIdx !== null) {
       const nextPlayers = computeUpdatedSquadPlayerFromStage(track, pawn.playerIdx, nextPan, nextFaderDb);
@@ -100,7 +101,7 @@ export const GlobalStagePlaceModal: React.FC<GlobalStagePlaceModalProps> = ({ on
         </div>
 
         <GlobalStageConeCanvas
-          pawns={pawns} widthPx={stageW} heightPx={stageH} isFr={isFr}
+          pawns={pawns} widthPx={stageW} heightPx={stageH} isFr={isFr} hasApito={hasApito}
           onDragStart={() => useSequencerStore.getState().pushUndoState()}
           onUpdatePawnMix={handleUpdatePawnMix}
         />

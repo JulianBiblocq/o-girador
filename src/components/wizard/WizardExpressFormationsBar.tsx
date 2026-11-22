@@ -18,6 +18,8 @@ export const WizardExpressFormationsBar: React.FC<WizardExpressFormationsBarProp
   showToast,
 }) => {
   const setPlacedInstruments = useWizardStore((s) => s.setPlacedInstruments);
+  const hasApito = useWizardStore((s) => s.hasApito);
+  const setHasApito = useWizardStore((s) => s.setHasApito);
   const isPt = wizardLang === 'pt';
 
   const handleApplyFormation = (formation: WizardExpressFormation) => {
@@ -32,6 +34,7 @@ export const WizardExpressFormationsBar: React.FC<WizardExpressFormationsBarProp
   const handleClearStage = () => {
     stopAllWizardSpatialNodes();
     setPlacedInstruments([]);
+    setHasApito(false);
   };
 
   return (
@@ -62,7 +65,7 @@ export const WizardExpressFormationsBar: React.FC<WizardExpressFormationsBarProp
       <button
         type="button"
         onClick={handleClearStage}
-        disabled={placedCount === 0}
+        disabled={placedCount === 0 && !hasApito}
         className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:bg-[var(--cordel-status-danger)] text-[var(--cordel-text-muted)] hover:text-[var(--cordel-on-accent)] border border-[var(--cordel-border)] font-cactus font-bold uppercase text-[10px] cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-35 disabled:pointer-events-none"
       >
         <Trash2 size={12} />

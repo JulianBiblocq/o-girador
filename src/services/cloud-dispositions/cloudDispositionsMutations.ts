@@ -9,7 +9,7 @@ export async function saveDispositionToCloud(
   userRole?: string,
   canWriteSequenciador?: boolean
 ): Promise<string> {
-  const { id, ownerId, name, authorName, visibility, groupId, instruments, hasToada } = disposition;
+  const { id, ownerId, name, authorName, visibility, groupId, instruments, hasToada, hasApito } = disposition;
 
   if (!ownerId || ownerId === 'local') {
     throw new Error("Utilisateur non connecté");
@@ -61,12 +61,15 @@ export async function saveDispositionToCloud(
     visibility: visibility || defaultVis,
     groupId: effectiveGroupId || null,
     mestreId: isSamambaiaGroup ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (disposition.mestreId || null),
-    instruments: (instruments || []).map((inst) => ({
-      instrumentType: inst.instrumentType,
-      x: Number(inst.x),
-      y: Number(inst.y)
-    })),
+    instruments: (instruments || [])
+      .filter((inst) => (inst.instrumentType || '').toLowerCase() !== 'apito')
+      .map((inst) => ({
+        instrumentType: inst.instrumentType,
+        x: Number(inst.x),
+        y: Number(inst.y)
+      })),
     hasToada: Boolean(hasToada),
+    hasApito: Boolean(hasApito),
     updatedAt: Date.now()
   };
 

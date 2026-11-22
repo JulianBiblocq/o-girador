@@ -65,6 +65,7 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
 
     const rawTracks = consolidateWizardPlacedTracks({
       placedInstruments: st.placedInstruments,
+      hasApito: st.hasApito,
       resolveLabel: (instType) => useNomenclatureStore.getState().getInstrumentLabel(instType),
       resolveSwing: (instType) => resolveFamilySwing(instType, st.swingIntensities),
       buildPatterns: (instType) => buildWizardInstrumentPatterns(

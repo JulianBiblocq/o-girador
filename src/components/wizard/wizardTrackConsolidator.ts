@@ -13,6 +13,7 @@ import { computeWizardSpatialMix } from './wizardSpatialMixMath';
 
 export interface ConsolidateWizardTracksParams {
   placedInstruments: readonly PlacedInstrument[];
+  hasApito?: boolean;
   resolveLabel: (instType: string) => string;
   resolveSwing: (instType: string) => number;
   buildPatterns: (instType: string) => Pattern[];
@@ -24,11 +25,16 @@ export interface ConsolidateWizardTracksParams {
 
 export function consolidateWizardPlacedTracks(p: ConsolidateWizardTracksParams): TrackGroup[] {
   const grouped = new Map<string, PlacedInstrument[]>();
+  let legacyApitoFound = false;
   for (const item of p.placedInstruments) {
+    if ((item.instrumentType || '').toLowerCase() === 'apito') { legacyApitoFound = true; continue; }
     const maxQ = getMaxSectionPlayers(item.instrumentType);
     let arr = grouped.get(item.instrumentType);
     if (!arr) { arr = []; grouped.set(item.instrumentType, arr); }
     if (arr.length < maxQ) arr.push(item);
+  }
+  if (p.hasApito || legacyApitoFound) {
+    grouped.set('apito', [{ id: 'apito_mestre', instrumentType: 'apito', x: 50, y: 100 }]);
   }
 
   const tracks: TrackGroup[] = [];

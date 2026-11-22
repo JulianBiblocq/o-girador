@@ -75,22 +75,26 @@ const DEFAULT_ROLE_ANCHOR: Record<string, { x: number; y: number }> = {
   marcante: { x: 30, y: 34 },
   meiao: { x: 50, y: 30 },
   repique: { x: 70, y: 34 },
+  apito: { x: 50, y: 100 },
 };
 
 export function buildPlacedFromFormation(formation: WizardExpressFormation): PlacedInstrument[] {
   const now = Date.now();
-  return formation.slots.map((s, idx) => ({
-    id: `${s.instrumentType}_${now}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
-    instrumentType: s.instrumentType,
-    x: s.x,
-    y: s.y,
-  }));
+  return formation.slots
+    .filter((s) => s.instrumentType !== 'apito')
+    .map((s, idx) => ({
+      id: `${s.instrumentType}_${now}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+      instrumentType: s.instrumentType,
+      x: s.x,
+      y: s.y,
+    }));
 }
 
 export function computeSmartSinglePlacement(
   instrumentType: string,
   existing: PlacedInstrument[]
 ): { x: number; y: number } {
+  if ((instrumentType || '').toLowerCase() === 'apito') return { x: 50, y: 100 };
   const base = DEFAULT_ROLE_ANCHOR[instrumentType] || { x: 50, y: 52 };
   const sameRoleCount = existing.filter((i) => i.instrumentType === instrumentType).length;
   if (sameRoleCount === 0) return { ...base };

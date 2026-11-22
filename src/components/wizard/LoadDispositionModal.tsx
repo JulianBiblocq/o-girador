@@ -31,6 +31,7 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
   const isLoadingCloud = useDispositionStore((state) => state.isLoadingCloud);
   const setPlacedInstruments = useWizardStore((state) => state.setPlacedInstruments);
   const setHasToada = useWizardStore((state) => state.setHasToada);
+  const setHasApito = useWizardStore((state) => state.setHasApito);
 
   const [activeTab, setActiveTab] = useState<TabType>('mine');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -56,14 +57,18 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
   });
 
   const handleLoad = (preset: DispositionPreset) => {
-    const freshInstruments: PlacedInstrument[] = preset.instruments.map((inst) => ({
-      id: `${inst.instrumentType}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      instrumentType: inst.instrumentType,
-      x: inst.x,
-      y: inst.y,
-    }));
+    const hadLegacyApito = preset.instruments.some((inst) => (inst.instrumentType || '').toLowerCase() === 'apito');
+    const freshInstruments: PlacedInstrument[] = preset.instruments
+      .filter((inst) => (inst.instrumentType || '').toLowerCase() !== 'apito')
+      .map((inst) => ({
+        id: `${inst.instrumentType}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        instrumentType: inst.instrumentType,
+        x: inst.x,
+        y: inst.y,
+      }));
     setPlacedInstruments(freshInstruments);
     if (preset.hasToada !== undefined) setHasToada(Boolean(preset.hasToada));
+    setHasApito(Boolean(preset.hasApito || hadLegacyApito));
     playWizardFormationArpeggio(freshInstruments);
     onLoaded?.(preset.name);
     onClose();

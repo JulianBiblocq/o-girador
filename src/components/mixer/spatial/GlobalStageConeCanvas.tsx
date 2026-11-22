@@ -3,6 +3,7 @@
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
+import { ASSETS_BASE_URL } from '../../../data';
 import { formatPanCartouche } from '../../controls/panKnobMath';
 import {
   repelDraggedPawnFromNeighbors,
@@ -17,6 +18,7 @@ interface GlobalStageConeCanvasProps {
   widthPx: number;
   heightPx: number;
   isFr: boolean;
+  hasApito?: boolean;
   onDragStart: () => void;
   onUpdatePawnMix: (pawn: GlobalStagePawnItem, nextPan: number, nextFaderDb: number, nextFaderPos: number, isFinal: boolean) => void;
 }
@@ -24,7 +26,7 @@ interface GlobalStageConeCanvasProps {
 const MIN_VITAL_SEP_PX = 40;
 
 export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
-  pawns, widthPx: W, heightPx: H, isFr, onDragStart, onUpdatePawnMix,
+  pawns, widthPx: W, heightPx: H, isFr, hasApito = false, onDragStart, onUpdatePawnMix,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<string | null>(null);
@@ -124,8 +126,9 @@ export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
         );
       })}
 
-      <div style={{ left: '50%', top: '100%', transform: 'translate(-50%, -50%)' }} className="absolute px-3 py-1 pb-3 rounded-full border-2 border-[var(--cordel-wood)] bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] text-[9px] font-cactus font-black uppercase tracking-widest pointer-events-none z-10">
-        {isFr ? 'Mestre • Écoute' : 'Mestre • Escuta'}
+      <div data-testid="global-stage-mestre-anchor" style={{ left: '50%', top: '100%', transform: 'translate(-50%, -50%)' }} className="absolute px-3 py-1 pb-3 rounded-full border-2 border-[var(--cordel-wood)] bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] text-[9px] font-cactus font-black uppercase tracking-widest pointer-events-none z-10 flex items-center gap-1.5 whitespace-nowrap">
+        {hasApito && <img src={`${ASSETS_BASE_URL}icones/apito.svg`} alt="" className="w-3.5 h-3.5 object-contain" />}
+        <span>{isFr ? (hasApito ? 'Mestre • Apito • Écoute' : 'Mestre • Écoute') : (hasApito ? 'Mestre • Apito • Escuta' : 'Mestre • Escuta')}</span>
       </div>
     </div>
   );

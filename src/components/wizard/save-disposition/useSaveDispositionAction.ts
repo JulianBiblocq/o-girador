@@ -16,6 +16,7 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
   const { userProfile, isAdmin, currentUser } = useAuth();
   const placedInstruments = useWizardStore((state) => state.placedInstruments);
   const hasToada = useWizardStore((state) => state.hasToada);
+  const hasApito = useWizardStore((state) => state.hasApito);
   const addDisposition = useDispositionStore((state) => state.addDisposition);
 
   const [name, setName] = useState('');
@@ -45,7 +46,7 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
       setErrorMsg(lang === 'fr' ? 'Veuillez donner un nom à la disposition.' : 'Por favor, dê um nome à disposição.');
       return;
     }
-    if (placedInstruments.length === 0) {
+    if (placedInstruments.length === 0 && !hasApito) {
       setErrorMsg(lang === 'fr' ? 'Aucun instrument placé sur la scène.' : 'Nenhum instrumento colocado no palco.');
       return;
     }
@@ -54,11 +55,13 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
     setErrorMsg(null);
 
     try {
-      const cleanedInstruments: PlacedInstrumentConfig[] = placedInstruments.map((inst) => ({
-        instrumentType: inst.instrumentType,
-        x: Math.round(inst.x * 10) / 10,
-        y: Math.round(inst.y * 10) / 10,
-      }));
+      const cleanedInstruments: PlacedInstrumentConfig[] = placedInstruments
+        .filter((inst) => (inst.instrumentType || '').toLowerCase() !== 'apito')
+        .map((inst) => ({
+          instrumentType: inst.instrumentType,
+          x: Math.round(inst.x * 10) / 10,
+          y: Math.round(inst.y * 10) / 10,
+        }));
 
       const ownerId = userProfile?.uid || currentUser?.uid || 'local';
       const authorName = userProfile?.displayName || (ownerId === 'local' ? 'Local' : 'Mestre');
@@ -78,6 +81,7 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
           visibility,
           instruments: cleanedInstruments,
           hasToada: Boolean(hasToada),
+          hasApito: Boolean(hasApito),
         },
         userProfile?.role,
         canWrite
@@ -96,6 +100,6 @@ export function useSaveDispositionAction({ lang, onSuccess, onClose }: UseSaveDi
 
   return {
     name, setName, visibility, setVisibility, isSubmitting, errorMsg,
-    handleSave, hasGroup, isMestreOrAdmin, userProfile, placedInstruments, hasToada,
+    handleSave, hasGroup, isMestreOrAdmin, userProfile, placedInstruments, hasToada, hasApito,
   };
 }

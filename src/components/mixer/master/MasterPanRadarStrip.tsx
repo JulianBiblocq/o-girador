@@ -23,8 +23,9 @@ export function serializeMasterRadarTicks(tracks: TrackGroup[]): string {
     if (!t || t.isBusFolder || t.isLinkFolder || t.isHidden || t.id === 999901) continue;
     if (getEffectiveMuteState(tracks, t.id)) continue;
     const inst = instrumentsConfig[t.instrumentIdx];
+    if (!inst || (inst.id || '').toLowerCase() === 'apito') continue;
     const trackPan = Math.max(-100, Math.min(100, Math.round(t.panVal ?? t.pan ?? 0)));
-    const hasLinkedSlaves = Boolean(t.isLinkMaster) || tracks.some((s) => s && !s.isHidden && String(s.linkedToTrackId || '') === String(t.id));
+    const hasLinkedSlaves = Boolean(t.isLinkMaster) || tracks.some((s) => s && !s.isHidden && (instrumentsConfig[s.instrumentIdx]?.id || '').toLowerCase() !== 'apito' && String(s.linkedToTrackId || '') === String(t.id));
     const masterTrack = t.linkedToTrackId ? tracks.find((m) => String(m.id) === String(t.linkedToTrackId)) : undefined;
     const anchorPan = masterTrack ? Math.max(-100, Math.min(100, Math.round(masterTrack.panVal ?? masterTrack.pan ?? 0))) : trackPan;
 

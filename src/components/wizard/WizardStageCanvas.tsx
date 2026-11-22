@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, X } from 'lucide-react';
+import { Check, Mic, X } from 'lucide-react';
 import { PlacedInstrument } from '../../stores/useWizardStore';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { ASSETS_BASE_URL } from '../../data';
@@ -12,18 +12,21 @@ interface WizardStageCanvasProps {
   placeSize: { width: number; height: number };
   placedInstruments: PlacedInstrument[];
   hasToada: boolean;
+  hasApito: boolean;
   wizardLang: Language;
+  onToggleApito: () => void;
   onPlacedPointerDown: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
   onRemovePlaced: (id: string) => void;
 }
 
 export const WizardStageCanvas: React.FC<WizardStageCanvasProps> = ({
-  placeRef, placeSize, placedInstruments, hasToada, wizardLang, onPlacedPointerDown, onRemovePlaced,
+  placeRef, placeSize, placedInstruments, hasToada, hasApito, wizardLang, onToggleApito, onPlacedPointerDown, onRemovePlaced,
 }) => {
   const resolveLabel = useInstrumentLabel();
   const W = placeSize.width;
   const H = placeSize.height;
   const coneLen = Math.max(W, H) * 1.5;
+  const conePawns = placedInstruments.filter((inst) => (inst.instrumentType || '').toLowerCase() !== 'apito');
 
   return (
     <div
@@ -56,7 +59,7 @@ export const WizardStageCanvas: React.FC<WizardStageCanvasProps> = ({
         </svg>
       )}
 
-      {placedInstruments.length === 0 && !hasToada && (
+      {conePawns.length === 0 && !hasToada && !hasApito && (
         <div className="absolute inset-x-6 top-1/3 -translate-y-1/2 pointer-events-none flex justify-center z-0">
           <div className="max-w-sm px-4 py-2.5 border-2 border-dashed border-[var(--cordel-border)] bg-[var(--cordel-bg)]/80 text-center text-xs font-cactus font-bold text-[var(--cordel-text-muted)]">
             {t[wizardLang].emptyStageHint}
@@ -64,7 +67,7 @@ export const WizardStageCanvas: React.FC<WizardStageCanvasProps> = ({
         </div>
       )}
 
-      {placedInstruments.map((inst) => {
+      {conePawns.map((inst) => {
         const config = AVAILABLE_INSTRUMENTS.find((i) => i.id === inst.instrumentType);
         const label = resolveLabel(inst.instrumentType) || config?.label || inst.instrumentType;
         return (
@@ -95,21 +98,38 @@ export const WizardStageCanvas: React.FC<WizardStageCanvasProps> = ({
       {hasToada && (
         <div
           className="absolute flex items-center gap-1 px-2.5 py-1 rounded-full border-2 border-[var(--cordel-border-strong)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] pointer-events-none select-none z-20"
-          style={{ left: '50%', top: '87%', transform: 'translate(-50%, -50%)' }}
+          style={{ left: '50%', top: '80%', transform: 'translate(-50%, -50%)' }}
         >
           <Mic size={11} />
           <span className="text-[9px] font-cactus font-bold uppercase tracking-wider">Toada</span>
         </div>
       )}
 
-      <div
-        className="absolute flex flex-col items-center justify-center p-2 rounded-full border-3 border-[var(--cordel-wood)] bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] shadow-[3px_3px_0px_var(--cordel-shadow-color)] pointer-events-none select-none text-center z-20"
-        style={{ left: '50%', top: '100%', transform: 'translate(-50%, -50%)', width: '64px', height: '64px' }}
+      <button
+        type="button"
+        data-testid="wizard-mestre-apito-toggle"
+        aria-pressed={hasApito}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onToggleApito(); }}
+        title={`${t[wizardLang].mestre} — ${hasApito ? t[wizardLang].avecApito : t[wizardLang].sansApito}`}
+        style={{ left: '50%', bottom: '4px', transform: 'translateX(-50%)' }}
+        className={`absolute flex items-center gap-1.5 px-3 py-1.5 rounded-full border-3 shadow-[3px_3px_0px_var(--cordel-shadow-color)] cursor-pointer select-none z-20 transition-colors ${
+          hasApito
+            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] ring-2 ring-[var(--cordel-accent-readable)]'
+            : 'bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] border-[var(--cordel-wood)] hover:border-[var(--cordel-border-strong)]'
+        }`}
       >
-        <img src={`${ASSETS_BASE_URL}icones/apito.svg`} className="w-7 h-7 object-contain opacity-90" alt="" />
-        <span className="text-[7px] font-cactus font-bold uppercase text-[var(--cordel-wood)] leading-none mt-0.5">{t[wizardLang].mestre}</span>
-        <span className="text-[5px] uppercase font-bold text-[var(--cordel-paper-ink)]/70 leading-none">{t[wizardLang].auditeur}</span>
-      </div>
+        <img src={`${ASSETS_BASE_URL}icones/apito.svg`} className={`w-5 h-5 object-contain p-0.5 rounded-full bg-[var(--cordel-paper-surface)] ${hasApito ? 'opacity-100' : 'opacity-40'}`} alt="" />
+        <div className="flex flex-col items-start leading-none text-left">
+          <span className={`text-[8.5px] font-cactus font-black uppercase tracking-wider ${hasApito ? 'text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-wood)]'}`}>
+            {t[wizardLang].mestre} {t[wizardLang].auditeur}
+          </span>
+          <span className={`text-[7.5px] font-cactus font-bold uppercase mt-0.5 flex items-center gap-0.5 ${hasApito ? 'text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-paper-ink)]/70'}`}>
+            {hasApito && <Check size={9} strokeWidth={3} />}
+            <span>{hasApito ? t[wizardLang].avecApito : t[wizardLang].sansApito}</span>
+          </span>
+        </div>
+      </button>
     </div>
   );
 };

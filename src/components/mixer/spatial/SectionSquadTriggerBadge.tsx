@@ -25,7 +25,7 @@ export const SectionSquadTriggerBadge: React.FC<SectionSquadTriggerBadgeProps> =
     const track = s.tracks.find((t) => t.id === trackId);
     if (!track || track.isBusFolder || track.isLinkFolder) return '';
     const inst = instrumentsConfig[track.instrumentIdx];
-    if (!inst || !isSectionEnsembleEligible(inst.id, inst.type)) return '';
+    if (!inst || (inst.id || '').toLowerCase() === 'apito' || !isSectionEnsembleEligible(inst.id, inst.type)) return '';
     const count = track.sectionPlayers?.length || 1;
     const active = !isNeutralDefaultSectionPlayers(track.sectionPlayers) ? 1 : 0;
     return `${count}:${active}`;

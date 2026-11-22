@@ -21,7 +21,7 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
 }) => {
   const {
     name, setName, visibility, setVisibility, isSubmitting, errorMsg,
-    handleSave, hasGroup, isMestreOrAdmin, userProfile, placedInstruments, hasToada,
+    handleSave, hasGroup, isMestreOrAdmin, userProfile, placedInstruments, hasToada, hasApito,
   } = useSaveDispositionAction({ lang, onSuccess, onClose });
 
   useEffect(() => {
@@ -72,6 +72,7 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
             <span className="font-bold uppercase tracking-wider text-[var(--cordel-accent-readable)] font-cactus">{lang === 'fr' ? 'Configuration actuelle :' : 'Configuração atual :'}</span>
             <span className="leading-tight text-[var(--cordel-text)]">{summary}</span>
             {hasToada && <span className="text-[10px] text-[var(--cordel-status-success)] font-bold mt-0.5">{lang === 'fr' ? 'Chant / Toada inclus' : 'Canto / Toada incluído'}</span>}
+            {hasApito && <span className="text-[10px] text-[var(--cordel-accent-readable)] font-bold mt-0.5">{lang === 'fr' ? 'Apito du Mestre inclus (Centre)' : 'Apito do Mestre incluído (Centro)'}</span>}
           </div>
 
           <SaveDispositionVisibilitySelector
@@ -87,7 +88,7 @@ export const SaveDispositionModal: React.FC<SaveDispositionModalProps> = ({
 
           <div className="flex justify-end gap-2 pt-2 border-t-2 border-[var(--cordel-border)]">
             <button type="button" onClick={onClose} className="px-4 py-2 bg-[var(--cordel-surface-elevated)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer uppercase font-bold text-xs">{lang === 'fr' ? 'Annuler' : 'Cancelar'}</button>
-            <button type="submit" disabled={isSubmitting || placedInstruments.length === 0} className="px-4 py-2 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer uppercase font-bold text-xs disabled:opacity-50">
+            <button type="submit" disabled={isSubmitting || (placedInstruments.length === 0 && !hasApito)} className="px-4 py-2 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] cursor-pointer uppercase font-bold text-xs disabled:opacity-50">
               {isSubmitting ? (lang === 'fr' ? 'Enregistrement...' : 'Salvando...') : lang === 'fr' ? 'Enregistrer' : 'Salvar'}
             </button>
           </div>

@@ -29,6 +29,8 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({ onClose, lang }) =
   const placedInstruments = useWizardStore((s) => s.placedInstruments);
   const hasToada = useWizardStore((s) => s.hasToada);
   const toggleToada = useWizardStore((s) => s.toggleToada);
+  const hasApito = useWizardStore((s) => s.hasApito);
+  const toggleApito = useWizardStore((s) => s.toggleApito);
   const initFromUserProfile = useWizardStore((s) => s.initFromUserProfile);
 
   const sequencer = useSequencer();
@@ -96,7 +98,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({ onClose, lang }) =
         <WizardHeaderStepper
           wizardLang={wizardLang}
           step={step}
-          canAdvance={placedInstruments.length > 0 || hasToada}
+          canAdvance={placedInstruments.length > 0 || hasToada || hasApito}
           onSelectStep={handleSelectStep}
           onBlockedAdvance={() => showLocalToast(t[wizardLang].poseAuMoinsUn)}
           onToggleLang={toggleWizardLang}
@@ -104,7 +106,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({ onClose, lang }) =
         />
 
         {step === 1 ? (
-          <WizardStep1Spatial wizardLang={wizardLang} placedInstruments={placedInstruments} hasToada={hasToada} onToggleToada={toggleToada} onToggleLang={toggleWizardLang} onClose={handleSafeClose} onNext={() => handleSelectStep(2)} showToast={showLocalToast} />
+          <WizardStep1Spatial wizardLang={wizardLang} placedInstruments={placedInstruments} hasToada={hasToada} hasApito={hasApito} onToggleToada={toggleToada} onToggleApito={toggleApito} onToggleLang={toggleWizardLang} onClose={handleSafeClose} onNext={() => handleSelectStep(2)} showToast={showLocalToast} />
         ) : step === 2 ? (
           <WizardStep2SoundAndGroove wizardLang={wizardLang} preview={livePreview} onBack={() => handleSelectStep(1)} onNext={() => handleSelectStep(3)} />
         ) : (

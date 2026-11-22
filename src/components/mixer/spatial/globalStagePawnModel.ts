@@ -35,6 +35,12 @@ export interface GlobalStagePawnItem {
 
 const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 
+export function isApitoTrack(track: TrackGroup | null | undefined): boolean {
+  if (!track || track.instrumentIdx === undefined) return false;
+  const inst = instrumentsConfig[track.instrumentIdx];
+  return Boolean(inst && (inst.id || '').toLowerCase() === 'apito');
+}
+
 function resolvePrimaryPawnIdForTrack(track: TrackGroup): string {
   const inst = instrumentsConfig[track.instrumentIdx];
   const hasSquad = Boolean(track.sectionPlayers && track.sectionPlayers.length > 1 && isSectionEnsembleEligible(inst?.id, inst?.type));
@@ -54,7 +60,7 @@ export function buildGlobalStagePawns(
   for (const t of tracks) {
     if (!t || t.isBusFolder || t.isLinkFolder || t.isHidden || t.id === 999901) continue;
     const inst = instrumentsConfig[t.instrumentIdx];
-    if (!inst) continue;
+    if (!inst || (inst.id || '').toLowerCase() === 'apito') continue;
 
     const baseName = (t.customName || resolveLabel(inst.id) || inst.name || inst.id).trim();
     const iconUrl = `${ASSETS_BASE_URL}icones/${inst.id === 'puxador' || inst.id === 'coro' || inst.id === 'toada' ? 'apito' : inst.id}.svg`;
@@ -66,8 +72,8 @@ export function buildGlobalStagePawns(
 
     const slave = isSlaveTrack(t, mutTracks);
     const masterTrack = slave ? resolveMasterTrack(t.id, mutTracks) : undefined;
-    const hasLinkedSlaves = !slave && getLinkedGroupMembers(t, mutTracks).some((m) => m.id !== t.id && !m.isHidden && isSlaveTrack(m, mutTracks));
-    const masterAnchorId = slave && masterTrack && masterTrack.id !== t.id && !masterTrack.isHidden
+    const hasLinkedSlaves = !slave && getLinkedGroupMembers(t, mutTracks).some((m) => m.id !== t.id && !m.isHidden && !isApitoTrack(m) && isSlaveTrack(m, mutTracks));
+    const masterAnchorId = slave && masterTrack && masterTrack.id !== t.id && !masterTrack.isHidden && !isApitoTrack(masterTrack)
       ? resolvePrimaryPawnIdForTrack(masterTrack)
       : null;
     const masterShortCode = slave && masterTrack && masterTrack.id !== t.id ? buildShortTrackMasterAbbr(masterTrack) : null;

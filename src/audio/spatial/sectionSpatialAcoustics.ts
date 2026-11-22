@@ -89,9 +89,10 @@ export function resolveTrackSectionSpatialProfile(
   const rawPlayers = track?.sectionPlayers;
 
   if (maxAllowed <= 1 || isNeutralDefaultSectionPlayers(rawPlayers)) {
+    const soloY = normInst === 'apito' ? 100 : 90;
     return {
       isNeutralSolo: true, storedCount: 1, synthesizedCount: 1, energyComp: 1.0,
-      players: [{ playerIdx: 0, x: 50, y: 90, pan: 0, distDb: 0, gainScalar: 1, gainL: 1, gainR: 1, baseDelaySec: 0, detuneCents: 0, pitchMul: 1 }],
+      players: [{ playerIdx: 0, x: 50, y: soloY, pan: 0, distDb: 0, gainScalar: 1, gainL: 1, gainR: 1, baseDelaySec: 0, detuneCents: 0, pitchMul: 1 }],
     };
   }
 

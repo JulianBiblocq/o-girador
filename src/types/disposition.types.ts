@@ -18,6 +18,7 @@ export interface DispositionPreset {
   visibility: DispositionVisibility;
   instruments: PlacedInstrumentConfig[];
   hasToada?: boolean;
+  hasApito?: boolean;
   createdAt: number;
   updatedAt: number;
 }

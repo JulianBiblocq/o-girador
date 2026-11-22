@@ -101,6 +101,7 @@ describe('Lot C & Lot 2 — Miroir Bidirectionnel 140°, G/C/D (FR) vs E/C/D (BR
       },
       { id: 102, instrumentIdx: 4, busId: '100', linkedToTrackId: '101', panVal: 55 },
       { id: 103, instrumentIdx: 5, panVal: 10 },
+      { id: 109, instrumentIdx: 9, customName: 'Apito', panVal: 0 },
     ];
 
     expect(serializePanCrownTicks(tracks, 103)).toBe('');
@@ -127,6 +128,8 @@ describe('Lot C & Lot 2 — Miroir Bidirectionnel 140°, G/C/D (FR) vs E/C/D (BR
     expect(Object.is(serializeMasterRadarTicks(tracks), serializeMasterRadarTicks(tracks))).toBe(true);
 
     const pawns = buildGlobalStagePawns(tracks, {}, 640, 400, (id) => id);
+    expect(pawns.some((p) => p.trackId === 109)).toBe(false);
+    expect(serializeMasterRadarTicks(tracks)).not.toContain('109:');
     const slavePawn = pawns.find((p) => p.trackId === 102)!;
     expect(slavePawn.roleKind).toBe('slave');
     expect(slavePawn.linkAnchorPawnId).toBe('101__p0');

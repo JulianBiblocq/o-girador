@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check, Plus } from 'lucide-react';
+import { ASSETS_BASE_URL } from '../../data';
 import { AVAILABLE_INSTRUMENTS, t } from './wizardConstants';
 import { PlacedInstrument } from '../../stores/useWizardStore';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
@@ -8,26 +9,31 @@ import { Language } from '../../types';
 interface WizardInstrumentsRackProps {
   wizardLang: Language;
   hasToada: boolean;
+  hasApito: boolean;
   placedInstruments: PlacedInstrument[];
   onToggleToada: () => void;
+  onToggleApito: () => void;
   onPalettePointerDown: (e: React.PointerEvent<HTMLDivElement>, type: string) => void;
 }
 
 export const WizardInstrumentsRack: React.FC<WizardInstrumentsRackProps> = ({
   wizardLang,
   hasToada,
+  hasApito,
   placedInstruments,
   onToggleToada,
+  onToggleApito,
   onPalettePointerDown,
 }) => {
   const resolveLabel = useInstrumentLabel();
+  const apitoLabel = resolveLabel('apito') || 'Apito';
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-2.5 md:w-56 min-h-0">
+    <div className="flex-shrink-0 flex flex-col gap-2 md:w-56 min-h-0">
       <button
         type="button"
         onClick={onToggleToada}
-        className={`flex items-center gap-2.5 p-2.5 border-2 shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors cursor-pointer rounded-sm select-none text-left ${
+        className={`flex items-center gap-2.5 p-2 border-2 shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors cursor-pointer rounded-sm select-none text-left ${
           hasToada
             ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)]'
             : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:border-[var(--cordel-accent-readable)]'
@@ -50,6 +56,33 @@ export const WizardInstrumentsRack: React.FC<WizardInstrumentsRackProps> = ({
             {t[wizardLang].activerToada}
           </span>
         </div>
+      </button>
+
+      <button
+        type="button"
+        data-testid="wizard-rack-apito-toggle"
+        aria-pressed={hasApito}
+        onClick={onToggleApito}
+        className={`flex items-center gap-2.5 p-2 border-2 shadow-[2px_2px_0px_var(--cordel-shadow-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-colors cursor-pointer rounded-sm select-none text-left ${
+          hasApito
+            ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)]'
+            : 'bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-[var(--cordel-border)] hover:border-[var(--cordel-accent-readable)]'
+        }`}
+      >
+        <img
+          src={`${ASSETS_BASE_URL}icones/apito.svg`}
+          alt=""
+          className={`w-6 h-6 object-contain p-0.5 rounded-full bg-[var(--cordel-paper-surface)] border border-[var(--cordel-border-strong)] shrink-0 ${hasApito ? 'opacity-100' : 'opacity-65'}`}
+        />
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[11px] font-cactus font-bold uppercase leading-tight truncate">
+            {hasApito ? t[wizardLang].avecApito : apitoLabel}
+          </span>
+          <span className={`text-[9px] leading-tight truncate ${hasApito ? 'text-[var(--cordel-on-accent)]/85' : 'text-[var(--cordel-text-muted)]'}`}>
+            {t[wizardLang].apitoMestreSub}
+          </span>
+        </div>
+        {hasApito && <Check size={13} className="stroke-[3] shrink-0" />}
       </button>
 
       <div className="flex-1 flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-x-visible md:overflow-y-auto p-2 bg-[var(--cordel-surface)] border-2 border-dashed border-[var(--cordel-border)] rounded-sm custom-scrollbar">

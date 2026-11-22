@@ -6,6 +6,7 @@ import { useDispositionStore } from '../../stores/useDispositionStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { Language } from '../../types';
 import { t } from './wizardConstants';
+import { playWizardSpatialHit } from './audio/wizardSpatialPreview';
 import { useWizardDragDrop } from './useWizardDragDrop';
 import { WizardInstrumentsRack } from './WizardInstrumentsRack';
 import { WizardStageCanvas } from './WizardStageCanvas';
@@ -18,7 +19,9 @@ interface WizardStep1SpatialProps {
   wizardLang: Language;
   placedInstruments: PlacedInstrument[];
   hasToada: boolean;
+  hasApito: boolean;
   onToggleToada: () => void;
+  onToggleApito: () => void;
   onToggleLang: () => void;
   onClose: () => void;
   onNext: () => void;
@@ -26,7 +29,7 @@ interface WizardStep1SpatialProps {
 }
 
 export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
-  wizardLang, placedInstruments, hasToada, onToggleToada, onToggleLang, onClose, onNext, showToast,
+  wizardLang, placedInstruments, hasToada, hasApito, onToggleToada, onToggleApito, onToggleLang, onClose, onNext, showToast,
 }) => {
   const { userProfile } = useAuth();
   const removePlacedInstrument = useWizardStore((s) => s.removePlacedInstrument);
@@ -40,6 +43,7 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
 
   const { placeRef, ghostRef, dismissZoneRef, handlePalettePointerDown, handlePlacedPointerDown, handlePointerMove, handlePointerUp } =
     useWizardDragDrop(wizardLang, showToast);
+  const handleToggleMestreApito = () => { if (!hasApito) playWizardSpatialHit('apito', 50, 100); onToggleApito(); };
 
   useEffect(() => {
     if (userProfile?.uid) {
@@ -57,10 +61,7 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
   }, [placeRef]);
 
   const handleContinue = () => {
-    if (placedInstruments.length === 0 && !hasToada) {
-      showToast(t[wizardLang].poseAuMoinsUn);
-      return;
-    }
+    if (placedInstruments.length === 0 && !hasToada && !hasApito) { showToast(t[wizardLang].poseAuMoinsUn); return; }
     onNext();
   };
 
@@ -76,14 +77,14 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 flex-shrink-0">
         <div className="text-[11px] font-cactus font-bold uppercase text-[var(--cordel-text-muted)]">
-          {t[wizardLang].step1Sub} • <span className="text-[var(--cordel-accent-readable)]">{placedInstruments.length} {wizardLang === 'fr' ? 'instrument(s)' : 'instrumento(s)'}</span>
+          {t[wizardLang].step1Sub} • <span className="text-[var(--cordel-accent-readable)]">{placedInstruments.length + (hasApito ? 1 : 0)} {wizardLang === 'fr' ? 'instrument(s)' : 'instrumento(s)'}</span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <button type="button" onClick={() => setIsLutherieOpen(true)} className="px-2.5 py-1 bg-[var(--cordel-wood)] hover:bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border-strong)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer transition-colors">
             <Sliders size={13} />
             <span>{wizardLang === 'fr' ? 'Afinação & Lutherie' : 'Afinação & Lutheria'}</span>
           </button>
-          <button type="button" onClick={() => setIsSaveModalOpen(true)} disabled={placedInstruments.length === 0} className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:border-[var(--cordel-accent-readable)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors">
+          <button type="button" onClick={() => setIsSaveModalOpen(true)} disabled={placedInstruments.length === 0 && !hasApito} className="px-2.5 py-1 bg-[var(--cordel-surface-elevated)] hover:border-[var(--cordel-accent-readable)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] shadow-[2px_2px_0px_var(--cordel-shadow-color)] font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors">
             <Save size={13} />
             <span>{t[wizardLang].enregistrerDisposition}</span>
           </button>
@@ -100,8 +101,8 @@ export const WizardStep1Spatial: React.FC<WizardStep1SpatialProps> = ({
       <WizardExpressFormationsBar wizardLang={wizardLang} placedCount={placedInstruments.length} showToast={showToast} />
 
       <div className="flex-1 flex flex-col md:flex-row gap-3.5 min-h-0 mt-2.5">
-        <WizardInstrumentsRack wizardLang={wizardLang} hasToada={hasToada} placedInstruments={placedInstruments} onToggleToada={onToggleToada} onPalettePointerDown={handlePalettePointerDown} />
-        <WizardStageCanvas placeRef={placeRef} placeSize={placeSize} placedInstruments={placedInstruments} hasToada={hasToada} wizardLang={wizardLang} onPlacedPointerDown={handlePlacedPointerDown} onRemovePlaced={removePlacedInstrument} />
+        <WizardInstrumentsRack wizardLang={wizardLang} hasToada={hasToada} hasApito={hasApito} placedInstruments={placedInstruments} onToggleToada={onToggleToada} onToggleApito={handleToggleMestreApito} onPalettePointerDown={handlePalettePointerDown} />
+        <WizardStageCanvas placeRef={placeRef} placeSize={placeSize} placedInstruments={placedInstruments} hasToada={hasToada} hasApito={hasApito} wizardLang={wizardLang} onToggleApito={handleToggleMestreApito} onPlacedPointerDown={handlePlacedPointerDown} onRemovePlaced={removePlacedInstrument} />
       </div>
 
       <div className="mt-3 pt-2.5 border-t-2 border-[var(--cordel-border)] flex flex-wrap justify-between items-center gap-2 flex-shrink-0">

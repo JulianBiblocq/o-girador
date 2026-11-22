@@ -45,17 +45,21 @@ export function useWizardDragDrop(wizardLang: Language, showToast: (msg: string)
   };
 
   const addWithSound = (type: string, x: number, y: number) => {
+    if (type === 'apito') { useWizardStore.getState().setHasApito(true); playWizardSpatialHit('apito', 50, 100); return; }
     const count = useWizardStore.getState().placedInstruments.filter((i) => i.instrumentType === type).length;
-    if (LIMITS[type] !== undefined && count >= LIMITS[type]) {
-      showToast(t[wizardLang].attentionSurcharge);
-      return;
-    }
+    if (LIMITS[type] !== undefined && count >= LIMITS[type]) { showToast(t[wizardLang].attentionSurcharge); return; }
     addPlacedInstrument(type, x, y);
     playWizardSpatialHit(type, x, y);
   };
 
   const handlePalettePointerDown = (e: React.PointerEvent<HTMLDivElement>, type: string) => {
     e.preventDefault(); e.stopPropagation();
+    if (type === 'apito') {
+      const next = !useWizardStore.getState().hasApito;
+      useWizardStore.getState().setHasApito(next);
+      if (next) playWizardSpatialHit('apito', 50, 100);
+      return;
+    }
     const cfg = AVAILABLE_INSTRUMENTS.find((i) => i.id === type);
     const label = resolveLabel(type) || cfg?.label || type;
     if (ghostRef.current) {

@@ -108,6 +108,7 @@ export async function fetchCloudDispositions(
           visibility: data.visibility || 'private',
           instruments: Array.isArray(data.instruments) ? data.instruments : [],
           hasToada: Boolean(data.hasToada),
+          hasApito: Boolean(data.hasApito),
           createdAt: data.createdAt || Date.now(),
           updatedAt: data.updatedAt || Date.now()
         });

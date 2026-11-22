@@ -15,6 +15,7 @@ const ROLE_DEFAULT_ANCHOR: Readonly<Record<string, { x: number; y: number }>> = 
   marcante: { x: 36, y: 40 }, meiao: { x: 50, y: 36 }, repique: { x: 64, y: 40 },
   caixa: { x: 42, y: 56 }, tarol: { x: 58, y: 56 }, gongue: { x: 50, y: 76 },
   agbe: { x: 36, y: 70 }, mineiro: { x: 64, y: 70 }, timbal: { x: 44, y: 74 },
+  apito: { x: 50, y: 100 },
 };
 
 export function clampNormalizedPointToCone(rawX: number, rawY: number, boxW = 248, boxH = 184): { x: number; y: number } {
@@ -30,6 +31,9 @@ export function buildSectionPresetLayout(
   preset: SectionStageLayoutPreset, count: number, instrumentId: string,
   existingIds?: readonly string[], existingPlayers?: readonly SectionPlayerPlacement[]
 ): SectionPlayerPlacement[] {
+  if ((instrumentId || '').trim().toLowerCase() === 'apito') {
+    return [{ id: existingIds?.[0] || 'apito_p1', x: 50, y: 100, panVal: 0, detuneCents: 0 }];
+  }
   const n = Math.max(1, Math.min(getMaxSectionPlayers(instrumentId), count));
   const anchor = ROLE_DEFAULT_ANCHOR[instrumentId] || { x: 50, y: 56 };
 
@@ -62,6 +66,7 @@ export function buildSectionPresetLayout(
 export function resizeSectionPlayers(
   current: readonly SectionPlayerPlacement[] | undefined, targetCount: number, instrumentId: string
 ): SectionPlayerPlacement[] | undefined {
+  if ((instrumentId || '').trim().toLowerCase() === 'apito') return undefined;
   const nextCount = Math.max(1, Math.min(getMaxSectionPlayers(instrumentId), targetCount));
   if (nextCount === 1) {
     if (!current || current.length === 0 || isNeutralDefaultSectionPlayers(current)) return undefined;

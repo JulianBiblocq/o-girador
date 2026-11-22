@@ -42,6 +42,7 @@ export interface WizardState {
   };
   placedInstruments: PlacedInstrument[];
   hasToada: boolean;
+  hasApito: boolean;
 
   wizardLang: 'fr' | 'pt';
   alfaiaGroupingMode: 'bloc' | 'distinct';
@@ -70,6 +71,8 @@ export interface WizardState {
   setPlacedInstruments: (instruments: PlacedInstrument[]) => void;
   toggleToada: () => void;
   setHasToada: (hasToada: boolean) => void;
+  toggleApito: () => void;
+  setHasApito: (hasApito: boolean) => void;
 
   toggleWizardLang: () => void;
   setAlfaiaGroupingMode: (mode: 'bloc' | 'distinct') => void;

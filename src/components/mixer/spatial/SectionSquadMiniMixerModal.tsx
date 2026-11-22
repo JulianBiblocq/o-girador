@@ -49,7 +49,7 @@ export const SectionSquadMiniMixerModal: React.FC<{ trackId: number; anchorRect:
     return () => { doc.removeEventListener('mousedown', onDown); doc.removeEventListener('touchstart', onDown); doc.removeEventListener('keydown', onKey, { capture: true }); };
   }, [onClose, currentWindow]);
 
-  if (!track || maxPlayers <= 1) return null;
+  if (!track || instId.toLowerCase() === 'apito' || maxPlayers <= 1) return null;
 
   const handleCountDelta = (delta: number) => {
     const nextN = Math.max(1, Math.min(maxPlayers, count + delta));
