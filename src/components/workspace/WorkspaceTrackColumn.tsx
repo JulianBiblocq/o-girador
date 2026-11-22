@@ -96,7 +96,7 @@ export const WorkspaceTrackColumn: React.FC<WorkspaceTrackColumnProps> = ({
 
       {/* En-tête interne h-[52px] */}
       <div className="h-[52px] min-h-[52px] max-h-[52px] px-2 flex items-center shrink-0 border-b border-[var(--cordel-border)]/40 relative z-50 overflow-visible">
-        <MixerHeader t={t} noBorder={true} className="w-full" />
+        <MixerHeader t={t} noBorder={true} isRodaColumn={true} className="w-full" />
       </div>
 
       {/* Liste des pistes défilante avec gap-[5px] et padding py-1.5 px-2 */}

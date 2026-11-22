@@ -4,11 +4,12 @@
  */
 
 import {
-  MAX_WORKLET_VOICES, VOICE_STATE_FREE, WorkletSampleEntry,
+  MAX_WORKLET_PLAYERS_PER_SLOT, MAX_WORKLET_VOICES, VOICE_STATE_FREE, WorkletSampleEntry,
 } from '../percussionWorkletTypes';
 import { BARULHO_MODE_NONE } from './workletBarulhoSoa';
 import {
   BARULHO_OP_FADEOUT_SLASH, BARULHO_OP_MASK, BARULHO_OP_SHIFT, BARULHO_OP_STOP_DOT,
+  PLAYER_IDX_MASK, PLAYER_IDX_SHIFT,
 } from './workletEventFlags';
 import { WorkletEventQueue } from './workletEventQueue';
 import { computeTimbalLpStageAlpha, renderWorkletVoiceInBlock } from './workletVoiceBlockRenderer';
@@ -23,7 +24,10 @@ export function processWorkletDspBlock(
   samples: (WorkletSampleEntry | undefined)[],
   slotMuted: Uint8Array,
   slotPitchRatio: Float32Array,
-  slotDecayNorm: Float32Array
+  slotDecayNorm: Float32Array,
+  slotPlayerGainL?: Float32Array,
+  slotPlayerGainR?: Float32Array,
+  slotPlayerPitchMul?: Float32Array
 ): void {
   const sr = contextSampleRate > 0 ? contextSampleRate : 48000;
   const firstOut = outputs[0];
@@ -54,10 +58,13 @@ export function processWorkletDspBlock(
     pool.applyEventPhysics(trackId, flags, evtFrame, startInBlock, sr);
     const sampleId = queue.sampleId[sIdx], sample = samples[sampleId];
     if (sample) {
+      const pIdx = (flags >>> PLAYER_IDX_SHIFT) & PLAYER_IDX_MASK;
+      const pBase = slot * MAX_WORKLET_PLAYERS_PER_SLOT + pIdx;
+      const pPitch = slotPlayerPitchMul && pBase < slotPlayerPitchMul.length ? slotPlayerPitchMul[pBase] : 1.0;
       pool.spawnVoice(
         evtFrame, startInBlock, trackId, slot, sampleId, sample,
         queue.velocity[sIdx], queue.strokeBaseGain[sIdx], queue.stepDecayNorm[sIdx],
-        queue.eventPitchNuance[sIdx], slotPitchRatio[slot] || 1.0, slotDecayNorm[slot] || 1.0, sr, flags
+        queue.eventPitchNuance[sIdx], slotPitchRatio[slot] || 1.0, slotDecayNorm[slot] || 1.0, sr, flags, pPitch
       );
     }
   }
@@ -69,6 +76,9 @@ export function processWorkletDspBlock(
     if (!outChannels || !outChannels[0] || !sample || sample.length < 2) {
       pool.voiceState[v] = VOICE_STATE_FREE; bar.mode[v] = BARULHO_MODE_NONE; continue;
     }
-    renderWorkletVoiceInBlock(v, blockFrames, sr, lpAlpha, pool, sample, outChannels, slotMuted, slotPitchRatio);
+    renderWorkletVoiceInBlock(
+      v, blockFrames, sr, lpAlpha, pool, sample, outChannels,
+      slotMuted, slotPitchRatio, slotPlayerGainL, slotPlayerGainR, slotPlayerPitchMul
+    );
   }
 }

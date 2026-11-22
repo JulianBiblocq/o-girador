@@ -1,7 +1,7 @@
 import { instrumentsConfig } from '../../../data';
 import { getEffectiveMuteState, getVisibleTimelineTrackIds, isToadaBus, isToadaChild } from '../../../stores/useSequencerStore';
 import { getInstrumentPrimaryStrongColor } from '../../../utils/colorHelpers';
-import { isSlaveTrack } from '../../../utils/trackMasterResolver';
+import { isSlaveTrack, resolveMasterTrack } from '../../../utils/trackMasterResolver';
 import { resolveTimelineTrackMeasureData } from '../TimelineTrackToadaMirror';
 import { drawTimelineTrackMeasureCell } from './timelineCanvasCellDrawer';
 import { getTimelineCanvasTheme, withHexAlpha } from './timelineCanvasThemeCache';
@@ -29,7 +29,7 @@ export function buildTimelineRowLayouts(params: {
     const isLinkFolder = Boolean(meta.isLinkFolder && !meta.isBusFolder);
     const isLinkMaster = Boolean(meta.isLinkMaster && !meta.isBusFolder && !isToadaCh);
     const parentBusTrackId = isLinkedSlave || isLinkMaster ? tracksMeta.find((p) => String(p.id) === String(meta.linkedToTrackId) && p.isLinkFolder)?.id : undefined;
-    const masterTrackId = isLinkedSlave ? tracksMeta.find((t) => String(t.linkedToTrackId) === String(meta.linkedToTrackId) && t.isLinkMaster)?.id : undefined;
+    const masterTrackId = isLinkedSlave ? resolveMasterTrack(meta.id, tracksMeta as any)?.id : undefined;
     const slaveTrackIds = isLinkFolder ? tracksMeta.filter((t) => String(t.linkedToTrackId) === String(meta.id) && !t.isBusFolder && !t.isLinkMaster).map((t) => t.id) : undefined;
     const isAutomationOpen = expandedAutoIds.includes(trackId);
     const autoHeight = isAutomationOpen ? (autoHeightsMap?.[trackId] ?? AUTO_LANE_EXPANDED_HEIGHT) : 0;
@@ -94,7 +94,7 @@ export function renderTimelineTracksCanvas(params: TimelineCanvasRenderParams): 
       const isMulti = params.selectedTimelineCells.some((c) => c.trackId === effTrackId && c.mIdx === mIdx);
       const isActive = params.selectedTimelineCells.length === 0 && params.activeTimelineCell?.trackId === effTrackId && params.activeTimelineCell?.measureIdx === mIdx;
       const curInst = row.isLinkedSlave ? trackInst : (m.currentInst || trackInst);
-      const hasChildOverrides = Boolean(trackMeta.isLinkFolder && tracksMeta.some((c) => String(c.linkedToTrackId) === String(trackMeta.id) && !c.isLinkFolder && c.patternOverrides?.[mIdx] !== undefined));
+      const hasChildOverrides = false;
 
       drawTimelineTrackMeasureCell({
         ctx, cellX, cellY: drawY, cellW, cellH: row.height, mIdx, trackId: effTrackId,

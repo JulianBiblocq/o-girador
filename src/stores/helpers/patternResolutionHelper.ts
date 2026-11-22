@@ -59,11 +59,14 @@ export const handlePatternBeatResolutionChangeState = (
   selectedPatternId: number | null,
   selectedStepIdx: number | null
 ): { tracks: TrackGroup[]; selectedStepIdx: number | null } => {
+  let ownerTrackId: number | null = null;
   let targetPatternSteps: number | null = null;
-  const updatedTracks = tracks.map(t => ({
+  let updatedTracks = tracks.map(t => ({
     ...t,
     patterns: t.patterns.map(p => {
       if (p.id === patternId) {
+        if (ownerTrackId === null && t.isLinkMaster) ownerTrackId = t.id;
+        else if (ownerTrackId === null) ownerTrackId = t.id;
         const { updatedPattern, targetSteps } = resizePatternBeatResolution(p, beatIndex, newResolution, timeSig);
         targetPatternSteps = targetSteps;
         return updatedPattern as Pattern;
@@ -71,6 +74,7 @@ export const handlePatternBeatResolutionChangeState = (
       return p;
     })
   }));
+  if (ownerTrackId !== null) updatedTracks = syncMasterPatternsToLinkedFamily(updatedTracks, ownerTrackId).tracks;
 
   const nextSelectedStep = (selectedPatternId === patternId && targetPatternSteps !== null)
     ? clampStepIndex(selectedStepIdx, targetPatternSteps)
@@ -87,11 +91,14 @@ export const handleSetPatternAllBeatsResolutionState = (
   selectedPatternId: number | null,
   selectedStepIdx: number | null
 ): { tracks: TrackGroup[]; selectedStepIdx: number | null } => {
+  let ownerTrackId: number | null = null;
   let targetPatternSteps: number | null = null;
-  const updatedTracks = tracks.map(t => ({
+  let updatedTracks = tracks.map(t => ({
     ...t,
     patterns: t.patterns.map(p => {
       if (p.id === patternId) {
+        if (ownerTrackId === null && t.isLinkMaster) ownerTrackId = t.id;
+        else if (ownerTrackId === null) ownerTrackId = t.id;
         const { updatedPattern, targetSteps } = resizePatternAllBeatsResolution(p, newResolution, timeSig);
         targetPatternSteps = targetSteps;
         return updatedPattern as Pattern;
@@ -99,6 +106,7 @@ export const handleSetPatternAllBeatsResolutionState = (
       return p;
     })
   }));
+  if (ownerTrackId !== null) updatedTracks = syncMasterPatternsToLinkedFamily(updatedTracks, ownerTrackId).tracks;
 
   const nextSelectedStep = (selectedPatternId === patternId && targetPatternSteps !== null)
     ? clampStepIndex(selectedStepIdx, targetPatternSteps)

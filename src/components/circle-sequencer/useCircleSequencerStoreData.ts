@@ -8,6 +8,7 @@ export function useCircleSequencerStoreData(isActive: boolean) {
   const songSections = useSequencerStore(s => s.songSections);
   const songMarkers = useSequencerStore(s => s.songMarkers);
   const rodaTrackOrder = useSequencerStore(s => s.rodaTrackOrder);
+  const showLinkedTracksOnRoda = useSequencerStore(s => s.showLinkedTracksOnRoda);
   const isLoopRegionActive = useSequencerStore(s => s.isLoopRegionActive);
   const loopStartMeasure = useSequencerStore(s => s.loopStartMeasure);
   const loopEndMeasure = useSequencerStore(s => s.loopEndMeasure);
@@ -28,6 +29,7 @@ export function useCircleSequencerStoreData(isActive: boolean) {
     songSections,
     songMarkers,
     rodaTrackOrder,
+    showLinkedTracksOnRoda,
     isLoopRegionActive,
     loopStartMeasure,
     loopEndMeasure,

@@ -74,10 +74,16 @@ export function useAudioSyncSubscriptions({
           });
         }
       }
+      const squadCountChanged = state.tracks !== prev.tracks && state.tracks.some((t, idx) => {
+        const prevT = prev.tracks[idx]?.id === t.id ? prev.tracks[idx] : prev.tracks.find((x) => x.id === t.id);
+        return (t.sectionPlayers?.length ?? 0) !== (prevT?.sectionPlayers?.length ?? 0);
+      });
       if (
         state.bpm !== prev.bpm ||
         state.measureBpms !== prev.measureBpms ||
-        state.measureBpmTransitions !== prev.measureBpmTransitions
+        state.measureBpmTransitions !== prev.measureBpmTransitions ||
+        state.isEcoMode !== prev.isEcoMode ||
+        squadCountChanged
       ) {
         rebuildWorkletHorizonFromNow('bpm');
       }

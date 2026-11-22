@@ -1,4 +1,5 @@
 import { TrackGroup } from '../../types';
+import { syncPatternAcrossLinkedFamily } from './patternStepLinkedTracksSync';
 
 export const handleTimelinePatternVariationToggleState = (
   tracks: TrackGroup[],
@@ -8,22 +9,17 @@ export const handleTimelinePatternVariationToggleState = (
   measureIdx: number,
   val: boolean
 ): TrackGroup[] => {
-  const ownerTrack = tracks.find(t => t.patterns.some(p => p.id === patternId));
+  const clicked = tracks.find((t) => t.id === trackId);
+  const ownerTrack =
+    clicked && clicked.patterns.some((p) => p.id === patternId)
+      ? clicked
+      : tracks.find((t) => t.isLinkMaster && t.patterns.some((p) => p.id === patternId)) ||
+        tracks.find((t) => t.patterns.some((p) => p.id === patternId));
   const targetTrackId = ownerTrack ? ownerTrack.id : trackId;
-  return tracks.map(t => {
-    if (t.id === targetTrackId) {
-      return {
-        ...t,
-        patterns: t.patterns.map(p => {
-          if (p.id === patternId) {
-            const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(totalMeasures).fill(true);
-            currentAllow[measureIdx] = val;
-            return { ...p, measureAllowVariations: currentAllow };
-          }
-          return p;
-        })
-      };
-    }
-    return t;
+
+  return syncPatternAcrossLinkedFamily(tracks, targetTrackId, patternId, (p) => {
+    const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(totalMeasures).fill(true);
+    currentAllow[measureIdx] = val;
+    return { ...p, measureAllowVariations: currentAllow };
   });
 };

@@ -56,13 +56,13 @@ export function buildDefaultBatuqueTracks(mode: StudioMasterAmbianceId): Workspa
     },
     {
       id: 1792863601167, instrumentIdx: 3, customName: 'Caixa', isBusFolder: false, isLinkFolder: false, isLinkMaster: true,
-      busId: '1792863601166', linkedToTrackId: '1792863601166', volumeVal: 66, pan: isStage ? -85 : -65, panVal: isStage ? -85 : -65,
+      busId: '1792863601166', linkedToTrackId: '1792863601166', volumeVal: 66, pan: isStage ? -85 : -65, panVal: isStage ? -85 : -65, tuning: DEFAULT_SIGNATURE_TUNINGS.caixa,
       eqBands: { low: { f: 180, g: 6 }, mid: { f: 900, g: -2, q: 'wide' }, high: { f: 10500, g: 3 } },
       lowCut: true, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },
     {
       id: 1792863601168, instrumentIdx: 4, customName: 'Tarol', isBusFolder: false, isLinkFolder: false, isLinkMaster: false,
-      busId: '1792863601166', linkedToTrackId: '1792863601166', volumeVal: 70, pan: isStage ? 85 : 65, panVal: isStage ? 85 : 65,
+      busId: '1792863601166', linkedToTrackId: '1792863601166', volumeVal: 70, pan: isStage ? 85 : 65, panVal: isStage ? 85 : 65, tuning: DEFAULT_SIGNATURE_TUNINGS.tarol,
       eqBands: { low: { f: 200, g: -3 }, mid: { f: 1200, g: -2, q: 'wide' }, high: { f: 9200, g: 4 } },
       lowCut: true, reverbVal: 0, fxSends: { reverb: 0, distortion: 0 },
     },

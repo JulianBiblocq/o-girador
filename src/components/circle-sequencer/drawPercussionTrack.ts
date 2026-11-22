@@ -133,9 +133,11 @@ export const drawPercussionTrack = (
 
   if (!isEco && stepAngles.length > 0) {
     const x0 = centerX + Math.cos(stepAngles[0]) * tRad, y0 = centerY + Math.sin(stepAngles[0]) * tRad;
+    const nPlayers = track.sectionPlayers?.length ?? 0;
+    const ringLabel = `${track.customName || currentInst.name}${nPlayers > 1 ? ` ×${nPlayers}` : ''}`;
     ctx.save();
     ctx.globalAlpha = 1.0; ctx.fillStyle = themeText; ctx.font = 'bold 10px serif'; ctx.textAlign = 'left';
-    ctx.fillText(track.customName || currentInst.name, x0 + 20, y0 + 3);
+    ctx.fillText(ringLabel, x0 + 20, y0 + 3);
     ctx.restore();
   }
 };

@@ -66,7 +66,7 @@ export const GuidePanoramaView: React.FC<GuidePanoramaViewProps> = ({
             Sequenciador ↔ Cloud SSOT
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${PANORAMA_ECOSYSTEM.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-3`}>
           {PANORAMA_ECOSYSTEM.map((app) => (
             <div key={app.appName} className="p-3 bg-[var(--cordel-bg)] border border-[var(--cordel-border-strong)] flex flex-col gap-1.5">
               <div className="font-cactus font-bold text-xs uppercase text-[var(--cordel-accent-readable)]">

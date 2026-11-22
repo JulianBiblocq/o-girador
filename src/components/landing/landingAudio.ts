@@ -37,8 +37,8 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     id: 'caixa', name: 'Caixa', Icon: CaixaCordelIcon,
     strokes: [
       { symbol: 'D', labelFr: 'Coup fort', labelPt: 'Toque forte', file: '/Mixdown/Caixa studio F D 1.ogg' },
-      { symbol: 'F', labelFr: 'Fla', labelPt: 'Fla', file: '/Mixdown/Caixa studio Fla D 1.ogg' },
-      { symbol: 'R', labelFr: 'Roulement', labelPt: 'Rufada', file: '/Mixdown/Caixa studio R D 1.ogg' },
+      { symbol: 'F', labelFr: 'Fla', labelPt: 'Fla', file: '/Mixdown/Caixa studio F 1.ogg' },
+      { symbol: 'R', labelFr: 'Roulement', labelPt: 'Rufada', file: '/Mixdown/Caixa studio R 1.ogg' },
     ],
   },
   {

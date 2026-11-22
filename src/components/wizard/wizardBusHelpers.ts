@@ -17,8 +17,8 @@ export function linkSameRoleDuplicates(tracks: TrackGroup[], roleId: string): vo
   sameRole.slice(1).forEach((slave) => {
     slave.isLinkMaster = false;
     slave.linkedToTrackId = String(master.id);
-    slave.isHidden = true;
-    slave.patternOverrides = {};
+    slave.isHidden = false;
+    slave.patternOverrides = undefined;
   });
 }
 
@@ -60,8 +60,8 @@ export function buildCaixasGroup(caixasTracks: TrackGroup[], lang: Language): Tr
         busId: String(busId),
         linkedToTrackId: String(busId),
         isLinkMaster: isMaster,
-        isHidden: !isMaster,
-        patternOverrides: isMaster ? tr.patternOverrides : {},
+        isHidden: false,
+        patternOverrides: undefined,
       };
     });
 

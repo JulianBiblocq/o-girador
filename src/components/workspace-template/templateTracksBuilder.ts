@@ -21,6 +21,7 @@ export function buildTemplateTracks(tracks: TrackGroup[], options: WorkspaceTemp
       item.volumeVal = t.volumeVal;
       item.pan = t.pan;
       item.panVal = t.panVal;
+      if (t.sectionPlayers?.length) item.sectionPlayers = JSON.parse(JSON.stringify(t.sectionPlayers));
     }
 
     if (options.includeEQ) {

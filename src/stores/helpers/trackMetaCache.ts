@@ -35,11 +35,12 @@ export const getCachedTrackMeta = (
   isFolded: boolean | undefined,
   patternOverrides?: Record<number, number | null>,
   automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean },
-  isSequencerFolded?: boolean
+  isSequencerFolded?: boolean,
+  sectionCount = 0
 ): TrackMeta => {
   const overridesKey = patternOverrides ? Object.entries(patternOverrides).map(([k, v]) => `${k}:${v}`).join(',') : '';
   const bypassKey = automationBypass ? `${!!automationBypass.volume}_${!!automationBypass.pan}_${!!automationBypass.reverb}` : '';
-  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isHidden}_${!!isFolded}_${!!isSequencerFolded}_${overridesKey}_${bypassKey}`;
+  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isHidden}_${!!isFolded}_${!!isSequencerFolded}_${overridesKey}_${bypassKey}_sp${sectionCount}`;
   let item = trackMetaCache.get(key);
   if (!item) {
     item = {
@@ -93,7 +94,8 @@ export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] =
       t.isFolded,
       t.patternOverrides,
       t.automationBypass,
-      t.isSequencerFolded
+      t.isSequencerFolded,
+      t.sectionPlayers?.length ?? 0
     );
     nextMetaList.push(meta);
     if (!hasChanged && prevMetaList[i] !== meta) {

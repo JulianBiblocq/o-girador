@@ -1,8 +1,9 @@
-import { useRef, useCallback, useEffect, useState } from 'react';
+import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useLiveMeasure } from '../../hooks/useLiveMeasure';
 import { useDawVisibleTracks } from '../daw/useDawVisibleTracks';
 import { useDawPlayhead } from '../daw/useDawPlayhead';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
 import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
 const getBeatsFromTimeSig = (sig: string): number => {
@@ -22,7 +23,12 @@ export function useWorkspacePistasProps(isActive: boolean) {
   const activeTimeSig = (measureTimeSigs && measureTimeSigs[currentMeasure]) || timeSig;
   const defaultBeats = getBeatsFromTimeSig(activeTimeSig);
 
-  const { visibleTracks } = useDawVisibleTracks();
+  const showLinkedTracksOnRoda = useSequencerStore((state) => state.showLinkedTracksOnRoda);
+  const { visibleTracks: allDawTracks, tracks: rawAllTracks } = useDawVisibleTracks();
+  const visibleTracks = useMemo(
+    () => (showLinkedTracksOnRoda ? allDawTracks : allDawTracks.filter((t) => !isSlaveTrack(t, rawAllTracks))),
+    [allDawTracks, rawAllTracks, showLinkedTracksOnRoda]
+  );
   const visibleTrackIds = visibleTracks.map((t) => t.id).join('-');
   const { registerStepRef, trackResolutionsRef } = useDawPlayhead(isActive, visibleTrackIds);
 

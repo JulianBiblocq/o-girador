@@ -45,6 +45,7 @@ export interface CircleSequencerProps {
   secondaryFocusTrackId?: number | null;
   referenceTrackId?: number | null;
   isLetraActive?: boolean;
+  showLinkedTracksOnRoda?: boolean;
 }
 
 export interface SyllableItem {

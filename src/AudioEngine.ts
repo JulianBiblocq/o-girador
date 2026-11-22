@@ -66,7 +66,7 @@ export class AudioEngine implements HorizonEngineLike {
       }
     };
     void this.workletManager.init(audioContext, this.configMap, initTracks, this.sampleLoader.bufferPool).then((ok) => { if (ok && this.clock?.isPlaying) rebuildWorkletHorizonFromNow('sample'); });
-    this.unsubscribeTracks = useSequencerStore.subscribe((s) => { this.updateTrackLookupMap(s.tracks); this.workletManager.syncTracks(s.tracks); });
+    this.unsubscribeTracks = useSequencerStore.subscribe((s, prev) => { if (s.tracks !== prev.tracks || s.isEcoMode !== prev.isEcoMode) { this.updateTrackLookupMap(s.tracks); this.workletManager.syncTracks(s.tracks); } });
     this.barulho.init(audioContext, this.channels, this.voiceGuard, this.activeGainNodes);
     this.voiceSynthManager.initVoiceSynth(undefined, this.channels.instrumentChannels);
     this.clock = new EngineSchedulerClock(audioContext, { onTick, getTickDuration, getTicksPerMeasure, purgeScheduledHits: () => this.purgeScheduledHits() });
@@ -99,8 +99,8 @@ export class AudioEngine implements HorizonEngineLike {
   public getTrackSlot(trackId: number | string): number { return this.workletManager.slotRouter.getTrackSlot(trackId); }
   public getTrackUnisonDelaySec(trackId: number | string): number { return this.workletManager.trackSync.getTrackUnisonDelaySec(trackId); }
   public getTrackBalancoAdherence(trackId: number | string): number { return this.workletManager.trackSync.getTrackBalancoAdherence(trackId); }
-  public getTrackPitchRatio(trackId: number | string): number { return this.workletManager.trackSync.getTrackPitchRatio(trackId); }
-  public selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string { return this.roundRobin.selectFile(instId, stroke, timeSec, trackId); }
+  public getTrackPitchRatio(trackId: number | string): number { return this.workletManager.trackSync.getTrackPitchRatio(trackId); } public getTrackSpatialProfile(trackId: number | string) { return this.workletManager.trackSync.getTrackSpatialProfile(trackId); }
+  public selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string { return this.roundRobin.selectFile(instId, stroke, timeSec, trackId); } public selectRoundRobinFileIndex(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): number { return this.roundRobin.selectFileIndex(instId, stroke, timeSec, trackId); }
   public getSampleId(filePath: string, isLoop = false): number { return this.workletManager.sampleBridge.getSampleId(filePath, isLoop); }
   public pushWorkletEvents(eventsData: Float64Array, eventCount: number): void { this.workletManager.pushPackedEvents(eventsData, eventCount); }
   public purgeWorkletFromFrame(fromFrame: number, measureSeqId?: number): void { this.workletManager.purgeFromFrame(fromFrame, measureSeqId); }

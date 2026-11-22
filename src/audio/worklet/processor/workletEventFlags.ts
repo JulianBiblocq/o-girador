@@ -21,8 +21,11 @@ export const BARULHO_OP_STOP_DOT = 4;
 export const BARULHO_OP_SHIFT = 11;
 export const BARULHO_OP_MASK = 0x7;
 
-export const WORKLET_SEQ_SHIFT = 14;
-export const WORKLET_SEQ_MASK = 0x3FFFF;
+export const PLAYER_IDX_SHIFT = 14;
+export const PLAYER_IDX_MASK = 0x7;
+
+export const WORKLET_SEQ_SHIFT = 17;
+export const WORKLET_SEQ_MASK = 0x7FFF;
 
 export function computeBarulhoSoftEntryFrame(
   trackId: number,
@@ -59,13 +62,15 @@ export function packWorkletEventFlags(
   voiceClass: number,
   isStudioCalibrated: boolean,
   isAbafadoFallback80ms: boolean,
-  barulhoOp = BARULHO_OP_NONE
+  barulhoOp = BARULHO_OP_NONE,
+  playerIdx = 0
 ): number {
   const low =
     (chokeMode & CHOKE_MODE_MASK) |
     ((voiceClass & VOICE_CLASS_MASK) << VOICE_CLASS_SHIFT) |
     (isStudioCalibrated ? FLAG_STUDIO_CALIBRATED : 0) |
     (isAbafadoFallback80ms ? FLAG_ABAFADO_FALLBACK_80MS : 0) |
-    ((barulhoOp & BARULHO_OP_MASK) << BARULHO_OP_SHIFT);
+    ((barulhoOp & BARULHO_OP_MASK) << BARULHO_OP_SHIFT) |
+    ((playerIdx & PLAYER_IDX_MASK) << PLAYER_IDX_SHIFT);
   return (((seqId & WORKLET_SEQ_MASK) << WORKLET_SEQ_SHIFT) | low) >>> 0;
 }

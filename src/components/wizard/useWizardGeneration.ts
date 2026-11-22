@@ -5,13 +5,12 @@ import { useTransportStore } from '../../stores/useTransportStore';
 import { useNomenclatureStore } from '../../stores/useNomenclatureStore';
 import { instrumentsConfig } from '../../data';
 import { TrackGroup, Language, RhythmSignal } from '../../types';
-import { getDefaultSignatureTuning } from '../../utils/audio/lutherieFactoryPresets';
 import { notifyToast } from '../../utils/toastHelper';
 import { audioEngine } from '../../hooks/useAudioSync';
-import { computeWizardSpatialMix } from './wizardSpatialMixMath';
-import { allocWizardId, buildWizardInstrumentPatterns, buildWizardStructurePlan } from './wizardPatternBuilder';
-import { buildCaixasGroup, buildSementesGroup, createToadaBusAndTracks, linkSameRoleDuplicates } from './wizardBusHelpers';
+import { buildWizardInstrumentPatterns, buildWizardStructurePlan } from './wizardPatternBuilder';
+import { buildCaixasGroup, buildSementesGroup, createToadaBusAndTracks } from './wizardBusHelpers';
 import { buildAlfaiasGroup } from './wizardAlfaiasBus';
+import { consolidateWizardPlacedTracks } from './wizardTrackConsolidator';
 import { getDefaultWizardSigns } from './WizardStep2Signs';
 import { stopAllWizardSpatialNodes } from './audio/wizardSpatialPreview';
 import { t } from './wizardConstants';
@@ -64,47 +63,30 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
       swingIntensity: 100,
     });
 
-    const roleTotals: Record<string, number> = {};
-    st.placedInstruments.forEach((i) => { roleTotals[i.instrumentType] = (roleTotals[i.instrumentType] || 0) + 1; });
-    const roleSeen: Record<string, number> = {};
-    const rawTracks: TrackGroup[] = [];
-
-    st.placedInstruments.forEach((inst) => {
-      const instIdx = instrumentsConfig.findIndex((c) => c.id === inst.instrumentType);
-      if (instIdx === -1) return;
-      roleSeen[inst.instrumentType] = (roleSeen[inst.instrumentType] || 0) + 1;
-      const baseLabel = useNomenclatureStore.getState().getInstrumentLabel(inst.instrumentType);
-      const customName = roleTotals[inst.instrumentType] > 1 ? `${baseLabel} ${roleSeen[inst.instrumentType]}` : baseLabel;
-      const mix = computeWizardSpatialMix(inst.x, inst.y, inst.instrumentType);
-      const famInt = resolveFamilySwing(inst.instrumentType, st.swingIntensities);
-      const patterns = buildWizardInstrumentPatterns(
-        inst.instrumentType, plan, st.structurePreset, st.selectedBasePatternId, st.alfaiaGroupingMode, st.selectedCloudSectionData, wizardLang
-      );
-
-      rawTracks.push({
-        id: allocWizardId(), instrumentIdx: instIdx, customName, patterns,
-        isMute: false, isSolo: false, isHidden: false, volumeVal: mix.faderPos, selectedPatternId: patterns[0]?.id || 0,
-        reverbVal: mix.reverbSend, panVal: mix.panPct, pan: mix.panPct, swingIntensity: famInt, balancoAmount: famInt,
-        balancoPresetId: st.selectedBalancoId, tuning: st.instrumentTunings[inst.instrumentType] ?? getDefaultSignatureTuning(inst.instrumentType),
-        trackDecay: st.instrumentDecays[inst.instrumentType] ?? 100, fxSends: { reverb: mix.reverbSend, distortion: 0 },
-      });
-      if (audioEngine) audioEngine.loadInstrumentSamples(inst.instrumentType).catch(() => {});
+    const rawTracks = consolidateWizardPlacedTracks({
+      placedInstruments: st.placedInstruments,
+      resolveLabel: (instType) => useNomenclatureStore.getState().getInstrumentLabel(instType),
+      resolveSwing: (instType) => resolveFamilySwing(instType, st.swingIntensities),
+      buildPatterns: (instType) => buildWizardInstrumentPatterns(
+        instType, plan, st.structurePreset, st.selectedBasePatternId, st.alfaiaGroupingMode, st.selectedCloudSectionData, wizardLang
+      ),
+      selectedBalancoId: st.selectedBalancoId,
+      instrumentTunings: st.instrumentTunings,
+      instrumentDecays: st.instrumentDecays,
+      onLoadSample: (instType) => { if (audioEngine) audioEngine.loadInstrumentSamples(instType).catch(() => {}); },
     });
 
     const byRoles = (ids: string[]) => rawTracks.filter((tr) => ids.includes(instrumentsConfig[tr.instrumentIdx]?.id));
-    const timbalTracks = byRoles(['timbal']);
-    linkSameRoleDuplicates(timbalTracks, 'timbal');
-
     const orderedTracks: TrackGroup[] = [
       ...buildAlfaiasGroup(byRoles(['marcante', 'meiao', 'repique']), st.alfaiaGroupingMode, wizardLang),
       ...byRoles(['gongue']),
       ...buildCaixasGroup(byRoles(['caixa', 'tarol']), wizardLang),
       ...buildSementesGroup(byRoles(['agbe', 'mineiro'])),
-      ...timbalTracks,
+      ...byRoles(['timbal', 'apito']),
       ...(st.hasToada ? createToadaBusAndTracks(wizardLang, plan.totalMeasures, plan.stepsPerMeasure) : []),
     ];
 
-    const rodaOrder = orderedTracks.filter((tr) => isSequencerVisibleTrack(tr, orderedTracks) && !tr.isHidden).map((tr) => tr.id);
+    const rodaOrder = orderedTracks.filter((tr) => isSequencerVisibleTrack(tr, orderedTracks)).map((tr) => tr.id);
     const seq = useSequencerStore.getState();
     const cloudSigs = st.structurePreset === 'cloud_section' && st.selectedCloudSectionData?.signals?.length
       ? Array.from({ length: plan.totalMeasures }, (_, m) => st.selectedCloudSectionData!.signals[m] ?? null)
@@ -119,6 +101,7 @@ export function useWizardGeneration(wizardLang: Language, customSignalsMap: Reco
     seq.setMeasureVols(st.selectedCloudSectionData?.vols?.slice(0, plan.totalMeasures) || Array(plan.totalMeasures).fill(100));
     seq.setMeasureSignals(cloudSigs);
     seq.setSongSections(plan.songSections);
+    seq.setShowLinkedTracksOnRoda(false);
     seq.setTracks(orderedTracks);
     seq.setRodaTrackOrder(rodaOrder);
     if (typeof sequencer?.setMasterVol === 'function') sequencer.setMasterVol(0);

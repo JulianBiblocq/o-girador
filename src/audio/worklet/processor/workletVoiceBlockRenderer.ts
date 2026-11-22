@@ -1,9 +1,9 @@
 /**
- * workletVoiceBlockRenderer.ts — Rendu SOA Zéro-GC d'une voix sur un bloc AudioWorklet (< 120 lignes).
- * - Interpolation linéaire, boucle Barulho/Apito L sans couture, enveloppe progressive, ducking et Low-Pass Choke `< 160 Hz` Timbal.
+ * workletVoiceBlockRenderer.ts — Rendu SOA Zéro-GC d'une voix sur un bloc AudioWorklet (< 130 lignes).
+ * - Interpolation linéaire, panoramique stéréo/distance par joueur (`slotPlayerGainL/R`), micro-detune, Barulho sans couture & LP Choke Timbal.
  */
 import {
-  VOICE_STATE_ACTIVE, VOICE_STATE_CHOKING, VOICE_STATE_FREE, WorkletSampleEntry,
+  MAX_WORKLET_PLAYERS_PER_SLOT, VOICE_STATE_ACTIVE, VOICE_STATE_CHOKING, VOICE_STATE_FREE, WorkletSampleEntry,
 } from '../percussionWorkletTypes';
 import { BARULHO_MODE_NONE } from './workletBarulhoSoa';
 import { TIMBAL_LP_STAGE_HZ } from './workletEventFlags';
@@ -18,7 +18,10 @@ export function renderWorkletVoiceInBlock(
   sample: WorkletSampleEntry,
   outChannels: Float32Array[],
   slotMuted: Uint8Array,
-  slotPitchRatio: Float32Array
+  slotPitchRatio: Float32Array,
+  slotPlayerGainL?: Float32Array,
+  slotPlayerGainR?: Float32Array,
+  slotPlayerPitchMul?: Float32Array
 ): void {
   const phys = pool.skinPhysics, bar = pool.barulho;
   const slot = pool.voiceSlot[v];
@@ -31,7 +34,11 @@ export function renderWorkletVoiceInBlock(
 
   const outL = outChannels[0], outR = outChannels[1] || outL;
   const ch0 = sample.ch0, ch1 = sample.ch1, maxSampleIdx = sample.length - 1;
-  const pitchStep = pool.voiceSampleRateRatio[v] * pool.voiceEventPitchNuance[v] * (slotPitchRatio[slot] > 0 ? slotPitchRatio[slot] : 1.0);
+  const pBase = slot * MAX_WORKLET_PLAYERS_PER_SLOT + pool.voicePlayerIdx[v];
+  const pGainL = slotPlayerGainL && pBase < slotPlayerGainL.length ? slotPlayerGainL[pBase] : 1.0;
+  const pGainR = slotPlayerGainR && pBase < slotPlayerGainR.length ? slotPlayerGainR[pBase] : 1.0;
+  const pPitch = slotPlayerPitchMul && pBase < slotPlayerPitchMul.length && slotPlayerPitchMul[pBase] > 0 ? slotPlayerPitchMul[pBase] : 1.0;
+  const pitchStep = pool.voiceSampleRateRatio[v] * pool.voiceEventPitchNuance[v] * (slotPitchRatio[slot] > 0 ? slotPitchRatio[slot] : 1.0) * pPitch;
   const startFrame = pool.voiceStartInBlock[v]; pool.voiceStartInBlock[v] = 0;
 
   let readPos = pool.voiceReadPos[v], gain = pool.voiceCurrentGain[v], elapsed = pool.voiceElapsedFrames[v];
@@ -93,7 +100,7 @@ export function renderWorkletVoiceInBlock(
         s0 += lpMix * (lpL2 - s0);
       }
     }
-    outL[i] += s0 * effGain;
+    outL[i] += s0 * effGain * pGainL;
 
     if (ch1 !== null) {
       let s1 = ch1[idx] + frac * (ch1[idx + 1] - ch1[idx]);
@@ -101,9 +108,9 @@ export function renderWorkletVoiceInBlock(
         lpR1 += lpAlpha * (s1 - lpR1); lpR2 += lpAlpha * (lpR1 - lpR2);
         if (i >= lpStart) s1 += lpMix * (lpR2 - s1);
       }
-      outR[i] += s1 * effGain;
+      outR[i] += s1 * effGain * pGainR;
     } else if (outR !== outL) {
-      outR[i] += s0 * effGain;
+      outR[i] += s0 * effGain * pGainR;
     }
 
     readPos += pitchStep; elapsed++;

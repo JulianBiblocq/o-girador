@@ -1,27 +1,18 @@
 /**
  * workletBarulhoSoa.ts — Machine à états SOA Zéro-GC pour Barulho continu (`B` / `b` / `/` / `.`) (< 135 lignes).
- * - `B` : appel franc `0.00 s` + boucle infinie cos/sin 110 ms ; legato si reboucle sur le même `(measureIdx, stepIdx)`,
- *         étouffement 20 ms + nouvel appel franc si 2e `B` sur un pas ou une mesure distincte.
- * - `b` : entrée à froid dans `[bodyStart, bodyEnd]` avec offset de phase déterministe par `trackId` + Fade-In, ou legato.
- * - `/` : Fade-Out étiré vers `.` / frappe (ou 450 ms repli). `.` : extinction 35 ms anti-clic.
+ * - Isolé par `(trackId, playerIdx)` avec décorrélation de phase stationnaire `~350 ms` + fondu 28 ms pour `playerIdx >= 1`.
  */
-
 import { MAX_WORKLET_VOICES, VOICE_STATE_ACTIVE, VOICE_STATE_CHOKING, WorkletSampleEntry } from '../percussionWorkletTypes';
-import {
-  BARULHO_OP_ATTACK_B, BARULHO_OP_FADEOUT_SLASH, BARULHO_OP_STOP_DOT, computeBarulhoSoftEntryFrame,
-} from './workletEventFlags';
+import { BARULHO_PARTNER_ATTACK_RAMP_SEC, computeBarulhoDecorrelatedReadFrame } from '../../spatial/sectionBarulhoPhaseHelper';
+import { BARULHO_OP_ATTACK_B, BARULHO_OP_FADEOUT_SLASH, BARULHO_OP_STOP_DOT, computeBarulhoSoftEntryFrame } from './workletEventFlags';
 
 export const BARULHO_MODE_NONE = 0;
 export const BARULHO_MODE_ROLLING = 1;
 export const BARULHO_MODE_FADING_OUT = 2;
 
 export interface BarulhoSpawnPrep {
-  handledLegato: boolean;
-  initialReadPos: number;
-  initialGain: number;
-  rampFrames: number;
-  targetGain: number;
-  originCoord: number;
+  handledLegato: boolean; initialReadPos: number; initialGain: number;
+  rampFrames: number; targetGain: number; originCoord: number;
 }
 
 export class WorkletBarulhoSoa {
@@ -54,10 +45,12 @@ export class WorkletBarulhoSoa {
     this.rampDeltaPending[v] = 1; this.autoFreeAfterRamp[v] = autoFree;
   }
 
-  public findActiveVoice(trackId: number, voiceState: Uint8Array, voiceTrackId: Int32Array): number {
+  public findActiveVoice(trackId: number, playerIdx: number, voiceState: Uint8Array, voiceTrackId: Int32Array, voicePlayerIdx?: Uint8Array): number {
     if (trackId < 0) return -1;
     for (let v = 0; v < MAX_WORKLET_VOICES; v++) {
-      if (voiceState[v] === VOICE_STATE_ACTIVE && voiceTrackId[v] === trackId && this.mode[v] !== BARULHO_MODE_NONE) return v;
+      if (voiceState[v] !== VOICE_STATE_ACTIVE || voiceTrackId[v] !== trackId || this.mode[v] === BARULHO_MODE_NONE) continue;
+      if (voicePlayerIdx && voicePlayerIdx[v] !== playerIdx) continue;
+      return v;
     }
     return -1;
   }
@@ -66,27 +59,31 @@ export class WorkletBarulhoSoa {
     barulhoOp: number, trackId: number, startInBlock: number, metaRampSec: number, sr: number,
     voiceState: Uint8Array, voiceTrackId: Int32Array, voiceCurrentGain: Float32Array
   ): void {
-    const v = this.findActiveVoice(trackId, voiceState, voiceTrackId);
-    if (v < 0) return;
-    if (barulhoOp === BARULHO_OP_FADEOUT_SLASH) {
-      const sec = metaRampSec > 0.005 ? metaRampSec : 0.450;
-      this.mode[v] = BARULHO_MODE_FADING_OUT; this.originCoord[v] = 0;
-      this.scheduleRamp(v, startInBlock, Math.round(sec * sr), 0, 1);
-    } else if (barulhoOp === BARULHO_OP_STOP_DOT) {
-      const alreadySilent = this.mode[v] === BARULHO_MODE_FADING_OUT && voiceCurrentGain[v] <= 0.001;
-      const sec = alreadySilent ? 0.002 : (metaRampSec > 0.005 ? metaRampSec : 0.035);
-      this.mode[v] = BARULHO_MODE_FADING_OUT; this.originCoord[v] = 0;
-      this.scheduleRamp(v, startInBlock, Math.round(sec * sr), 0, 1);
+    if (trackId < 0) return;
+    for (let v = 0; v < MAX_WORKLET_VOICES; v++) {
+      if (voiceState[v] !== VOICE_STATE_ACTIVE || voiceTrackId[v] !== trackId || this.mode[v] === BARULHO_MODE_NONE) continue;
+      if (barulhoOp === BARULHO_OP_FADEOUT_SLASH) {
+        const sec = metaRampSec > 0.005 ? metaRampSec : 0.450;
+        this.mode[v] = BARULHO_MODE_FADING_OUT; this.originCoord[v] = 0;
+        this.scheduleRamp(v, startInBlock, Math.round(sec * sr), 0, 1);
+      } else if (barulhoOp === BARULHO_OP_STOP_DOT) {
+        const alreadySilent = this.mode[v] === BARULHO_MODE_FADING_OUT && voiceCurrentGain[v] <= 0.001;
+        const sec = alreadySilent ? 0.002 : (metaRampSec > 0.005 ? metaRampSec : 0.035);
+        this.mode[v] = BARULHO_MODE_FADING_OUT; this.originCoord[v] = 0;
+        this.scheduleRamp(v, startInBlock, Math.round(sec * sr), 0, 1);
+      }
     }
   }
 
   public prepareSpawnOrLegato(
-    barulhoOp: number, seqId: number, trackId: number, startInBlock: number, peakGain: number,
+    barulhoOp: number, seqId: number, trackId: number, playerIdx: number, startInBlock: number, peakGain: number,
     metaVal: number, sr: number, sample: WorkletSampleEntry,
-    voiceState: Uint8Array, voiceTrackId: Int32Array,
+    voiceState: Uint8Array, voiceTrackId: Int32Array, voicePlayerIdx: Uint8Array,
     voiceChokeStart: Uint8Array, voiceChokeLeft: Int32Array, voiceChokeDelta: Float32Array
   ): BarulhoSpawnPrep {
-    const out = this.prepScratch, vAct = this.findActiveVoice(trackId, voiceState, voiceTrackId);
+    const out = this.prepScratch, vAct = this.findActiveVoice(trackId, playerIdx, voiceState, voiceTrackId, voicePlayerIdx);
+    const sampleSr = sample.sampleRate > 0 ? sample.sampleRate : sr;
+    const hasLoop = sample.loopWrapFrame > sample.loopResumeFrame;
     if (barulhoOp === BARULHO_OP_ATTACK_B) {
       const coord = Math.round(metaVal);
       if (vAct >= 0 && this.mode[vAct] === BARULHO_MODE_ROLLING && coord > 0 && this.originCoord[vAct] === coord && this.originSeqId[vAct] !== seqId) {
@@ -98,19 +95,25 @@ export class WorkletBarulhoSoa {
         this.mode[vAct] = BARULHO_MODE_NONE; voiceState[vAct] = VOICE_STATE_CHOKING;
         voiceChokeStart[vAct] = startInBlock; voiceChokeLeft[vAct] = Math.max(1, Math.ceil(0.020 * sr)); voiceChokeDelta[vAct] = 0;
       }
-      out.handledLegato = false; out.initialReadPos = 0; out.initialGain = peakGain;
-      out.rampFrames = 0; out.targetGain = peakGain; out.originCoord = coord;
+      out.handledLegato = false; out.originCoord = coord; out.targetGain = peakGain;
+      if (playerIdx > 0 && hasLoop) {
+        out.initialReadPos = computeBarulhoDecorrelatedReadFrame(playerIdx, sample.loopResumeFrame, sample.loopWrapFrame, sampleSr);
+        out.initialGain = 0; out.rampFrames = Math.max(1, Math.round(BARULHO_PARTNER_ATTACK_RAMP_SEC * sr));
+      } else {
+        out.initialReadPos = 0; out.initialGain = peakGain; out.rampFrames = 0;
+      }
       return out;
     }
 
     const rampFrames = Math.max(1, Math.round((metaVal > 0.005 ? metaVal : 0.140) * sr));
     if (vAct >= 0) {
-      this.mode[vAct] = BARULHO_MODE_ROLLING;
-      this.scheduleRamp(vAct, startInBlock, rampFrames, peakGain, 0);
+      this.mode[vAct] = BARULHO_MODE_ROLLING; this.scheduleRamp(vAct, startInBlock, rampFrames, peakGain, 0);
       out.handledLegato = true; return out;
     }
     out.handledLegato = false;
-    out.initialReadPos = computeBarulhoSoftEntryFrame(trackId, sample.bodyStartFrame, sample.loopResumeFrame, sample.loopWrapFrame, sample.softEntryFrame);
+    out.initialReadPos = playerIdx > 0 && hasLoop
+      ? computeBarulhoDecorrelatedReadFrame(playerIdx, sample.loopResumeFrame, sample.loopWrapFrame, sampleSr)
+      : computeBarulhoSoftEntryFrame(trackId, sample.bodyStartFrame, sample.loopResumeFrame, sample.loopWrapFrame, sample.softEntryFrame);
     out.initialGain = 0; out.rampFrames = rampFrames; out.targetGain = peakGain; out.originCoord = 0;
     return out;
   }

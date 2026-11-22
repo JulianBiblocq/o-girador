@@ -100,7 +100,8 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
       const ensembleChanged =
         state.skinChorusAmount !== prevState.skinChorusAmount ||
         state.rodaBreathingAmount !== prevState.rodaBreathingAmount ||
-        state.isEnsembleAcousticsBypassed !== prevState.isEnsembleAcousticsBypassed;
+        state.isEnsembleAcousticsBypassed !== prevState.isEnsembleAcousticsBypassed ||
+        state.isEcoMode !== prevState.isEcoMode;
       if ((ensembleChanged || state.ecoConfig !== prevState.ecoConfig) && isAudioInitializedRef.current) {
         audioEngine?.syncTracksToWorklet(state.tracks);
         syncLiveRodaSpectralSubBuses(state.tracks, getEffectiveRodaBreathingAmount(state), Boolean(state.ecoConfig?.disableEq));

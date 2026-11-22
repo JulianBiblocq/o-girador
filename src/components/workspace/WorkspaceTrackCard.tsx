@@ -86,6 +86,11 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           >
             <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-3.5 h-3.5 object-contain flex-shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
             <span className="text-[11px] font-cactus font-black leading-tight truncate block text-left flex-1">{index + 1}. {displayName}</span>
+            {(track.sectionPlayers?.length ?? 0) > 1 && (
+              <span className="font-mono text-[9px] font-black px-1 py-0.5 rounded-xs bg-black/20 leading-none shrink-0">
+                ×{track.sectionPlayers!.length}
+              </span>
+            )}
             {groupVisual?.isSlave && <Link2 size={10} className="shrink-0 opacity-70" />}
           </button>
           {menuPatterns.length > 0 && (
@@ -105,8 +110,8 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           )}
         </div>
         <div className="flex gap-1 items-center shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${(track.isMute && !track.isSolo) ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : idleBtn}`}>M</button>
-          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${track.isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : idleBtn}`}>S</button>
+          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleRodaTrackMuteToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${(track.isMute && !track.isSolo) ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : idleBtn}`}>M</button>
+          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleRodaTrackSoloToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${track.isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : idleBtn}`}>S</button>
           {inst.id !== 'apito' ? (
             <>
               <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackHideToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button text-[9px] font-bold transition-all flex items-center justify-center cursor-pointer ${track.isHidden ? 'bg-[var(--cordel-ink-dark)] text-[var(--cordel-parchment-bg)]' : idleBtn}`}>

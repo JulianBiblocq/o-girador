@@ -4,9 +4,11 @@
  */
 
 export const MAX_WORKLET_OUTPUTS = 32;
-export const MAX_WORKLET_VOICES = 128;
-export const MAX_WORKLET_EVENTS = 4096;
+export const MAX_WORKLET_VOICES = 256;
+export const MAX_VOICES = MAX_WORKLET_VOICES;
+export const MAX_WORKLET_EVENTS = 8192;
 export const MAX_WORKLET_SAMPLES = 2048;
+export const MAX_WORKLET_PLAYERS_PER_SLOT = 5;
 
 /**
  * Stride fixe de 9 nombres (`Float64Array`) par événement dans `PUSH_EVENTS` :
@@ -67,6 +69,9 @@ export interface UpdateTrackSlotMessage {
   isMuted: boolean;
   pitchRatio: number;
   decayNorm: number;
+  playerGainL?: number[];
+  playerGainR?: number[];
+  playerPitchMul?: number[];
 }
 
 export interface PurgeAllMessage {

@@ -2,9 +2,9 @@ import React from 'react';
 import { DndContext, pointerWithin } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortablePatternCard } from './SortablePatternCard';
+import { EditorPatternListFooter } from './EditorPatternListFooter';
 import { PatternUsageItem } from '../../../utils/editorPatternUsage';
 import { Pattern, TrackGroup } from '../../../types';
-import { getPasteDisabledReason } from '../../../utils/patternPasteNormalizer';
 import { resolveMasterTrack, resolveMasterTrackId, resolveMatchingPatternIdOnMaster } from '../../../utils/trackMasterResolver';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { Pencil } from 'lucide-react';
@@ -60,15 +60,6 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
     ? Boolean(isAllPatternsPasteable(effectiveEditTrackId))
     : Boolean(isAllPatternsPasteable);
 
-  const pasteNewTitle = canPaste
-    ? (lang === 'fr' ? 'Coller le motif copié comme nouveau motif' : 'Colar padrão copiado como novo padrão')
-    : getPasteDisabledReason(hasCopiedPattern, canPaste, lang, copiedInstId);
-
-  const sourceBankName = instrumentPatternsClipboard?.sourceName || instrumentPatternsClipboard?.instrumentName || '';
-  const pasteAllTitle = canPasteAll
-    ? (lang === 'fr' ? `Coller les motifs de "${sourceBankName}"` : `Colar padrões de "${sourceBankName}"`)
-    : getPasteDisabledReason(hasBankClip, canPasteAll, lang, sourceBankName || instrumentPatternsClipboard?.sourceInstId);
-
   return (
     <div ref={containerRef} data-tour-id="editor-step-grid" className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0 bg-transparent text-[var(--cordel-ink-dark)] relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
       {isSlave && (
@@ -97,40 +88,25 @@ export const EditorPatternListColumn: React.FC<EditorPatternListColumnProps> = R
             ))}
           </SortableContext>
         </DndContext>
-
-        {!isSlave && (
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <button onClick={() => onAddPattern?.()} className="self-start bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)] transition-colors">
-              + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
-            </button>
-            <button
-              type="button"
-              disabled={!canPaste}
-              onClick={() => canPaste && onPasteAsNewPattern?.()}
-              title={pasteNewTitle}
-              className={`self-start bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm transition-colors ${canPaste ? 'cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)]' : 'opacity-45 cursor-not-allowed'}`}
-            >
-              {lang === 'fr' ? 'Coller comme nouveau motif' : 'Colar como novo padrão'}
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <button onClick={() => copyAllTrackPatterns?.(effectiveTrack.id, inst.name)} className="bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)] transition-colors" title={lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}>
-                {lang === 'fr' ? 'Copier tous les motifs' : 'Copiar todos'}
-              </button>
-              <button
-                type="button"
-                disabled={!canPasteAll}
-                onClick={() => canPasteAll && pasteAllTrackPatterns?.(effectiveEditTrackId)}
-                title={pasteAllTitle}
-                className={`bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)] cordel-border-sm cordel-button px-3 py-1.5 font-cactus font-bold text-xs transition-colors ${canPasteAll ? 'cursor-pointer hover:bg-[var(--cordel-ink-dark)] hover:text-[var(--cordel-parchment-bg)]' : 'opacity-45 cursor-not-allowed'}`}
-              >
-                {lang === 'fr'
-                  ? (sourceBankName ? `Coller banque "${sourceBankName}"` : 'Coller la banque')
-                  : (sourceBankName ? `Colar banco "${sourceBankName}"` : 'Colar banco')}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      <EditorPatternListFooter
+        isSlave={isSlave}
+        lang={lang}
+        onAddPattern={onAddPattern}
+        canPaste={canPaste}
+        hasCopiedPattern={hasCopiedPattern}
+        copiedInstId={copiedInstId}
+        onPasteAsNewPattern={onPasteAsNewPattern}
+        copyAllTrackPatterns={copyAllTrackPatterns}
+        pasteAllTrackPatterns={pasteAllTrackPatterns}
+        canPasteAll={canPasteAll}
+        hasBankClip={hasBankClip}
+        instrumentPatternsClipboard={instrumentPatternsClipboard}
+        effectiveTrackId={effectiveTrack.id}
+        effectiveEditTrackId={effectiveEditTrackId}
+        instName={inst.name}
+      />
     </div>
   );
 });

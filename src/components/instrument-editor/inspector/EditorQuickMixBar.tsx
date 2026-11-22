@@ -4,6 +4,7 @@ import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { applyRealtimeTrackOrBusFader } from '../../../hooks/audio-sync/realtimeFaderAudioUpdater';
 import { faderPositionToDbString, UNITY_GAIN_FADER_POSITION } from '../../../utils/audioMath';
 import { PanKnob } from '../../PanKnob';
+import { SectionSquadTriggerBadge } from '../../mixer/spatial/SectionSquadTriggerBadge';
 
 export interface EditorQuickMixBarProps {
   trackId: number;
@@ -107,7 +108,8 @@ export const EditorQuickMixBar: React.FC<EditorQuickMixBarProps> = React.memo(({
         </div>
       </div>
 
-      <div className="pl-2 border-l border-[var(--cordel-ink-dark)]/20 shrink-0">
+      <div className="pl-2 border-l border-[var(--cordel-ink-dark)]/20 shrink-0 flex items-center gap-1.5">
+        <SectionSquadTriggerBadge trackId={trackId} compact={true} />
         <PanKnob trackId={trackId} value={panVal} onChange={handlePanChange} label="Pan" showLabels={false} />
       </div>
     </div>

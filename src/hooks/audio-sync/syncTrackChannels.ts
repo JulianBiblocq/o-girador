@@ -6,6 +6,9 @@ import { CONSOLE_HEADROOM_GAIN } from '../../utils/audioMath';
 import { isTrackMutedByPracticeMode } from '../../utils/practiceAudioMuteGuard';
 import { percentToDb } from './audioParamsCache';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
+import { isNeutralDefaultSectionPlayers, isSectionEnsembleEligible } from '../../constants/sectionEnsembleLimits';
+import { isAutomationBypassed } from '../../utils/automationBypassHelper';
+import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { createLightweightSacAnalyser } from '../../components/controls/vuMeterMath';
 import {
   syncTrackInsertChain, ensureAuxSendNodes, ensureBusSendVcaNodes, wireBusSendVcaOutput,
@@ -72,7 +75,11 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const targetBusId = resolveImmediateBusId(t, tracks);
     const isConnectedToBus = Boolean(targetBusId !== null && (busInputs[targetBusId] || busChannels[targetBusId]));
     const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 75) : getEffectiveVolume(tracks, t.id);
-    const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(t.panVal ?? t.pan);
+    const hasSectionSpatial = !isNeutralDefaultSectionPlayers(t.sectionPlayers) && isSectionEnsembleEligible(inst.id, inst.type);
+    const hasPanAuto = !isAutomationBypassed(t, 'pan', seqSt.globalAutomationBypass) && hasActiveTrackAutomation(t, 'pan');
+    const { acousticPan, panCompensationDb } = hasSectionSpatial && !hasPanAuto
+      ? { acousticPan: 0, panCompensationDb: 0 }
+      : applyMonoCompatiblePan(t.panVal ?? t.pan);
     const muteState = getEffectiveMuteState(tracks, t.id) || isTrackMutedByPracticeMode(t.id, tracks, seqSt, familyCache);
     const effectiveLin = computeChannelEffectiveLinearGain(effectiveVol, panCompensationDb, muteState);
 
@@ -81,8 +88,9 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const eqMidG = t.eqBands?.mid?.g ?? 0, eqMidF = t.eqBands?.mid?.f ?? 1000, eqMidQ = t.eqBands?.mid?.q ?? 'wide';
     const eqHighG = t.eqBands?.high?.g ?? 0, eqHighF = t.eqBands?.high?.f ?? 8000;
     const bypassKey = t.automationBypass ? `${!!t.automationBypass.volume}_${!!t.automationBypass.pan}_${!!t.automationBypass.reverb}` : '';
+    const spKey = hasSectionSpatial ? `sp${t.sectionPlayers?.length}_${t.panVal ?? 0}` : '';
 
-    const channelHash = `${effectiveLin.toFixed(6)}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}`;
+    const channelHash = `${effectiveLin.toFixed(6)}_${acousticPan}_${muteState}_${reverb}_${distortion}_${disableFx}_${bypassKey}_${spKey}`;
     const eqHash = `eq_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== channelHash) {

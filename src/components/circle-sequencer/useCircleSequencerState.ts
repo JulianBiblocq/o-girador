@@ -30,7 +30,10 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const isLeftHanded = props.isLeftHanded ?? sequencer.isLeftHanded;
   const tracksFromStore = useTracksWithCustomEquality(isActive);
   const rawTracks = props.tracks ?? tracksFromStore;
-  const tracks = resolveVisibleRodaTracks(rawTracks, props);
+  const tracks = resolveVisibleRodaTracks(rawTracks, {
+    ...props,
+    showLinkedTracksOnRoda: props.showLinkedTracksOnRoda ?? storeData.showLinkedTracksOnRoda,
+  });
 
   const totalMeasures = props.totalMeasures ?? storeData.totalMeasures;
   const songSections = props.songSections ?? (storeData.songSections ?? EMPTY_LIST);

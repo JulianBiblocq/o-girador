@@ -1,4 +1,5 @@
 import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
+import { SECTION_ENSEMBLE_LIMITS } from '../../constants/sectionEnsembleLimits';
 
 export { t } from './wizardTranslations';
 
@@ -26,15 +27,16 @@ export const AVAILABLE_INSTRUMENTS = WIZARD_ROLE_IDS.map((roleId) => {
 });
 
 export const LIMITS: Record<string, number> = {
-  marcante: 3,
-  meiao: 3,
-  repique: 3,
-  caixa: 2,
-  tarol: 2,
-  agbe: 2,
-  mineiro: 2,
-  timbal: 2,
-  gongue: 1,
+  marcante: SECTION_ENSEMBLE_LIMITS.marcante,
+  meiao: SECTION_ENSEMBLE_LIMITS.meiao,
+  repique: SECTION_ENSEMBLE_LIMITS.repique,
+  caixa: SECTION_ENSEMBLE_LIMITS.caixa,
+  tarol: SECTION_ENSEMBLE_LIMITS.tarol,
+  agbe: SECTION_ENSEMBLE_LIMITS.agbe,
+  mineiro: SECTION_ENSEMBLE_LIMITS.mineiro,
+  timbal: SECTION_ENSEMBLE_LIMITS.timbal,
+  gongue: SECTION_ENSEMBLE_LIMITS.gongue,
+  apito: SECTION_ENSEMBLE_LIMITS.apito,
 };
 
 export const REMOVE_THRESHOLD = 60;

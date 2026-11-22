@@ -11,6 +11,7 @@ import { DawTrackRowHeader } from './daw/DawTrackRowHeader';
 import { DawStepGrid } from './daw/DawStepGrid';
 import { resolveDawPattern, computeBeatGroups } from './daw/dawStepMath';
 import { areDawTrackRowPropsEqual } from './daw/dawTrackRowComparator';
+import { isSlaveTrack } from '../utils/trackMasterResolver';
 import type { DawTrackRowProps } from './daw/dawTrackRowTypes';
 
 export type { DawTrackRowProps };
@@ -19,7 +20,7 @@ const DawTrackRowComponent: React.FC<DawTrackRowProps> = ({
   track, trackIdx, tracks, currentMeasure, defaultBeats, lang,
   isLeftHanded, sequencer, onSelectPedagogyTarget, registerStepRef, trackResolutionsRef,
 }) => {
-  const isLinkedSlave = !!(track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster);
+  const isLinkedSlave = isSlaveTrack(track, tracks);
   const isChild = isLinkedSlave || isToadaChild(track, tracks);
   const isToada = isToadaBus(track);
 

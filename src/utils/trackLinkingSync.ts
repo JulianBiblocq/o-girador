@@ -1,59 +1,55 @@
 /**
- * O Girador - Synchronisation et réconciliation Maître -> Esclaves (< 110 lignes).
+ * O Girador - Synchronisation et réconciliation Maître -> Esclaves (100 % unisson de partition) (< 110 lignes).
  */
 import { TrackGroup, Pattern } from '../types';
-import { getLinkedGroupMembers, resolveMasterTrack } from './trackMasterResolver';
+import { isSlaveTrack, resolveMasterTrack } from './trackMasterResolver';
+import { cloneMasterPatternForSlave, isPatternCompletelySilent } from './slavePatternCloneHelper';
+import { boolArraysEqual, numArraysEqual, findMatchingSlavePattern } from './slavePatternMatcher';
 
-function countOverlap(a?: boolean[], b?: boolean[]): number {
-  if (!a || !b) return 0;
-  return a.reduce((acc, val, i) => (val && b[i] ? acc + 1 : acc), 0);
-}
-
-export function findMatchingSlavePattern(mPtn: Pattern, slave: TrackGroup, master: TrackGroup): Pattern | undefined {
-  const slavePatterns = slave.patterns || [];
-  const byId = slavePatterns.find((s) => String(s.id) === String(mPtn.id));
-  if (byId) return byId;
-
-  const norm = mPtn.name?.trim().toLowerCase();
-  const byName = slavePatterns.find((s) => s.name?.trim().toLowerCase() === norm);
-  if (!byName) return undefined;
-
-  // Garde anti-piège Princesa Isabel : si byName matche mieux les mesures d'un autre motif du maître
-  const otherWithBetterOverlap = (master.patterns || []).find((other) => {
-    if (String(other.id) === String(mPtn.id)) return false;
-    const ovOther = countOverlap(byName.measureAssignments, other.measureAssignments);
-    const ovCur = countOverlap(byName.measureAssignments, mPtn.measureAssignments);
-    return ovOther > ovCur && ovOther > 0;
-  });
-
-  return otherWithBetterOverlap ? undefined : byName;
-}
+export { findMatchingSlavePattern };
 
 export function reconcileSlavePatterns(slave: TrackGroup, master: TrackGroup): { patterns: Pattern[]; changed: boolean } {
-  let changed = false;
+  let changed = slave.patternOverrides !== undefined;
   const masterPatterns = master.patterns || [];
   const oldPatterns = slave.patterns || [];
-  if (oldPatterns.length !== masterPatterns.length) changed = true;
 
-  const patterns = masterPatterns.map((mPtn) => {
-    const existing = findMatchingSlavePattern(mPtn, slave, master);
-    const ov = slave.patternOverrides;
-    const copyAssigns = (mPtn.measureAssignments || []).map((asg, m) => ov && ov[m] !== undefined ? (existing?.measureAssignments?.[m] ?? false) : asg);
+  const patterns = masterPatterns.map((mPtn, mIdx) => {
+    const existing = findMatchingSlavePattern(mPtn, slave, master, mIdx);
+    const copyAssigns = (mPtn.measureAssignments || []).map(Boolean);
 
-    if (existing) {
-      if (String(existing.id) !== String(mPtn.id) || existing.name !== mPtn.name || existing.steps !== mPtn.steps) changed = true;
-      return { ...existing, id: mPtn.id, name: mPtn.name, steps: mPtn.steps, measureAssignments: copyAssigns };
+    if (!existing || (isPatternCompletelySilent(existing) && !isPatternCompletelySilent(mPtn))) {
+      changed = true;
+      return cloneMasterPatternForSlave(mPtn, slave, copyAssigns);
     }
 
-    changed = true;
+    const nextBeatRes = mPtn.beatResolutions ? [...mPtn.beatResolutions] : existing.beatResolutions;
+    const nextAllowVar = mPtn.measureAllowVariations ? [...mPtn.measureAllowVariations] : existing.measureAllowVariations;
+    const nextTimeSig = mPtn.timeSignature ?? existing.timeSignature;
+    if (
+      String(existing.id) !== String(mPtn.id) ||
+      existing.name !== mPtn.name ||
+      existing.steps !== mPtn.steps ||
+      existing.timeSignature !== nextTimeSig ||
+      !boolArraysEqual(existing.measureAssignments, copyAssigns) ||
+      !boolArraysEqual(existing.measureAllowVariations, nextAllowVar) ||
+      !numArraysEqual(existing.beatResolutions, nextBeatRes)
+    ) {
+      changed = true;
+    }
+
     return {
-      id: mPtn.id, name: mPtn.name, steps: mPtn.steps,
-      activeSteps: Array(mPtn.steps).fill(0), lyrics: Array(mPtn.steps).fill(''), notes: Array(mPtn.steps).fill(''),
-      volumes: Array(mPtn.steps).fill(70), decays: Array(mPtn.steps).fill(100), microtimings: Array(mPtn.steps).fill(0),
-      variations: [], measureAssignments: copyAssigns,
+      ...existing,
+      id: mPtn.id,
+      name: mPtn.name,
+      steps: mPtn.steps,
+      ...(nextTimeSig ? { timeSignature: nextTimeSig } : {}),
+      ...(nextBeatRes ? { beatResolutions: nextBeatRes } : {}),
+      ...(nextAllowVar ? { measureAllowVariations: nextAllowVar } : {}),
+      measureAssignments: copyAssigns,
     };
   });
 
+  if (oldPatterns.length !== patterns.length) changed = true;
   return { patterns, changed };
 }
 
@@ -63,8 +59,8 @@ export function syncMasterPatternsToLinkedFamily(tracks: TrackGroup[], sourceTra
     return { tracks, changed: false };
   }
 
-  const slaves = getLinkedGroupMembers(master, tracks).filter((t) => t.id !== master.id);
-  const linkFolder = tracks.find((t) => t.isLinkFolder && !t.isBusFolder && (String(t.id) === String(master.linkedToTrackId) || String(t.id) === String(master.busId)));
+  const slaves = tracks.filter((t) => t.id !== master.id && isSlaveTrack(t, tracks) && resolveMasterTrack(t.id, tracks)?.id === master.id);
+  const linkFolder = tracks.find((t) => t.isLinkFolder && (String(t.id) === String(master.linkedToTrackId) || String(t.id) === String(master.busId)));
   if (slaves.length === 0 && !linkFolder) return { tracks, changed: false };
 
   let anyChanged = false;
@@ -77,19 +73,22 @@ export function syncMasterPatternsToLinkedFamily(tracks: TrackGroup[], sourceTra
       if (slaveRes.changed) {
         anyChanged = true;
         const validSel = slaveRes.patterns.some((p) => p.id === t.selectedPatternId);
-        return { ...t, patterns: slaveRes.patterns, selectedPatternId: validSel ? t.selectedPatternId : (master.selectedPatternId || slaveRes.patterns[0]?.id || 0) };
+        return {
+          ...t,
+          patternOverrides: undefined,
+          patterns: slaveRes.patterns,
+          selectedPatternId: validSel ? t.selectedPatternId : (master.selectedPatternId || slaveRes.patterns[0]?.id || 0),
+        };
       }
       return t;
     }
-    if (linkFolderIdStr && String(t.id) === linkFolderIdStr && t.isLinkFolder && !t.isBusFolder) {
-      const curBp = t.patterns || [];
-      const mP = master.patterns || [];
-      const isIdentical = curBp.length === mP.length && curBp.every((p, i) => p.id === mP[i].id && p.name === mP[i].name);
+    if (linkFolderIdStr && String(t.id) === linkFolderIdStr && t.isLinkFolder) {
+      const curBp = t.patterns || [], mP = master.patterns || [];
+      const isIdentical = curBp.length === mP.length && curBp.every((p, i) => p.id === mP[i].id && p.name === mP[i].name && boolArraysEqual(p.measureAssignments, mP[i].measureAssignments));
       if (!isIdentical) {
         anyChanged = true;
         return { ...t, patterns: mP.map((p) => ({ ...p, measureAssignments: [...(p.measureAssignments || [])] })), selectedPatternId: master.selectedPatternId };
       }
-      return t;
     }
     return t;
   });

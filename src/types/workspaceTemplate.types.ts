@@ -1,4 +1,4 @@
-import type { MasterFX } from './store.types';
+import type { MasterFX, SectionPlayerPlacement } from './store.types';
 
 export interface WorkspaceTemplateOptions {
   includeStructure: boolean;    // Estrutura do batuque & Bus (vínculos mestre/escravos, subgrupos)
@@ -33,6 +33,7 @@ export interface WorkspaceTemplateTrack {
   tuning?: number;
   reverbVal?: number;
   fxSends?: { reverb: number; distortion: number };
+  sectionPlayers?: SectionPlayerPlacement[];
 }
 
 export interface WorkspaceTemplateMasterEQ {

@@ -1,3 +1,4 @@
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { TourPrepareCallbacks, TourStepDef } from './tourTypes';
 import { useSequencerStore, isToadaChild } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
@@ -49,8 +50,12 @@ export const TOUR_STEPS_STUDIO: TourStepDef[] = [
     badgePt: '100 % Nuvem & Pontes',
     titleFr: 'Répertoire Cloud, Nouveau Morceau & Exports',
     titlePt: 'Repertório na Nuvem, Nova Música & Exportações',
-    bodyFr: 'Chargez, créez ou mettez à jour vos arrangements dans le Cloud, imprimez la tablature ou publiez directement le morceau vers Organizador et Dançador.',
-    bodyPt: 'Carregue, crie ou atualize seus arranjos na Nuvem, imprima a tablatura ou publique diretamente para o Organizador e o Dançador.',
+    bodyFr: SHOW_DANCADOR
+      ? 'Chargez, créez ou mettez à jour vos arrangements dans le Cloud, imprimez la tablature ou publiez directement le morceau vers Organizador et Dançador.'
+      : 'Chargez, créez ou mettez à jour vos arrangements dans le Cloud, imprimez la tablature ou publiez directement le morceau vers Organizador et Cantador.',
+    bodyPt: SHOW_DANCADOR
+      ? 'Carregue, crie ou atualize seus arranjos na Nuvem, imprima a tablatura ou publique diretamente para o Organizador e o Dançador.'
+      : 'Carregue, crie ou atualize seus arranjos na Nuvem, imprima a tablatura ou publique diretamente para o Organizador e o Cantador.',
     prepare: resetToCleanStudioRoda,
   },
   {

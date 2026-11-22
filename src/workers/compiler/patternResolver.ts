@@ -45,15 +45,6 @@ export function resolveActivePattern(
     return null;
   }
 
-  if (isSlave) {
-    const override = track.patternOverrides?.[measureIdx];
-    if (override === null) return null;
-    if (override !== undefined) {
-      const foundOverride = track.patterns?.find((p: any) => p.id === override);
-      if (foundOverride) return foundOverride;
-    }
-  }
-
   const assigned = track.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
   if (assigned) return assigned;
 
@@ -72,7 +63,7 @@ export function resolveActivePattern(
       return masterPtn;
     }
 
-    const linkFolder = tracks.find((t: any) => t.isLinkFolder && !t.isBusFolder && String(t.id) === String(track.linkedToTrackId));
+    const linkFolder = tracks.find((t: any) => t.isLinkFolder && String(t.id) === String(track.linkedToTrackId));
     const folderPtn = linkFolder?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
     if (folderPtn) {
       const matchByName = track.patterns?.find((p: any) => p.name === folderPtn.name);

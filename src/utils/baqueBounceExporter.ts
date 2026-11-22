@@ -45,9 +45,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
 
   const slicedAllTracks = state.tracks.map((t) => ({
     ...t,
-    patternOverrides: t.patternOverrides
-      ? Object.fromEntries(Array.from({ length: cycleMeasures }, (_, i) => [i, t.patternOverrides![startM + i]]).filter(([, v]) => v !== undefined))
-      : undefined,
+    patternOverrides: undefined,
     patterns: t.patterns.map((p) => ({ ...p, measureAssignments: Array.from({ length: cycleMeasures }, (_, i) => Boolean(p.measureAssignments?.[startM + i])) })),
   }));
   const baqueTracks = slicedAllTracks.filter((t) => {
@@ -83,7 +81,8 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
     const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
     await scheduleOfflineBounceStroke({
-      offlineCtx, graph, track, allTracks: state.tracks, chorusAmount, instId: inst.id, instCfg: configMap.get(inst.id)!, strokesMaps, sampleCache,
+      offlineCtx, graph, track, allTracks: state.tracks, chorusAmount, isEcoMode: Boolean(state.isEcoMode),
+      globalAutomationBypass: state.globalAutomationBypass, instId: inst.id, instCfg: configMap.get(inst.id)!, strokesMaps, sampleCache,
       offlineRR, barulhoTracker, packed, strokeSymbol, mIdx, circleStepIdx, triggerSec, stepVol, totalDurationSec: timing.totalDurationSec,
     });
   }

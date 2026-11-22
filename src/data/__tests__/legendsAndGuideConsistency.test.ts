@@ -8,6 +8,7 @@ import { renderMasterExampleHTML } from '../../utils/paper/paperLegendMasterExam
 import { renderLegendStrokesHTML } from '../../utils/paper/paperLegendStrokesHtml';
 import { generateLegendHTML } from '../../utils/tablature/tablatureLegendHtml';
 import { generateLegendTxt } from '../../utils/tablature/tablatureLegendTxt';
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { GUIDE_POLES } from '../guide';
 import { PANORAMA_ECOSYSTEM, PANORAMA_TRACKS } from '../guide/pole0Panorama';
 
@@ -81,7 +82,7 @@ describe('legendsAndGuideConsistency — alignement SSOT intégral & Mode d’Em
       'Orquestrador',
       'Organizador & Mostrador',
       'Cantador',
-      'Dançador',
+      ...(SHOW_DANCADOR ? ['Dançador'] : []),
     ]);
 
     const allCards = GUIDE_POLES.filter((p) => p.id !== 'panorama').flatMap((p) => p.cards);

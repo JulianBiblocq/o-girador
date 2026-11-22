@@ -1,12 +1,9 @@
 /**
- * engineBarulhoPlayback.ts — Lecture Barulho Web Audio (`B` / `b`) avec crossfade cos/sin 110 ms pré-calculé (< 95 lignes).
- * - `B` : impact initial `0.00 s` une seule fois puis boucle sans couture `[loopResumeSec, loopWrapSec)`.
- * - `b` : entrée à froid sans impact dans `[bodyStartSec, bodyEndSec]` (offset déterministe par `trackId`) + Fade-In 140 ms.
- * - `trackDecay < 100 %` n'écourte jamais un Barulho.
+ * engineBarulhoPlayback.ts — Lecture Barulho Web Audio (`B` / `b`) avec décorrélation d'escouade (< 115 lignes).
  */
-
 import { getOrBakeBarulhoAudioBuffer } from '../barulho/barulhoLoopRegionAnalyzer';
 import { DEFAULT_BARULHO_FADEIN_SEC } from '../barulho/barulhoRampPlanner';
+import { BARULHO_PARTNER_ATTACK_RAMP_SEC, computeBarulhoDecorrelatedReadFrame } from '../spatial/sectionBarulhoPhaseHelper';
 import { computeBarulhoSoftEntryFrame } from '../worklet/processor/workletEventFlags';
 import { PlaybackContext, TUNEABLE_INSTRUMENTS } from './engineTypes';
 
@@ -22,7 +19,9 @@ export function playBarulhoStroke(
   velocity: number,
   isLiveHold: boolean,
   strokeSymbol = 'B',
-  maxPreviewDurSec?: number
+  maxPreviewDurSec?: number,
+  playerIdx = 0,
+  extraCleanup?: () => void
 ): void {
   const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer, instrumentId);
   source.buffer = baked.buffer;
@@ -32,37 +31,43 @@ export function playBarulhoStroke(
   source.loopEnd = baked.region.loopWrapSec;
 
   const isSoftB = strokeSymbol === 'b' || (instrumentId === 'apito' && strokeSymbol === 'l');
-  const entrySec = isSoftB
-    ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / baked.buffer.sampleRate
-    : 0;
+  const sr = baked.buffer.sampleRate;
+  const hasLoop = baked.region.loopWrapFrame > baked.region.loopResumeFrame;
+  const entrySec = playerIdx > 0 && hasLoop
+    ? computeBarulhoDecorrelatedReadFrame(playerIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr) / sr
+    : (isSoftB
+        ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / sr
+        : 0);
+  const barKey = playerIdx > 0 ? `${instrumentId}__p${playerIdx}` : instrumentId;
 
   if (isLiveHold) {
     gainNode.gain.cancelScheduledValues(time);
-    if (isSoftB) {
+    if (isSoftB || playerIdx > 0) {
+      const ramp = isSoftB ? DEFAULT_BARULHO_FADEIN_SEC : BARULHO_PARTNER_ATTACK_RAMP_SEC;
       gainNode.gain.setValueAtTime(0, time);
-      gainNode.gain.linearRampToValueAtTime(velocity, time + DEFAULT_BARULHO_FADEIN_SEC);
+      gainNode.gain.linearRampToValueAtTime(velocity, time + ramp);
     } else {
       gainNode.gain.setValueAtTime(velocity, time);
     }
     source.start(time, entrySec);
-    ctx.barulho.activeBarulhoNodes.set(instrumentId, source);
-    ctx.barulho.activeBarulhoGains.set(instrumentId, gainNode);
+    ctx.barulho.activeBarulhoNodes.set(barKey, source);
+    ctx.barulho.activeBarulhoGains.set(barKey, gainNode);
     ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, Infinity));
   } else {
     ctx.scheduledHits.add(source);
     const hasCustomStepDur = typeof maxPreviewDurSec === 'number' && maxPreviewDurSec > 0;
     const holdDurSec = hasCustomStepDur ? Math.max(0.045, maxPreviewDurSec) : 0.77;
     const fadeOutSec = hasCustomStepDur ? 0.028 : 0.18;
-    const holdEnd = time + holdDurSec;
-    const expectedEnd = holdEnd + fadeOutSec;
+    const holdEnd = time + holdDurSec, expectedEnd = holdEnd + fadeOutSec;
 
-    ctx.barulho.activeBarulhoNodes.set(instrumentId, source);
-    ctx.barulho.activeBarulhoGains.set(instrumentId, gainNode);
+    ctx.barulho.activeBarulhoNodes.set(barKey, source);
+    ctx.barulho.activeBarulhoGains.set(barKey, gainNode);
     ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
 
     gainNode.gain.cancelScheduledValues(time);
-    if (isSoftB) {
-      const fadeInSec = hasCustomStepDur ? Math.min(DEFAULT_BARULHO_FADEIN_SEC, holdDurSec * 0.45) : DEFAULT_BARULHO_FADEIN_SEC;
+    if (isSoftB || playerIdx > 0) {
+      const baseRamp = isSoftB ? DEFAULT_BARULHO_FADEIN_SEC : BARULHO_PARTNER_ATTACK_RAMP_SEC;
+      const fadeInSec = hasCustomStepDur ? Math.min(baseRamp, holdDurSec * 0.45) : baseRamp;
       gainNode.gain.setValueAtTime(0, time);
       gainNode.gain.linearRampToValueAtTime(velocity, time + fadeInSec);
     } else {
@@ -73,7 +78,8 @@ export function playBarulhoStroke(
     source.start(time, entrySec);
     source.stop(expectedEnd + 0.01);
 
-    const voiceKey = trackId !== null ? trackId : instrumentId;
+    const baseVoiceKey = trackId !== null ? trackId : instrumentId;
+    const voiceKey = playerIdx > 0 ? `${baseVoiceKey}__p${playerIdx}` : baseVoiceKey;
     const loopSym = instrumentId === 'apito' ? (isSoftB ? 'l' : 'L') : (isSoftB ? 'b' : 'B');
     const activeVoice = ctx.voiceGuard.getActiveVoice(
       source, gainNode, time, holdEnd, expectedEnd, expectedEnd, velocity, true, instrumentId, loopSym
@@ -86,14 +92,15 @@ export function playBarulhoStroke(
   source.onended = () => {
     ctx.scheduledHits.delete(source);
     try { source.disconnect(); } catch (_) {}
+    extraCleanup?.();
     ctx.channels.releaseGainNode(ctx.audioContext, instrumentId, gainNode);
     const mapping = ctx.activeGainNodes.get(source);
     if (mapping) { mapping.gainNode = null; mapping.instrumentId = ''; }
     ctx.activeGainNodes.delete(source);
     ctx.voiceGuard.removeActiveVoice(instrumentId, source);
-    if (ctx.barulho.activeBarulhoNodes.get(instrumentId) === source) {
-      ctx.barulho.activeBarulhoNodes.delete(instrumentId);
-      ctx.barulho.activeBarulhoGains.delete(instrumentId);
+    if (ctx.barulho.activeBarulhoNodes.get(barKey) === source) {
+      ctx.barulho.activeBarulhoNodes.delete(barKey);
+      ctx.barulho.activeBarulhoGains.delete(barKey);
     }
   };
 }

@@ -1,7 +1,7 @@
 import { instrumentsConfig } from '../../../data';
 import { getEffectiveMuteState, isToadaBus, isToadaChild } from '../../../stores/useSequencerStore';
 import { getInstrumentPrimaryStrongColor } from '../../../utils/colorHelpers';
-import { isSlaveTrack } from '../../../utils/trackMasterResolver';
+import { isSlaveTrack, resolveMasterTrack } from '../../../utils/trackMasterResolver';
 import {
   AUTO_LANE_COLLAPSED_HEIGHT,
   AUTO_LANE_EXPANDED_HEIGHT,
@@ -37,7 +37,7 @@ export function buildTimelineRowLayouts(params: {
         ? tracksMeta.find((p) => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder)?.id
         : undefined;
     const masterTrackId = isLinkedSlave
-      ? tracksMeta.find((t) => String(t.linkedToTrackId) === String(trackMeta.linkedToTrackId) && t.isLinkMaster)?.id
+      ? resolveMasterTrack(trackMeta.id, tracksMeta as any)?.id
       : undefined;
     const slaveTrackIds = isLinkFolder
       ? tracksMeta

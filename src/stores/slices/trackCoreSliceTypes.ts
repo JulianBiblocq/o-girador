@@ -3,6 +3,7 @@ import { TrackGroup, ToadaConductorSlot } from '../../types';
 export interface TrackCoreSlice {
   tracks: TrackGroup[];
   rodaTrackOrder: number[];
+  showLinkedTracksOnRoda: boolean;
   activeAoVivoTrackId: number | null;
   isLetraActive: boolean;
   tracksVersion: number;
@@ -29,6 +30,10 @@ export interface TrackCoreSlice {
   handleTrackInstrumentIdxChange: (id: number, targetInstIdx: number) => void;
   handleTrackMuteToggle: (id: number) => void;
   handleTrackSoloToggle: (id: number) => void;
+  handleRodaTrackMuteToggle: (id: number) => void;
+  handleRodaTrackSoloToggle: (id: number) => void;
+  setShowLinkedTracksOnRoda: (val: boolean) => void;
+  toggleShowLinkedTracksOnRoda: () => void;
   handleTrackHideToggle: (id: number) => void;
   handleTrackDelete: (id: number) => void;
   duplicateTrack: (trackId: number) => number | null;

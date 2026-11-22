@@ -6,6 +6,10 @@ import { normalizePatternData } from './audioPatternNormalizer';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { sanitizeTrackLinkingAndBuses } from './audioPresetLinkSanitizer';
 import { normalizePresetAcousticsOnLoad } from './acousticNormalizer';
+import { sanitizeSectionPlayers } from '../../constants/sectionEnsembleLimits';
+import { migrateLegacySlavePatternOverrides } from '../../utils/legacySlaveOverridesMigrator';
+import { reconcileAllLinkedTracks } from '../../utils/trackLinkingSync';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): TrackGroup[] {
   const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
@@ -101,12 +105,15 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
     if (t.busId !== undefined && t.busId !== null) t.busId = String(t.busId);
     if (t.linkedToTrackId !== undefined && t.linkedToTrackId !== null) t.linkedToTrackId = String(t.linkedToTrackId);
     if (!t.fxSends) t.fxSends = { reverb: t.reverbVal ?? 0, distortion: 0 };
+    const inst = instrumentsConfig[t.instrumentIdx];
+    t.sectionPlayers = sanitizeSectionPlayers(t.sectionPlayers, inst?.id, inst?.type);
   });
 
-  const sanitizedTracks = sanitizeTrackLinkingAndBuses(loadedTracks);
+  const linkSanitized = sanitizeTrackLinkingAndBuses(loadedTracks);
+  const legacyPromoted = migrateLegacySlavePatternOverrides(linkSanitized, loadedMeasures);
+  const sanitizedTracks = reconcileAllLinkedTracks(legacyPromoted).tracks;
   sanitizedTracks.filter((m) => m.isLinkMaster && !m.isBusFolder && !m.isLinkFolder).forEach((m) => {
-    const slaves = sanitizedTracks.filter((s) => s.id !== m.id && !s.isLinkFolder && !s.isLinkMaster && s.linkedToTrackId &&
-      (String(s.linkedToTrackId) === String(m.linkedToTrackId) || String(s.linkedToTrackId) === String(m.id)));
+    const slaves = sanitizedTracks.filter((s) => s.id !== m.id && isSlaveTrack(s, sanitizedTracks) && resolveMasterTrack(s.id, sanitizedTracks)?.id === m.id);
     slaves.forEach((s) => {
       if (m.balancoPresetId !== undefined) s.balancoPresetId = m.balancoPresetId;
       if (m.balancoAmount !== undefined) s.balancoAmount = m.balancoAmount;

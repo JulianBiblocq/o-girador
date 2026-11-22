@@ -57,17 +57,17 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   }, [resolvedPatternId, trackId]);
 
   const lastPreviewTimeRef = useRef<number>(0);
-  const playThrottledPreview = useCallback((symbol: string, volumePct: number, decayPct: number) => {
+  const resolvedPreviewTargetId = track ? track.id : (instrument?.id || trackId);
+  const playThrottledPreview = useCallback((symbol: string, volumePct: number, decayPct: number, force = false) => {
     const now = performance.now();
-    if (now - lastPreviewTimeRef.current < 50) return;
+    if (!force && now - lastPreviewTimeRef.current < 50) return;
     lastPreviewTimeRef.current = now;
     try {
       if (!audioEngine) return;
-      const targetId = track ? track.id : (instrument?.id || trackId);
       const t = Tone.now() || audioEngine.getCurrentTime();
-      audioEngine.playNote(targetId, symbol, t, volumePct / 100, decayPct / 100);
+      audioEngine.playNote(resolvedPreviewTargetId, symbol, t, volumePct / 100, decayPct / 100);
     } catch (_) {}
-  }, [trackId, track, instrument?.id]);
+  }, [resolvedPreviewTargetId]);
 
   const handlePreviewDrum = useCallback(() => {
     if (!audioEngine) return;

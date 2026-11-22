@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
-import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
+import { instrumentsConfig } from '../../data';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
+import { CordelInstrumentIcon } from '../icons/CordelInstrumentIcon';
 
 interface AudioTabProps {
   onSelectInstrument: (idx: number) => void;
@@ -45,25 +46,19 @@ export const AddChannelAudioTab: React.FC<AudioTabProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[360px] overflow-y-auto pr-1 pb-1 custom-scrollbar">
         {availableInstruments.map(({ inst, idx }) => (
-          <div
+          <button
             key={idx}
+            type="button"
             onClick={() => onSelectInstrument(idx)}
-            className="flex items-center gap-2.5 p-2.5 border-2 border-[var(--cordel-border)]/40 hover:border-[var(--cordel-border)] hover:bg-[var(--cordel-text)]/10 rounded-sm cursor-pointer transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            className="flex items-center gap-2.5 p-2.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] cordel-wood-shadow-sm hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)] hover:border-[var(--cordel-border-strong)] active:translate-y-[1px] rounded-sm cursor-pointer transition-colors duration-150 text-left"
           >
-            <img
-              src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-              alt={inst.name}
-              className="w-6 h-6 object-contain shrink-0"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
+            <CordelInstrumentIcon instrumentId={inst.id} className="w-6 h-6 shrink-0" />
             <span className="font-cactus font-bold text-xs truncate uppercase tracking-wider">
               {getInstrumentLabel(idx)}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>

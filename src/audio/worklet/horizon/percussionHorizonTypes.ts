@@ -4,6 +4,7 @@
 
 import { InstrumentAudioConfig, StrokeMapping } from '../../../data/audioConfig';
 import { GlobalSwing, Track } from '../../../types';
+import type { SectionSpatialProfile } from '../../spatial/sectionSpatialAcoustics';
 
 export interface HorizonPackerEngineDeps {
   isTrackRoutedToWorklet(trackId: number | string, instrumentId: string): boolean;
@@ -11,8 +12,10 @@ export interface HorizonPackerEngineDeps {
   getTrackUnisonDelaySec(trackId: number | string): number;
   getTrackBalancoAdherence(trackId: number | string): number;
   getTrackPitchRatio(trackId: number | string): number;
+  getTrackSpatialProfile?(trackId: number | string): SectionSpatialProfile | undefined;
   getSampleId(filePath: string, isLoop?: boolean): number;
   selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string;
+  selectRoundRobinFileIndex?(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): number;
   strokesMaps: Map<string, Map<string, StrokeMapping>>;
   configMap: Map<string, InstrumentAudioConfig>;
 }

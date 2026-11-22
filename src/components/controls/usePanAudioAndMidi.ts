@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { channels, busChannels } from '../../hooks/useAudioSync';
+import { instrumentsConfig } from '../../data';
+import { channels, busChannels, audioEngine } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { isNeutralDefaultSectionPlayers, isSectionEnsembleEligible } from '../../constants/sectionEnsembleLimits';
 import { applyMonoCompatiblePan } from '../../utils/audio/monoCompatiblePan';
 import { faderPositionToDb } from '../../utils/audioMath';
 import { safeRampPan, safeRampDb } from '../../utils/audio/safeAudioParamRamp';
@@ -29,18 +31,23 @@ export function usePanAudioAndMidi(
     lastAudioUpdateTimeRef.current = now;
 
     if (trackId !== undefined) {
-      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+      const st = useSequencerStore.getState();
+      const track = st.tracks.find((t) => t.id === trackId);
       if (track) {
+        const inst = instrumentsConfig[track.instrumentIdx];
+        const hasSectionSpatial = !track.isBusFolder && !isNeutralDefaultSectionPlayers(track.sectionPlayers) && isSectionEnsembleEligible(inst?.id, inst?.type);
+        if (hasSectionSpatial) {
+          const node = channels[track.id];
+          if (node?.pan) safeRampPan(node.pan, 0, 0.02);
+          audioEngine?.syncTracksToWorklet(st.tracks.map((t) => (t.id === trackId ? { ...t, panVal: val, pan: val } : t)));
+          return;
+        }
         const { acousticPan, panCompensationDb } = applyMonoCompatiblePan(val);
         const node = track.isBusFolder ? busChannels[track.id] : channels[track.id];
-        if (node?.pan) {
-          safeRampPan(node.pan, acousticPan, 0.02);
-        }
+        if (node?.pan) safeRampPan(node.pan, acousticPan, 0.02);
         if (node?.volume && !track.isBusFolder) {
           const baseDb = faderPositionToDb(track.volumeVal ?? 75);
-          if (baseDb > -90) {
-            safeRampDb(node.volume, baseDb + panCompensationDb, 0.02);
-          }
+          if (baseDb > -90) safeRampDb(node.volume, baseDb + panCompensationDb, 0.02);
         }
       }
     }

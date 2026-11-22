@@ -1,9 +1,9 @@
-import { TrackGroup, TimeSignature, Pattern } from '../../types';
+import { TrackGroup, TimeSignature } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus } from './trackVisibilityHelpers';
 import { autoExpandMeasuresState } from './timelineGridAutoExpandHelper';
 import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
-import { isSlaveTrack } from '../../utils/trackMasterResolver';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export const handleTimelinePatternAssignState = (
   state: {
@@ -23,11 +23,14 @@ export const handleTimelinePatternAssignState = (
   patternId: number | null | undefined,
   measureIdx: number
 ): Record<string, any> => {
-  const clickedTrack = state.tracks.find((t) => t.id === trackId);
-  const isLinkedSlave = isSlaveTrack(clickedTrack, state.tracks);
-  const isLinkMaster = Boolean(clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster);
+  const rawClicked = state.tracks.find((t) => t.id === trackId);
+  const clickedTrack = rawClicked && isSlaveTrack(rawClicked, state.tracks)
+    ? (resolveMasterTrack(rawClicked.id, state.tracks) || rawClicked)
+    : rawClicked;
+  const effectiveId = clickedTrack?.id ?? trackId;
+  const isLinkMaster = Boolean(clickedTrack && !clickedTrack.isBusFolder && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster);
 
-  let targetTrackId = trackId;
+  let targetTrackId = effectiveId;
   let targetTrack = clickedTrack;
   if (clickedTrack?.patterns?.some((p) => String(p.id) === String(patternId))) {
     targetTrackId = clickedTrack.id;
@@ -49,25 +52,6 @@ export const handleTimelinePatternAssignState = (
   const nextTotal = expanded.totalMeasures;
   const nextTracks = expanded.tracks;
 
-  if (isLinkedSlave) {
-    return {
-      ...expanded,
-      tracks: nextTracks.map((t) => {
-        if (t.id === trackId) {
-          const overrides = { ...(t.patternOverrides || {}) };
-          for (let offset = 0; offset < spanMeasures; offset++) {
-            const m = measureIdx + offset;
-            if (patternId === undefined) delete overrides[m];
-            else overrides[m] = patternId;
-          }
-          return { ...t, patternOverrides: overrides };
-        }
-        return t;
-      }),
-      tracksVersion: state.tracksVersion + 1,
-    };
-  }
-
   const isToadaTrackId = isToadaBus(clickedTrack || {});
   const puxTrack = nextTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
   const coroTrack = nextTracks.find((t) => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
@@ -87,15 +71,9 @@ export const handleTimelinePatternAssignState = (
     }
 
     if (t.id === targetTrackId) {
-      const overrides = t.patternOverrides ? { ...t.patternOverrides } : undefined;
-      if (overrides) {
-        for (let offset = 0; offset < spanMeasures; offset++) {
-          delete overrides[measureIdx + offset];
-        }
-      }
       return {
         ...t,
-        patternOverrides: overrides,
+        patternOverrides: undefined,
         patterns: t.patterns.map((p) => {
           const assign = [...p.measureAssignments];
           while (assign.length < nextTotal) assign.push(false);

@@ -2,6 +2,7 @@ import { Pattern } from '../types';
 import { instrumentsConfig } from '../data';
 import { isToadaBus } from '../stores/useSequencerStore';
 import { getNextPatternName } from './patternNaming';
+import { syncMasterPatternsToLinkedFamily } from './trackLinkingSync';
 import { isSlaveTrack, resolveMasterTrack } from './trackMasterResolver';
 
 export interface ResolvedCellPattern {
@@ -17,10 +18,10 @@ export function resolvePatternsListForTrack(targetTrack: any, tracks: any[]): Pa
     return [...(pux?.patterns || []), ...(coro?.patterns || [])];
   }
   if (isSlaveTrack(targetTrack, tracks)) {
-    const parentBus = targetTrack.linkedToTrackId ? tracks.find(t => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
-    if (parentBus?.patterns && parentBus.patterns.length > 0) return parentBus.patterns;
     const master = resolveMasterTrack(targetTrack.id, tracks);
     if (master?.patterns && master.patterns.length > 0) return master.patterns;
+    const parentBus = targetTrack.linkedToTrackId ? tracks.find((t) => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
+    if (parentBus?.patterns && parentBus.patterns.length > 0) return parentBus.patterns;
     return targetTrack.patterns || [];
   }
   return targetTrack.patterns || [];
@@ -49,41 +50,20 @@ export function resolveActivePatternForCell(
   }
 
   if (isSlaveTrack(targetTrack, tracks)) {
-    const override = targetTrack.patternOverrides?.[measureIdx];
-    if (override === null) return { activePattern: null, ownerTrack: targetTrack };
-    if (override !== undefined) {
-      const ptn = targetTrack.patterns?.find((p: Pattern) => p.id === override);
-      if (ptn) return { activePattern: ptn, ownerTrack: targetTrack };
-      const master = resolveMasterTrack(targetTrack.id, tracks);
-      const masterPtn = master?.patterns?.find((p: Pattern) => p.id === override);
-      if (masterPtn) return { activePattern: masterPtn, ownerTrack: master };
-      const parentBus = targetTrack.linkedToTrackId ? tracks.find(t => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
-      const busPtn = parentBus?.patterns?.find((p: Pattern) => p.id === override);
-      if (busPtn) return { activePattern: busPtn, ownerTrack: parentBus };
-      return { activePattern: null, ownerTrack: targetTrack };
-    }
-
     const master = resolveMasterTrack(targetTrack.id, tracks);
-    const parentBus = targetTrack.linkedToTrackId ? tracks.find(t => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
+    const parentBus = targetTrack.linkedToTrackId ? tracks.find((t) => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
     const masterPtn = master?.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx]))
       || parentBus?.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx]));
+    if (!masterPtn) return { activePattern: null, ownerTrack: master || targetTrack };
 
-    if (!masterPtn) return { activePattern: null, ownerTrack: targetTrack };
-
-    if (targetTrack.patterns && targetTrack.patterns.length > 0) {
-      const norm = masterPtn.name?.trim().toLowerCase();
-      const matchByName = targetTrack.patterns.find((p: Pattern) => p.name?.trim().toLowerCase() === norm);
-      if (matchByName) return { activePattern: matchByName, ownerTrack: targetTrack };
-
-      const mIdx = master?.patterns?.indexOf(masterPtn);
-      if (mIdx !== undefined && mIdx >= 0 && targetTrack.patterns[mIdx]) {
-        return { activePattern: targetTrack.patterns[mIdx], ownerTrack: targetTrack };
-      }
-    }
+    const ownById = targetTrack.patterns?.find((p: Pattern) => String(p.id) === String(masterPtn.id));
+    if (ownById) return { activePattern: ownById, ownerTrack: master || targetTrack };
+    const norm = masterPtn.name?.trim().toLowerCase();
+    const matchByName = targetTrack.patterns?.find((p: Pattern) => p.name?.trim().toLowerCase() === norm);
+    if (matchByName) return { activePattern: matchByName, ownerTrack: master || targetTrack };
     return { activePattern: masterPtn, ownerTrack: master || parentBus || targetTrack };
   }
 
-  // Piste Maître (isLinkMaster) ou Piste Standard
   if (patternId !== null) {
     const ptn = targetTrack.patterns?.find((p: Pattern) => p.id === patternId);
     if (ptn) return { activePattern: ptn, ownerTrack: targetTrack };
@@ -91,7 +71,6 @@ export function resolveActivePatternForCell(
   const assigned = targetTrack.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx])) || null;
   if (assigned) return { activePattern: assigned, ownerTrack: targetTrack };
 
-  // Fallback rétrocompatible pour anciens presets où le dossier bus stockait les assignations
   if (targetTrack.linkedToTrackId) {
     const bus = tracks.find((t) => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder);
     const busPtn = bus?.patterns?.find((p: Pattern) => Boolean(p.measureAssignments?.[measureIdx]));
@@ -100,7 +79,6 @@ export function resolveActivePatternForCell(
       if (match) return { activePattern: match, ownerTrack: targetTrack };
     }
   }
-
   return { activePattern: null, ownerTrack: targetTrack };
 }
 
@@ -108,8 +86,9 @@ export function cloneAndIsolatePatternOnMeasure(
   ownerTrack: any, targetTrack: any, activePattern: Pattern, measureIdx: number,
   totalMeasures: number, lang: string, allTracks: any[]
 ): { updatedTracks: any[]; newPatternId: number } {
+  const effMaster = isSlaveTrack(targetTrack, allTracks) ? (resolveMasterTrack(targetTrack.id, allTracks) || ownerTrack) : ownerTrack;
   const newPatternId = Date.now() + Math.floor(Math.random() * 1000);
-  const newPatternName = getNextPatternName(ownerTrack.patterns, activePattern.name, lang);
+  const newPatternName = getNextPatternName(effMaster.patterns, activePattern.name, lang);
   const clonedPattern: Pattern = {
     ...JSON.parse(JSON.stringify(activePattern)),
     id: newPatternId, name: newPatternName,
@@ -117,25 +96,22 @@ export function cloneAndIsolatePatternOnMeasure(
     measureAllowVariations: activePattern.measureAllowVariations ? Array(totalMeasures).fill(true) : undefined,
   };
   clonedPattern.measureAssignments[measureIdx] = true;
-  const isSlave = isSlaveTrack(targetTrack, allTracks);
 
-  const updatedTracks = allTracks.map((t) => {
-    if (t.id === ownerTrack.id) {
+  let updatedTracks = allTracks.map((t) => {
+    if (t.id === effMaster.id) {
       const nextPatterns = t.patterns.map((p: Pattern) => {
         const nextAssignments = [...(p.measureAssignments || [])];
         while (nextAssignments.length <= measureIdx) nextAssignments.push(false);
         nextAssignments[measureIdx] = false;
         return { ...p, measureAssignments: nextAssignments };
       });
-      return { ...t, patterns: [...nextPatterns, clonedPattern], selectedPatternId: newPatternId };
-    }
-    if (isSlave && t.id === targetTrack.id) {
-      const overrides = { ...(t.patternOverrides || {}) };
-      overrides[measureIdx] = newPatternId;
-      return { ...t, patternOverrides: overrides };
+      return { ...t, patternOverrides: undefined, patterns: [...nextPatterns, clonedPattern], selectedPatternId: newPatternId };
     }
     return t;
   });
 
+  if (effMaster.isLinkMaster) {
+    updatedTracks = syncMasterPatternsToLinkedFamily(updatedTracks, effMaster.id).tracks;
+  }
   return { updatedTracks, newPatternId };
 }

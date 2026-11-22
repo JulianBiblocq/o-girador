@@ -1,11 +1,10 @@
 /**
- * workletCompositeStrokeHelper.ts — Émission SOA simultanée Peau + Cerclage pour Rimshot `A`/`a` (< 65 lignes).
- * - Utilisé tant que `STUDIO_BANK_ENABLED` vaut `false` sur Caixa/Tarol (`compositeRimSymbol: 'X'`).
- * - Émet la couche cerclage à la même `triggerFrame` exacte avec `CHOKE_NONE` (zéro auto-choke, zéro 404).
+ * workletCompositeStrokeHelper.ts — Émission SOA simultanée Peau + Cerclage pour Rimshot `A`/`a` (< 70 lignes).
  */
 
 import { StrokeMapping } from '../../../data/audioConfig';
 import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
+import { selectSquadPlayerFile } from '../../spatial/sectionBarulhoPhaseHelper';
 import {
   BARULHO_OP_NONE,
   CHOKE_NONE,
@@ -29,6 +28,8 @@ export interface StageCompositeRimLayerArgs {
   isCalibrated: boolean;
   engineDeps: HorizonPackerEngineDeps;
   stagedEvents: number[];
+  playerIdx?: number;
+  rimBaseIdx?: number;
 }
 
 export function stageCompositeRimLayerIfAny(a: StageCompositeRimLayerArgs): 'ok' | 'uncovered' {
@@ -38,7 +39,10 @@ export function stageCompositeRimLayerIfAny(a: StageCompositeRimLayerArgs): 'ok'
   const rimStroke = EngineVirtualStrokes.resolveStroke(a.engineDeps.strokesMaps, a.instId, rimSymbol);
   if (!rimStroke) return 'ok';
 
-  const rimFilePath = a.engineDeps.selectRoundRobinFile(a.instId, rimStroke, a.trigTimeSec, a.trackId);
+  const pIdx = a.playerIdx ?? 0;
+  const rimFilePath = a.rimBaseIdx !== undefined && a.rimBaseIdx >= 0
+    ? selectSquadPlayerFile(rimStroke.files, a.rimBaseIdx, pIdx)
+    : a.engineDeps.selectRoundRobinFile(a.instId, rimStroke, a.trigTimeSec, a.trackId);
   const rimSampleId = a.engineDeps.getSampleId(rimFilePath);
   if (rimSampleId < 0) return 'uncovered';
 
@@ -51,7 +55,7 @@ export function stageCompositeRimLayerIfAny(a: StageCompositeRimLayerArgs): 'ok'
     rimStroke.baseGain ?? 1.0,
     a.metaOrDecay,
     1.0,
-    packWorkletEventFlags(a.seqId, CHOKE_NONE, VOICE_CLASS_GENERIC, a.isCalibrated, false, BARULHO_OP_NONE)
+    packWorkletEventFlags(a.seqId, CHOKE_NONE, VOICE_CLASS_GENERIC, a.isCalibrated, false, BARULHO_OP_NONE, pIdx)
   );
   return 'ok';
 }

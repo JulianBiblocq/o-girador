@@ -46,8 +46,8 @@ export function buildAlfaiasGroup(
         busId: String(busId),
         linkedToTrackId: String(busId),
         isLinkMaster: isMaster,
-        isHidden: !isMaster,
-        patternOverrides: isMaster ? tr.patternOverrides : {},
+        isHidden: false,
+        patternOverrides: undefined,
       };
     });
 

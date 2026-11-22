@@ -1,6 +1,5 @@
 /**
- * baqueBounceBarulhoRenderer.ts — Rendu Offline Bounce sans couture des phrases Barulho & Apito L (< 138 lignes).
- * Parité bit-à-bit avec `WorkletBarulhoSoa` : crossfade cos/sin 110 ms pré-calculé, accordage tonal (`Gonguê B`) & choke sélectif.
+ * baqueBounceBarulhoRenderer.ts — Rendu Offline Bounce sans couture des phrases Barulho & Escouades Spatiales (< 132 lignes).
  */
 import { getOrBakeBarulhoAudioBuffer, type BakedBarulhoAudio } from '../audio/barulho/barulhoLoopRegionAnalyzer';
 import {
@@ -10,12 +9,15 @@ import {
 } from '../audio/barulho/barulhoRampPlanner';
 import { computeEnginePeakGain } from '../audio/engine/engineStrokePlayback';
 import { resolveFrankStrokeBarulhoChokeSec } from '../audio/engine/selectiveTrackChokePhysics';
+import { BARULHO_PARTNER_ATTACK_RAMP_SEC, computeBarulhoDecorrelatedReadFrame } from '../audio/spatial/sectionBarulhoPhaseHelper';
+import type { SectionPlayerAcousticSpec } from '../audio/spatial/sectionSpatialAcoustics';
+import { createSpatialPlayerRouting } from '../audio/spatial/webAudioPlayerPanner';
 import { computeBarulhoSoftEntryFrame } from '../audio/worklet/processor/workletEventFlags';
 import type { OfflineTrackGraph } from './baqueBounceTrackGraph';
 
 interface GainSeg { t: number; g: number; }
 interface ActiveOfflineBarulho {
-  src: AudioBufferSourceNode; gainNode: GainNode; segs: GainSeg[]; originCoord: number; zeroStopTime: number | null;
+  trackId: number; src: AudioBufferSourceNode; gainNode: GainNode; segs: GainSeg[]; originCoord: number; zeroStopTime: number | null;
 }
 
 function evalGainAt(segs: readonly GainSeg[], t: number): number {
@@ -32,22 +34,21 @@ function pushLinearRamp(v: ActiveOfflineBarulho, t0: number, t1: number, targetG
   const g0 = evalGainAt(v.segs, t0), safeT1 = Math.max(t0 + 0.001, t1);
   while (v.segs.length > 0 && v.segs[v.segs.length - 1].t >= t0) v.segs.pop();
   v.segs.push({ t: t0, g: g0 }, { t: safeT1, g: targetG });
-  v.gainNode.gain.cancelScheduledValues(t0);
-  v.gainNode.gain.setValueAtTime(g0, t0);
+  v.gainNode.gain.cancelScheduledValues(t0); v.gainNode.gain.setValueAtTime(g0, t0);
   v.gainNode.gain.linearRampToValueAtTime(targetG, safeT1);
   v.zeroStopTime = targetG <= 0.0001 ? safeT1 + 0.002 : null;
 }
 
-function createLoopingNodes(ctx: OfflineAudioContext, baked: BakedBarulhoAudio, trackInput: GainNode, pitchRate = 1.0) {
+function createLoopingNodes(ctx: OfflineAudioContext, baked: BakedBarulhoAudio, destNode: AudioNode, pitchRate = 1.0) {
   const src = ctx.createBufferSource(), gainNode = ctx.createGain();
   src.buffer = baked.buffer; src.playbackRate.value = pitchRate > 0 ? pitchRate : 1.0; src.loop = true;
   src.loopStart = baked.region.loopResumeSec; src.loopEnd = baked.region.loopWrapSec;
-  src.connect(gainNode); gainNode.connect(trackInput);
+  src.connect(gainNode); gainNode.connect(destNode);
   return { src, gainNode };
 }
 
 export class OfflineBarulhoPhraseTracker {
-  private readonly activeByTrack = new Map<number, ActiveOfflineBarulho>();
+  private readonly activeByKey = new Map<string, ActiveOfflineBarulho>();
   private readonly lookahead: readonly BarulhoLookaheadPoint[];
 
   constructor(basePoints: readonly BarulhoLookaheadPoint[], cycleDurationSec: number) {
@@ -62,10 +63,10 @@ export class OfflineBarulhoPhraseTracker {
     this.lookahead = pts;
   }
 
-  private chokeVoice(trackId: number, t: number, rampSec: number, maxEndSec: number): void {
-    const v = this.activeByTrack.get(trackId);
+  private chokeKey(key: string, t: number, rampSec: number, maxEndSec: number): void {
+    const v = this.activeByKey.get(key);
     if (!v) return;
-    this.activeByTrack.delete(trackId);
+    this.activeByKey.delete(key);
     if (v.zeroStopTime !== null && t >= v.zeroStopTime) { v.src.stop(Math.min(maxEndSec, v.zeroStopTime)); return; }
     const g0 = evalGainAt(v.segs, t), stopT = Math.min(maxEndSec, t + (g0 <= 0.0005 ? 0.002 : rampSec));
     v.gainNode.gain.cancelScheduledValues(t); v.gainNode.gain.setValueAtTime(g0, t); v.gainNode.gain.linearRampToValueAtTime(0, stopT);
@@ -75,57 +76,68 @@ export class OfflineBarulhoPhraseTracker {
   public applyControlSymbol(trackId: number, symbol: '/' | '.', triggerSec: number, maxEndSec: number): void {
     const t = Math.max(0, triggerSec);
     if (t >= maxEndSec - 0.001) return;
-    if (symbol === '.') { this.chokeVoice(trackId, t, DEFAULT_BARULHO_DOT_STOP_SEC, maxEndSec); return; }
-    const v = this.activeByTrack.get(trackId);
-    if (!v || (v.zeroStopTime !== null && t >= v.zeroStopTime)) return;
+    const keys = Array.from(this.activeByKey.entries()).filter(([, v]) => v.trackId === trackId).map(([k]) => k);
+    if (symbol === '.') { keys.forEach((k) => this.chokeKey(k, t, DEFAULT_BARULHO_DOT_STOP_SEC, maxEndSec)); return; }
     const ptIdx = findBarulhoLookaheadIndex(this.lookahead, trackId, t, '/');
     const rampSec = ptIdx >= 0 ? resolveSlashFadeOutRampSec(this.lookahead, ptIdx) : DEFAULT_BARULHO_FADEOUT_SEC;
-    v.originCoord = 0; pushLinearRamp(v, t, Math.min(maxEndSec, t + rampSec), 0);
+    for (const k of keys) {
+      const v = this.activeByKey.get(k);
+      if (v && (v.zeroStopTime === null || t < v.zeroStopTime)) { v.originCoord = 0; pushLinearRamp(v, t, Math.min(maxEndSec, t + rampSec), 0); }
+    }
   }
 
-  public chokeOnFrankStroke(trackId: number, instId: string, symbol: string, triggerSec: number, maxEndSec: number): void {
-    if (!this.activeByTrack.has(trackId)) return;
-    this.chokeVoice(trackId, Math.max(0, triggerSec), resolveFrankStrokeBarulhoChokeSec(instId, symbol), maxEndSec);
+  public chokeOnFrankStroke(trackId: number, instId: string, symbol: string, triggerSec: number, maxEndSec: number, playerIdx?: number): void {
+    const ramp = resolveFrankStrokeBarulhoChokeSec(instId, symbol), t = Math.max(0, triggerSec);
+    if (playerIdx !== undefined) { this.chokeKey(`${trackId}__p${playerIdx}`, t, ramp, maxEndSec); return; }
+    for (const [k, v] of Array.from(this.activeByKey.entries())) if (v.trackId === trackId) this.chokeKey(k, t, ramp, maxEndSec);
   }
 
   public spawnOrUpdateBarulho(
     ctx: OfflineAudioContext, graph: OfflineTrackGraph, trackId: number, symbol: 'B' | 'b',
     rawBuffer: AudioBuffer, triggerSec: number, velocity: number, originCoord: number, maxEndSec: number,
-    opts: { isStudioCalibrated?: boolean; strokeBaseGain?: number; instId?: string; pitchRate?: number; rawSymbol?: string }
+    opts: { isStudioCalibrated?: boolean; strokeBaseGain?: number; instId?: string; pitchRate?: number; rawSymbol?: string; playerIdx?: number; playerSpec?: SectionPlayerAcousticSpec }
   ): void {
     const trackInput = graph.trackInputs.get(trackId), t = Math.max(0, triggerSec);
     if (!trackInput || t >= maxEndSec - 0.001) return;
+    const pIdx = opts.playerIdx ?? 0, key = `${trackId}__p${pIdx}`;
     const adjVel = velocity > 3.0 ? velocity / 100 : velocity, pitchRate = opts.pitchRate ?? 1.0;
+    const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
+    const sr = baked.buffer.sampleRate, hasLoop = baked.region.loopWrapFrame > baked.region.loopResumeFrame;
+    const spatialRoute = createSpatialPlayerRouting(ctx, trackInput, opts.playerSpec, baked.buffer.numberOfChannels || 1);
 
     if (symbol === 'b') {
       const ptIdx = findBarulhoLookaheadIndex(this.lookahead, trackId, t, opts.rawSymbol || 'b');
       const spec = ptIdx >= 0 ? resolveSoftBarulhoRampSpec(this.lookahead, ptIdx) : { rampSec: DEFAULT_BARULHO_FADEIN_SEC, targetVelocity: adjVel };
-      const targetGain = computeEnginePeakGain(spec.targetVelocity, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
-      const existing = this.activeByTrack.get(trackId);
-      if (existing && (existing.zeroStopTime === null || t < existing.zeroStopTime)) {
-        pushLinearRamp(existing, t, Math.min(maxEndSec, t + spec.rampSec), targetGain); return;
-      }
-      if (existing) this.chokeVoice(trackId, t, 0.002, maxEndSec);
-      const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
-      const entrySec = computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / baked.buffer.sampleRate;
-      const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput, pitchRate);
+      const targetGain = computeEnginePeakGain(spec.targetVelocity, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false) * spatialRoute.gainCompensation;
+      const existing = this.activeByKey.get(key);
+      if (existing && (existing.zeroStopTime === null || t < existing.zeroStopTime)) { pushLinearRamp(existing, t, Math.min(maxEndSec, t + spec.rampSec), targetGain); return; }
+      if (existing) this.chokeKey(key, t, 0.002, maxEndSec);
+      const entrySec = (pIdx > 0 && hasLoop
+        ? computeBarulhoDecorrelatedReadFrame(pIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr)
+        : computeBarulhoSoftEntryFrame(trackId, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame)) / sr;
+      const { src, gainNode } = createLoopingNodes(ctx, baked, spatialRoute.entryNode, pitchRate);
       const endT = Math.min(maxEndSec, t + spec.rampSec);
-      gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(targetGain, endT);
-      src.start(t, entrySec);
-      this.activeByTrack.set(trackId, { src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: targetGain }], originCoord: 0, zeroStopTime: null });
+      gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(targetGain, endT); src.start(t, entrySec);
+      this.activeByKey.set(key, { trackId, src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: targetGain }], originCoord: 0, zeroStopTime: null });
       return;
     }
 
-    const peakGain = computeEnginePeakGain(adjVel, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
-    if (this.activeByTrack.has(trackId)) this.chokeVoice(trackId, t, BARULHO_RETRIGGER_CHOKE_SEC, maxEndSec);
-    const baked = getOrBakeBarulhoAudioBuffer(ctx, rawBuffer, opts.instId ?? '');
-    const { src, gainNode } = createLoopingNodes(ctx, baked, trackInput, pitchRate);
-    gainNode.gain.setValueAtTime(peakGain, t); src.start(t, 0);
-    this.activeByTrack.set(trackId, { src, gainNode, segs: [{ t, g: peakGain }], originCoord, zeroStopTime: null });
+    const peakGain = computeEnginePeakGain(adjVel, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false) * spatialRoute.gainCompensation;
+    if (this.activeByKey.has(key)) this.chokeKey(key, t, BARULHO_RETRIGGER_CHOKE_SEC, maxEndSec);
+    const { src, gainNode } = createLoopingNodes(ctx, baked, spatialRoute.entryNode, pitchRate);
+    if (pIdx > 0 && hasLoop) {
+      const entrySec = computeBarulhoDecorrelatedReadFrame(pIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr) / sr;
+      const endT = Math.min(maxEndSec, t + BARULHO_PARTNER_ATTACK_RAMP_SEC);
+      gainNode.gain.setValueAtTime(0, t); gainNode.gain.linearRampToValueAtTime(peakGain, endT); src.start(t, entrySec);
+      this.activeByKey.set(key, { trackId, src, gainNode, segs: [{ t, g: 0 }, { t: endT, g: peakGain }], originCoord, zeroStopTime: null });
+    } else {
+      gainNode.gain.setValueAtTime(peakGain, t); src.start(t, 0);
+      this.activeByKey.set(key, { trackId, src, gainNode, segs: [{ t, g: peakGain }], originCoord, zeroStopTime: null });
+    }
   }
 
   public finalizeAll(maxEndSec: number): void {
-    this.activeByTrack.forEach((v) => { try { v.src.stop(v.zeroStopTime !== null ? Math.min(maxEndSec, v.zeroStopTime) : maxEndSec); } catch (_) {} });
-    this.activeByTrack.clear();
+    this.activeByKey.forEach((v) => { try { v.src.stop(v.zeroStopTime !== null ? Math.min(maxEndSec, v.zeroStopTime) : maxEndSec); } catch (_) {} });
+    this.activeByKey.clear();
   }
 }

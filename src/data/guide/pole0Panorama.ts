@@ -1,3 +1,4 @@
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { GuidePanoramaAppBridge, GuidePanoramaTrack, GuidePoleDef } from './guideTypes';
 
 export const PANORAMA_TRACKS: GuidePanoramaTrack[] = [
@@ -61,13 +62,17 @@ export const PANORAMA_ECOSYSTEM: GuidePanoramaAppBridge[] = [
     bridgeFr: 'Partage la Grammaire Vocale Unifiée v2 (P, C, _ mélisme lié, / soudure, 0 silence explicite, anacrouse) et les prises vocales du groupe.',
     bridgePt: 'Compartilha a Gramática Vocal Unificada v2 (P, C, _ melisma ligado, / soldadura, 0 silêncio explícito, anacruse) e gravações vocais.',
   },
-  {
-    appName: 'Dançador',
-    roleFr: 'Atelier chorégraphique synchronisé',
-    rolePt: 'Oficina coreográfica sincronizada',
-    bridgeFr: 'Reçoit en 1 clic le Cloud Bounce audio et le découpage exact des mesures, tempos et sections publié depuis Sequenciador.',
-    bridgePt: 'Recebe em 1 clique o Cloud Bounce de áudio e o mapa exato de compassos, andamentos e seções publicado pelo Sequenciador.',
-  },
+  ...(SHOW_DANCADOR
+    ? [
+        {
+          appName: 'Dançador',
+          roleFr: 'Atelier chorégraphique synchronisé',
+          rolePt: 'Oficina coreográfica sincronizada',
+          bridgeFr: 'Reçoit en 1 clic le Cloud Bounce audio et le découpage exact des mesures, tempos et sections publié depuis Sequenciador.',
+          bridgePt: 'Recebe em 1 clique o Cloud Bounce de áudio e o mapa exato de compassos, andamentos e seções publicado pelo Sequenciador.',
+        },
+      ]
+    : []),
 ];
 
 export const POLE_0_PANORAMA: GuidePoleDef = {

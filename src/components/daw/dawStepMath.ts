@@ -1,6 +1,7 @@
 import { TrackGroup, Pattern } from '../../types';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
+import { resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export function resolveDawPattern({
   track,
@@ -20,46 +21,19 @@ export function resolveDawPattern({
     const soloPat = resolveActivePattern(effectiveTrack, tracks, currentMeasure, true, soloPlayId) as Pattern | null;
     if (soloPat) return { activePattern: soloPat, masterActivePattern: soloPat, isGhostStep: false };
   }
-  const override = track.patternOverrides?.[currentMeasure];
-  const hasExplicitVariation = override !== undefined && override !== null;
 
-  const masterTrack = isLinkedSlave
-    ? tracks.find(
-        (t) =>
-          (String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster) ||
-          String(t.id) === String(track.linkedToTrackId)
-      )
-    : null;
-
+  const masterTrack = isLinkedSlave ? resolveMasterTrack(track.id, tracks) ?? null : null;
   const parentBus = isLinkedSlave
     ? tracks.find((p) => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)
     : null;
 
-  let activePattern: Pattern | null = null;
-  if (hasExplicitVariation) {
-    if (override === null) {
-      activePattern = null;
-    } else {
+  let activePattern: Pattern | null = track.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) || null;
+  if (!activePattern) {
+    if (masterTrack) {
       activePattern =
-        track.patterns?.find((p) => p.id === override) ||
-        parentBus?.patterns?.find((p) => p.id === override) ||
-        masterTrack?.patterns?.find((p) => p.id === override) ||
+        masterTrack.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ||
+        masterTrack.patterns?.[0] ||
         null;
-    }
-  } else {
-    const assigned = track.patterns?.find((p) => p.measureAssignments?.[currentMeasure]);
-    if (assigned) {
-      activePattern = assigned;
-    } else if (masterTrack) {
-      const masterOverride = masterTrack.patternOverrides?.[currentMeasure];
-      if (masterOverride !== undefined && masterOverride !== null) {
-        activePattern = masterTrack.patterns?.find((p) => p.id === masterOverride) || null;
-      } else {
-        activePattern =
-          masterTrack.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ||
-          masterTrack.patterns?.[0] ||
-          null;
-      }
     } else if (parentBus) {
       activePattern =
         parentBus.patterns?.find((p) => p.measureAssignments?.[currentMeasure]) ||

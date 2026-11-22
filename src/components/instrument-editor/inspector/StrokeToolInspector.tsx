@@ -18,9 +18,9 @@ export interface StrokeToolInspectorProps {
   patternLabel?: string;
   isVoice: boolean;
   getStrokeStats: (stroke: string) => { avgVolume: number; avgDecay: number };
-  playThrottledPreview: (symbol: string, volumePct: number, decayPct: number) => void;
-  applyMacroVolumeDelta: (stroke: string, delta: number, targetVal: number) => void;
-  applyMacroDecayDelta: (stroke: string, delta: number, targetVal: number) => void;
+  playThrottledPreview: (symbol: string, volumePct: number, decayPct: number, force?: boolean) => void;
+  applyMacroVolumeDelta: (stroke: string, delta: number, targetVal: number, options?: { skipUndo?: boolean }) => void;
+  applyMacroDecayDelta: (stroke: string, delta: number, targetVal: number, options?: { skipUndo?: boolean }) => void;
 }
 
 export const StrokeToolInspector: React.FC<StrokeToolInspectorProps> = React.memo((props) => {

@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { EditableNumber } from './EditableNumber';
+import { StudioRangeSlider } from '../ui/StudioRangeSlider';
 
 export const getVoiceDurationLabel = (val: number, lang: string): string => {
   if (val <= 10) return lang === 'fr' ? '1 double croche (1 pas)' : '1 semicolcheia';
@@ -27,89 +28,62 @@ export const DecaySliderControl: React.FC<DecaySliderControlProps> = ({
   lang,
   onCommit,
 }) => {
-  const [localVal, setLocalVal] = useState(initialValue);
-  const labelRef = useRef<HTMLSpanElement>(null);
-  const valRef = useRef(initialValue);
-  const isDraggingRef = useRef(false);
+  const [dragPreviewVal, setDragPreviewVal] = useState<number | null>(null);
+  const minVal = 10;
+  const resetDecay = isVoice ? 10 : 100;
+  const clampedInitial = Math.max(minVal, Math.min(100, Math.round(initialValue)));
+  const displayVal = dragPreviewVal ?? clampedInitial;
 
-  useEffect(() => {
-    if (!isDraggingRef.current) {
-      setLocalVal(initialValue);
-      valRef.current = initialValue;
-      if (labelRef.current) {
-        labelRef.current.textContent = isVoice
-          ? getVoiceDurationLabel(initialValue, lang)
-          : `${initialValue}%`;
-      }
-    }
-  }, [initialValue, isVoice, lang]);
+  const handleCommit = useCallback((finalVal: number, hadScrub: boolean) => {
+    if (finalVal !== clampedInitial || hadScrub) onCommit(finalVal);
+  }, [clampedInitial, onCommit]);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLInputElement>) => {
-    isDraggingRef.current = true;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch (_) {}
-  };
-
-  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const nextVal = parseInt((e.target as HTMLInputElement).value, 10);
-    valRef.current = nextVal;
-    if (labelRef.current) {
-      labelRef.current.textContent = isVoice ? getVoiceDurationLabel(nextVal, lang) : `${nextVal}%`;
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLInputElement>) => {
-    if (isDraggingRef.current) {
-      isDraggingRef.current = false;
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch (_) {}
-      setLocalVal(valRef.current);
-      onCommit(valRef.current);
-    }
-  };
+  const handleReset = useCallback((resetVal: number) => {
+    setDragPreviewVal(null);
+    onCommit(resetVal);
+  }, [onCommit]);
 
   return (
     <>
-      <div className="flex justify-between text-[10px] font-bold items-center">
+      <div className="flex justify-between text-[10px] font-bold items-center select-none">
         {isVoice ? (
           <>
             <span>{lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
-            <span ref={labelRef} className="font-mono text-[var(--cordel-param-decay)]">
-              {getVoiceDurationLabel(localVal, lang)}
+            <span
+              onDoubleClick={() => handleReset(resetDecay)}
+              className="font-mono text-[var(--cordel-param-decay)] cursor-pointer hover:underline"
+            >
+              {getVoiceDurationLabel(displayVal, lang)}
             </span>
           </>
         ) : (
           <>
             <span>{lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
             <EditableNumber
-              value={localVal}
+              value={displayVal}
               suffix="%"
-              min={10}
+              min={minVal}
               max={100}
               onChange={(newVal: number) => {
-                setLocalVal(newVal);
-                valRef.current = newVal;
-                if (labelRef.current) labelRef.current.textContent = `${newVal}%`;
+                setDragPreviewVal(null);
                 onCommit(newVal);
               }}
             />
           </>
         )}
       </div>
-      <input
-        type="range"
-        min="10"
-        max="100"
-        step={isVoice ? '5' : '1'}
-        defaultValue={localVal}
-        key={`decay-slider-${initialValue}`}
-        onPointerDown={handlePointerDown}
-        onInput={handleInput}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="w-full cordel-range-decay cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10 touch-none"
+      <StudioRangeSlider
+        value={clampedInitial}
+        min={minVal}
+        max={100}
+        step={isVoice ? 5 : 1}
+        resetValue={resetDecay}
+        accentVar="var(--cordel-param-decay)"
+        ariaLabel={isVoice ? (lang === 'fr' ? 'Durée de la note' : 'Duração da nota') : 'Decay'}
+        resetTitle={lang === 'fr' ? `Double-clic : réinitialiser à ${resetDecay}%` : `Duplo clique: redefinir para ${resetDecay}%`}
+        onVisualChange={setDragPreviewVal}
+        onCommit={handleCommit}
+        onReset={handleReset}
       />
     </>
   );

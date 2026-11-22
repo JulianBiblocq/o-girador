@@ -7,6 +7,7 @@ import { Track } from '../../types';
 import { resolveActiveVocalChild } from './useInstrumentDetailEditorController';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { reconcileSlavePatterns } from '../../utils/trackLinkingSync';
+import { isPatternCompletelySilent } from '../../utils/slavePatternCloneHelper';
 
 const EMPTY_TRACKS: Track[] = [];
 const EMPTY_VOCAL_PAIR = [undefined, undefined] as const;
@@ -22,9 +23,14 @@ export function useEditorResolvedTrackContext(trackId: number, deepLinkPatternId
     if (isToadaBus(cur) || (cur as any).isToadaBus || cur.customName === 'Toada' || cur.instrumentIdx === 12) {
       return s.tracks.filter((t) => isToadaChild(t, s.tracks) || instrumentsConfig[t.instrumentIdx]?.id === 'puxador' || instrumentsConfig[t.instrumentIdx]?.id === 'coro');
     }
-    if (cur.isLinkFolder || cur.isBusFolder || cur.linkedToTrackId || cur.isLinkMaster) {
+    if (cur.isLinkFolder || cur.isBusFolder || cur.linkedToTrackId || cur.isLinkMaster || cur.busId) {
       const refId = cur.linkedToTrackId ? String(cur.linkedToTrackId) : String(cur.id);
-      return s.tracks.filter((t) => t.id === cur.id || String(t.id) === refId || String(t.linkedToTrackId) === refId || String(t.linkedToTrackId) === String(cur.id) || String(t.busId) === String(cur.id));
+      const busRef = cur.busId ? String(cur.busId) : null;
+      return s.tracks.filter((t) =>
+        t.id === cur.id || String(t.id) === refId || String(t.linkedToTrackId) === refId ||
+        String(t.linkedToTrackId) === String(cur.id) || String(t.busId) === String(cur.id) ||
+        (busRef !== null && (String(t.id) === busRef || String(t.busId) === busRef))
+      );
     }
     return EMPTY_TRACKS;
   }, [trackId])));
@@ -43,7 +49,13 @@ export function useEditorResolvedTrackContext(trackId: number, deepLinkPatternId
   const masterTrack = isSlave ? resolveMasterTrack(effectiveEditTrackId, familyTracks) : null;
   const displayedPatterns = useMemo(() => {
     if (isSlave && effectiveTrack && masterTrack) {
-      const outOfSync = !effectiveTrack.patterns?.length || effectiveTrack.patterns.length !== masterTrack.patterns?.length || masterTrack.patterns.some((mp, idx) => effectiveTrack.patterns[idx]?.id !== mp.id);
+      const outOfSync =
+        !effectiveTrack.patterns?.length ||
+        effectiveTrack.patterns.length !== masterTrack.patterns?.length ||
+        masterTrack.patterns.some((mp, idx) => {
+          const sp = effectiveTrack.patterns[idx];
+          return !sp || sp.id !== mp.id || (isPatternCompletelySilent(sp) && !isPatternCompletelySilent(mp));
+        });
       return outOfSync ? reconcileSlavePatterns(effectiveTrack, masterTrack).patterns : effectiveTrack.patterns;
     }
     return effectiveTrack?.patterns ?? [];

@@ -92,3 +92,9 @@ export const XiloHourglass: React.FC<XiloIconProps> = ({ size = 16, className = 
     <path d="M8,19 C10,17.5 14,17.5 16,19" fill="currentColor" fillOpacity="0.3" strokeWidth="1.5" />
   </svg>
 );
+
+export const XiloStar: React.FC<XiloIconProps & { active?: boolean }> = ({ size = 16, active = false, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className={`xilo-icon ${className}`} {...props}>
+    <path d="M12 2.5 L14.9 8.6 L21.6 9.5 L16.7 14.2 L17.9 20.9 L12 17.7 L6.1 20.9 L7.3 14.2 L2.4 9.5 L9.1 8.6 Z" />
+  </svg>
+);

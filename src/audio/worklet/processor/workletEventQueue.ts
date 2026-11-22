@@ -100,7 +100,7 @@ export class WorkletEventQueue {
     const maskedSeq = measureSeqId !== undefined ? (measureSeqId & WORKLET_SEQ_MASK) : undefined;
     for (let r = 0; r < this.activeCount; r++) {
       const sIdx = this.sortedOrder[r];
-      const evtSeqId = this.flags[sIdx] >>> WORKLET_SEQ_SHIFT;
+      const evtSeqId = (this.flags[sIdx] >>> WORKLET_SEQ_SHIFT) & WORKLET_SEQ_MASK;
       const shouldDrop =
         this.triggerFrame[sIdx] >= fromFrame &&
         (maskedSeq === undefined || evtSeqId === maskedSeq);

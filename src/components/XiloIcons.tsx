@@ -39,4 +39,5 @@ export {
   XiloTarget,
   CordelTarget,
   XiloHourglass,
+  XiloStar,
 } from './icons/xiloDocIcons';

@@ -11,6 +11,7 @@ import {
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { instrumentsConfig } from '../../data';
 import { getPatternUsage, PatternUsageItem } from '../../utils/editorPatternUsage';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 
 export type { PatternUsageItem };
 export { getPatternUsage };
@@ -27,7 +28,7 @@ export function useInstrumentEditorTracksMeta(track: any, trackId: number, inst:
         if (t.isLinkFolder) return;
         if (t.isBusFolder && !t.isLinkMaster && !isToadaBus(t)) return;
         if (isToadaChild(t, state.tracks)) return;
-        const isLinkedSlave = Boolean(t.linkedToTrackId && !t.isLinkMaster && !t.isBusFolder && !t.isLinkFolder);
+        const isLinkedSlave = isSlaveTrack(t, state.tracks);
         if (!isLinkedSlave) {
           topLevelList.push(t);
         }
@@ -53,10 +54,7 @@ export function useInstrumentEditorTracksMeta(track: any, trackId: number, inst:
           if (coroTrack && !result.includes(coroTrack.id)) result.push(coroTrack.id);
         }
         const slaves = state.tracks.filter(child =>
-          (String(child.linkedToTrackId) === String(t.id) || (t.linkedToTrackId && String(child.linkedToTrackId) === String(t.linkedToTrackId))) &&
-          !child.isLinkFolder &&
-          !child.isLinkMaster &&
-          child.id !== t.id
+          child.id !== t.id && isSlaveTrack(child, state.tracks) && resolveMasterTrack(child.id, state.tracks)?.id === t.id
         );
         slaves.forEach((slave) => {
           if (!result.includes(slave.id)) result.push(slave.id);

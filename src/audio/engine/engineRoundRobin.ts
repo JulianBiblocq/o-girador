@@ -21,14 +21,14 @@ export class EngineRoundRobin {
     return stroke.files.length > 0 ? stroke.files.join('|') : `${instrumentId}_${stroke.symbol}`;
   }
 
-  public selectFile(
+  public selectFileIndex(
     instrumentId: string,
     stroke: StrokeMapping,
     time: number,
     trackId?: number | string | null
-  ): string {
+  ): number {
     const numFiles = stroke.files.length;
-    if (numFiles <= 1) return stroke.files[0] || '';
+    if (numFiles <= 1) return 0;
 
     const samplePoolKey = EngineRoundRobin.getSamplePoolKey(instrumentId, stroke);
     const trackKey = `${trackId ?? instrumentId}__${samplePoolKey}`;
@@ -62,7 +62,17 @@ export class EngineRoundRobin {
     if (this.bagStates.size > 2000) this.bagStates.clear();
     if (this.recentPoolTriggers.size > 500) this.recentPoolTriggers.clear();
 
-    return stroke.files[chosenIdx];
+    return chosenIdx;
+  }
+
+  public selectFile(
+    instrumentId: string,
+    stroke: StrokeMapping,
+    time: number,
+    trackId?: number | string | null
+  ): string {
+    if (stroke.files.length <= 1) return stroke.files[0] || '';
+    return stroke.files[this.selectFileIndex(instrumentId, stroke, time, trackId)] || stroke.files[0] || '';
   }
 
   public purgeFromTime(fromTimeSec: number): void {

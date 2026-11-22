@@ -1,6 +1,7 @@
 import { TrackGroup, Pattern, WorkspaceTemplate, MasterFX } from '../../types';
 import { applyRadii } from './trackRodaGeometryHelpers';
 import { applyWorkspaceTemplateAudioSettings, normalizeTemplateMasterFX } from './workspaceTemplateAudioSettings';
+import { reconcileAllLinkedTracks } from '../../utils/trackLinkingSync';
 
 export { applyWorkspaceTemplateAudioSettings };
 
@@ -63,7 +64,7 @@ export const createTracksFromTemplateState = (
       selectedPatternId: isPureBus ? 0 : newPatternId,
       isMute: false,
       isSolo: false,
-      isHidden: Boolean(options.includeStructure && t.linkedToTrackId && !t.isLinkFolder && !t.isLinkMaster),
+      isHidden: false,
       isBusFolder: options.includeStructure ? t.isBusFolder : undefined,
       isLinkFolder: options.includeStructure ? t.isLinkFolder : undefined,
       isLinkMaster: options.includeStructure ? t.isLinkMaster : undefined,
@@ -72,6 +73,7 @@ export const createTracksFromTemplateState = (
       volumeVal: options.includeVolumePan ? (t.volumeVal ?? 75) : 75,
       pan: options.includeVolumePan ? (t.pan ?? 0) : 0,
       panVal: options.includeVolumePan ? (t.panVal ?? 0) : 0,
+      sectionPlayers: options.includeVolumePan && t.sectionPlayers ? JSON.parse(JSON.stringify(t.sectionPlayers)) : undefined,
       eqBands: options.includeEQ && t.eqBands ? JSON.parse(JSON.stringify(t.eqBands)) : undefined,
       lowCut: options.includeEQ ? (t.lowCut ?? false) : false,
       reverbVal: options.includeFX ? (t.reverbVal ?? 0) : 0,
@@ -93,7 +95,8 @@ export const createTracksFromTemplateState = (
     }
   });
 
-  const finalTracks = applyRadii(newTracks, newRodaTrackOrder);
+  const reconciledTracks = options.includeStructure ? reconcileAllLinkedTracks(newTracks).tracks : newTracks;
+  const finalTracks = applyRadii(reconciledTracks, newRodaTrackOrder);
   const nextMasterFX = normalizeTemplateMasterFX(template.masterSettings, state.masterFX, options);
   const rawAct = template.masterSettings?.masterEffectsActive;
   const nextEffectsActive = rawAct

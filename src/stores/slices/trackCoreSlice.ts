@@ -3,24 +3,20 @@ import type { SequencerStore } from '../types/sequencerStoreTypes';
 import { TrackCoreSlice } from './trackCoreSliceTypes';
 import { handleFocusAwareTrackHideToggle } from '../helpers/focusVisibilityHelpers';
 import {
-  handleTrackDeleteState,
-  duplicateTrackState,
-  handleTrackMuteToggleState,
-  handleTrackSoloToggleState,
-  handleTrackInstrumentIdxChangeState
+  handleTrackDeleteState, duplicateTrackState, handleTrackMuteToggleState,
+  handleTrackSoloToggleState, handleTrackInstrumentIdxChangeState,
 } from '../helpers/trackLifecycleHelpers';
-import {
-  toggleArmPatternState,
-  updatePatternStepState,
-  setSelectedPatternIdState
-} from '../helpers/trackRecordArmHelper';
+import { toggleArmPatternState, updatePatternStepState, setSelectedPatternIdState } from '../helpers/trackRecordArmHelper';
+import { toggleRodaTrackMuteWithHiddenSlaves, toggleRodaTrackSoloWithHiddenSlaves } from '../helpers/rodaMasterSlaveMuteSoloHelper';
 import { deployToadaCycle } from '../../utils/toadaArrangement';
 import { applyRadii } from '../helpers/trackRodaGeometryHelpers';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
 import { setAoVivoLabPreviewFamily } from '../../audio/animations/aoVivoConfigStorage';
 
 export const createTrackCoreSlice: StateCreator<SequencerStore, [], [], TrackCoreSlice> = (set, get) => ({
   tracks: [],
   rodaTrackOrder: [],
+  showLinkedTracksOnRoda: false,
   activeAoVivoTrackId: null,
   isLetraActive: false,
   tracksVersion: 0,
@@ -37,12 +33,12 @@ export const createTrackCoreSlice: StateCreator<SequencerStore, [], [], TrackCor
     set((state) => deployToadaCycle(state, startMeasureIdx));
   },
 
-  toggleArmPattern: (trackId, patternId) => set(state => toggleArmPatternState(state, trackId, patternId)),
+  toggleArmPattern: (trackId, patternId) => set((state) => toggleArmPatternState(state, trackId, patternId)),
   disarmAllPatterns: () => set({ armedTrackId: null, armedPatternId: null, isPatternRecording: false }),
-  setIsPatternRecording: (updater) => set(state => ({
-    isPatternRecording: typeof updater === 'function' ? updater(state.isPatternRecording) : updater
+  setIsPatternRecording: (updater) => set((state) => ({
+    isPatternRecording: typeof updater === 'function' ? updater(state.isPatternRecording) : updater,
   })),
-  togglePatternRecording: () => set(state => {
+  togglePatternRecording: () => set((state) => {
     if (!state.isPatternRecording) {
       if (state.armedPatternId === null || state.armedTrackId === null) return { isPatternRecording: false };
       return { isPatternRecording: true };
@@ -50,61 +46,64 @@ export const createTrackCoreSlice: StateCreator<SequencerStore, [], [], TrackCor
     return { isPatternRecording: false };
   }),
 
-  updatePatternStep: (trackId, patternId, stepIdx, char) => set(state => {
+  updatePatternStep: (trackId, patternId, stepIdx, char) => set((state) => {
     const { tracks: nextTracks, changed } = updatePatternStepState(state.tracks, trackId, patternId, stepIdx, char);
     if (!changed) return state;
     return { tracks: nextTracks, tracksVersion: state.tracksVersion + 1 };
   }),
 
-  setTracks: (updater) => set(state => {
+  setTracks: (updater) => set((state) => {
     const nextTracks = typeof updater === 'function' ? updater(state.tracks) : updater;
     return { tracks: applyRadii(nextTracks, state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
   }),
 
-  setSelectedPatternId: (trackIdOrPatternId, patternId) => set(state => {
+  setSelectedPatternId: (trackIdOrPatternId, patternId) => set((state) => {
     const res = setSelectedPatternIdState(state, trackIdOrPatternId, patternId);
     return { selectedPatternId: res.selectedPatternId, tracks: res.tracks, tracksVersion: state.tracksVersion + 1 };
   }),
 
-  setRodaTrackOrder: (updater) => set(state => {
+  setRodaTrackOrder: (updater) => set((state) => {
     const nextOrder = typeof updater === 'function' ? updater(state.rodaTrackOrder) : updater;
     return { rodaTrackOrder: nextOrder, tracks: applyRadii(state.tracks, nextOrder), tracksVersion: state.tracksVersion + 1 };
   }),
 
-  setActiveAoVivoTrackId: (id) => {
-    setAoVivoLabPreviewFamily(null);
-    set({ activeAoVivoTrackId: id });
-  },
-  setIsLetraActive: (val) => set(state => ({ isLetraActive: typeof val === 'function' ? val(state.isLetraActive) : val })),
-  toggleLetraActive: () => set(state => ({ isLetraActive: !state.isLetraActive })),
+  setShowLinkedTracksOnRoda: (val) => set((state) => {
+    if (!val) return { showLinkedTracksOnRoda: false };
+    const unhidden = state.tracks.map((t) => (isSlaveTrack(t, state.tracks) && t.isHidden ? { ...t, isHidden: false } : t));
+    return { showLinkedTracksOnRoda: true, tracks: applyRadii(unhidden, state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
+  }),
+
+  toggleShowLinkedTracksOnRoda: () => set((state) => {
+    const next = !state.showLinkedTracksOnRoda;
+    if (!next) return { showLinkedTracksOnRoda: false };
+    const unhidden = state.tracks.map((t) => (isSlaveTrack(t, state.tracks) && t.isHidden ? { ...t, isHidden: false } : t));
+    return { showLinkedTracksOnRoda: true, tracks: applyRadii(unhidden, state.rodaTrackOrder), tracksVersion: state.tracksVersion + 1 };
+  }),
+
+  setActiveAoVivoTrackId: (id) => { setAoVivoLabPreviewFamily(null); set({ activeAoVivoTrackId: id }); },
+  setIsLetraActive: (val) => set((state) => ({ isLetraActive: typeof val === 'function' ? val(state.isLetraActive) : val })),
+  toggleLetraActive: () => set((state) => ({ isLetraActive: !state.isLetraActive })),
 
   handleTrackInstrumentIdxChange: (id, targetInstIdx) => {
     get().pushUndoState();
-    set(state => ({ tracks: handleTrackInstrumentIdxChangeState(state.tracks, id, targetInstIdx), tracksVersion: state.tracksVersion + 1 }));
+    set((state) => ({ tracks: handleTrackInstrumentIdxChangeState(state.tracks, id, targetInstIdx), tracksVersion: state.tracksVersion + 1 }));
   },
 
-  handleTrackMuteToggle: (id) => {
-    set(state => ({ tracks: handleTrackMuteToggleState(state.tracks, id) }));
-  },
-
-  handleTrackSoloToggle: (id) => {
-    set(state => ({ tracks: handleTrackSoloToggleState(state.tracks, id) }));
-  },
-
-  handleTrackHideToggle: (id) => {
-    set(state => handleFocusAwareTrackHideToggle(state, id));
-  },
-
-  handleTrackDelete: (id) => {
-    get().pushUndoState();
-    set(state => handleTrackDeleteState(state, id));
-  },
-
+  handleTrackMuteToggle: (id) => set((state) => ({ tracks: handleTrackMuteToggleState(state.tracks, id) })),
+  handleTrackSoloToggle: (id) => set((state) => ({ tracks: handleTrackSoloToggleState(state.tracks, id) })),
+  handleRodaTrackMuteToggle: (id) => set((state) => ({
+    tracks: toggleRodaTrackMuteWithHiddenSlaves(state.tracks, id, !state.showLinkedTracksOnRoda),
+  })),
+  handleRodaTrackSoloToggle: (id) => set((state) => ({
+    tracks: toggleRodaTrackSoloWithHiddenSlaves(state.tracks, id, !state.showLinkedTracksOnRoda),
+  })),
+  handleTrackHideToggle: (id) => set((state) => handleFocusAwareTrackHideToggle(state, id)),
+  handleTrackDelete: (id) => { get().pushUndoState(); set((state) => handleTrackDeleteState(state, id)); },
   duplicateTrack: (trackId) => {
     get().pushUndoState();
     const res = duplicateTrackState(get(), trackId);
     if (!res) return null;
-    set(prev => ({ tracks: res.tracks, rodaTrackOrder: res.rodaTrackOrder, tracksVersion: prev.tracksVersion + 1 }));
+    set((prev) => ({ tracks: res.tracks, rodaTrackOrder: res.rodaTrackOrder, tracksVersion: prev.tracksVersion + 1 }));
     return res.newTrackId;
-  }
+  },
 });

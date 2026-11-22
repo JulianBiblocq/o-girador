@@ -2,6 +2,7 @@ import React from 'react';
 import { Play, Square, X, Mic, Users, SlidersHorizontal, Maximize2, Minimize2 } from 'lucide-react';
 import { PupitreRibbon } from './PupitreRibbon';
 import { HeaderBalancoControl } from './HeaderBalancoControl';
+import { SectionSquadTriggerBadge } from '../../mixer/spatial/SectionSquadTriggerBadge';
 import { InstrumentEditorHeaderProps } from './headerTypes';
 import { getInstrumentPrimaryStrongColor, getContrastColor } from '../../../utils/colorHelpers';
 
@@ -74,6 +75,9 @@ export const InstrumentEditorHeader: React.FC<InstrumentEditorHeaderProps & { ac
             <SlidersHorizontal size={14} />
             <span className="hidden sm:inline">{lang === 'fr' ? 'Son' : 'Som'}</span>
           </button>
+        )}
+        {!isVocalContext && activeTrackId !== undefined && activeTrackId !== null && (
+          <SectionSquadTriggerBadge trackId={Number(activeTrackId)} />
         )}
         <HeaderBalancoControl
           targetBalancoTrack={targetBalancoTrack} effectiveEditTrackId={effectiveEditTrackId}

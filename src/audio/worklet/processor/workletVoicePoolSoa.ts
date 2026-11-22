@@ -1,5 +1,5 @@
 /**
- * O Girador - Pool SOA 128 Voix Pré-alloué pour AudioWorklet (0 GC) (< 138 lignes)
+ * O Girador - Pool SOA 256 Voix Pré-alloué pour AudioWorklet (0 GC) (< 142 lignes)
  */
 
 import {
@@ -10,14 +10,15 @@ import {
 } from './workletEnvelopeMath';
 import {
   BARULHO_OP_ATTACK_B, BARULHO_OP_MASK, BARULHO_OP_SHIFT, BARULHO_OP_SOFT_B,
-  FLAG_ABAFADO_FALLBACK_80MS, FLAG_STUDIO_CALIBRATED, VOICE_CLASS_MASK, VOICE_CLASS_SHIFT,
-  WORKLET_SEQ_MASK, WORKLET_SEQ_SHIFT, WorkletSkinPhysicsSoa,
+  FLAG_ABAFADO_FALLBACK_80MS, FLAG_STUDIO_CALIBRATED, PLAYER_IDX_MASK, PLAYER_IDX_SHIFT,
+  VOICE_CLASS_MASK, VOICE_CLASS_SHIFT, WORKLET_SEQ_MASK, WORKLET_SEQ_SHIFT, WorkletSkinPhysicsSoa,
 } from './workletSkinPhysics';
 import { BARULHO_MODE_NONE, WorkletBarulhoSoa } from './workletBarulhoSoa';
 
 export class WorkletVoicePoolSoa {
   public readonly voiceState = new Uint8Array(MAX_WORKLET_VOICES);
   public readonly voiceTrackId = new Int32Array(MAX_WORKLET_VOICES);
+  public readonly voicePlayerIdx = new Uint8Array(MAX_WORKLET_VOICES);
   public readonly voiceSlot = new Uint8Array(MAX_WORKLET_VOICES);
   public readonly voiceSampleId = new Uint16Array(MAX_WORKLET_VOICES);
   public readonly voiceStartInBlock = new Uint8Array(MAX_WORKLET_VOICES);
@@ -71,22 +72,23 @@ export class WorkletVoicePoolSoa {
   public spawnVoice(
     triggerFrame: number, startInBlock: number, trackId: number, slot: number, sampleId: number, sample: WorkletSampleEntry,
     velocity: number, strokeBaseGain: number, stepDecayNorm: number, eventPitchNuance: number, trackPitchRatio: number,
-    trackDecayNorm: number, contextSampleRate: number, flags = 0
+    trackDecayNorm: number, contextSampleRate: number, flags = 0, playerPitchMul = 1.0
   ): void {
     const sr = contextSampleRate > 0 ? contextSampleRate : 48000;
     const peakGain = computeWorkletPeakGain(velocity, strokeBaseGain, (flags & FLAG_STUDIO_CALIBRATED) !== 0, false);
     if (peakGain <= 0.0001 || sample.length < 2) return;
 
     const barulhoOp = (flags >>> BARULHO_OP_SHIFT) & BARULHO_OP_MASK;
+    const playerIdx = (flags >>> PLAYER_IDX_SHIFT) & PLAYER_IDX_MASK;
     const seqId = (flags >>> WORKLET_SEQ_SHIFT) & WORKLET_SEQ_MASK;
     if (barulhoOp === BARULHO_OP_ATTACK_B || barulhoOp === BARULHO_OP_SOFT_B) {
       const prep = this.barulho.prepareSpawnOrLegato(
-        barulhoOp, seqId, trackId, startInBlock, peakGain, stepDecayNorm, sr, sample,
-        this.voiceState, this.voiceTrackId, this.voiceChokeStartInBlock, this.voiceChokeFramesLeft, this.voiceChokeDelta
+        barulhoOp, seqId, trackId, playerIdx, startInBlock, peakGain, stepDecayNorm, sr, sample,
+        this.voiceState, this.voiceTrackId, this.voicePlayerIdx, this.voiceChokeStartInBlock, this.voiceChokeFramesLeft, this.voiceChokeDelta
       );
       if (prep.handledLegato) return;
       const v = this.allocateVoiceSlot();
-      this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, slot, sampleId, sample, eventPitchNuance, sr, flags, prep.initialReadPos, prep.initialGain, peakGain);
+      this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, playerIdx, slot, sampleId, sample, eventPitchNuance, sr, flags, prep.initialReadPos, prep.initialGain, peakGain);
       this.barulho.initSpawnedVoice(v, seqId, startInBlock, sample, prep);
       return;
     }
@@ -94,9 +96,9 @@ export class WorkletVoicePoolSoa {
     const v = this.allocateVoiceSlot();
     this.barulho.resetVoice(v);
     const safeSr = sample.sampleRate > 0 ? sample.sampleRate : sr;
-    const effPitch = Math.max(0.1, eventPitchNuance * (trackPitchRatio > 0 ? trackPitchRatio : 1.0));
+    const effPitch = Math.max(0.1, eventPitchNuance * (trackPitchRatio > 0 ? trackPitchRatio : 1.0) * (playerPitchMul > 0 ? playerPitchMul : 1.0));
     fillWorkletVoiceEnvelope(sample.length / (safeSr * effPitch), computeWorkletEffectiveDecay(stepDecayNorm, trackDecayNorm), peakGain, sr, this.envScratch, (flags & FLAG_ABAFADO_FALLBACK_80MS) !== 0);
-    this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, slot, sampleId, sample, eventPitchNuance, sr, flags, 0, this.envScratch.safePeakGain, this.envScratch.safePeakGain);
+    this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, playerIdx, slot, sampleId, sample, eventPitchNuance, sr, flags, 0, this.envScratch.safePeakGain, this.envScratch.safePeakGain);
     this.voiceMidGain[v] = this.envScratch.midGain; this.voiceHoldFrames[v] = this.envScratch.holdFrames;
     this.voiceMidRelFrames[v] = this.envScratch.midRelFrames; this.voiceRelEndFrames[v] = this.envScratch.relEndFrames;
     this.voiceEndFrames[v] = this.envScratch.endFrames; this.voiceIsFullBuffer[v] = this.envScratch.isFullBuffer;
@@ -104,11 +106,12 @@ export class WorkletVoicePoolSoa {
   }
 
   private initCommonVoiceFields(
-    v: number, triggerFrame: number, startInBlock: number, trackId: number, slot: number, sampleId: number,
+    v: number, triggerFrame: number, startInBlock: number, trackId: number, playerIdx: number, slot: number, sampleId: number,
     sample: WorkletSampleEntry, pitchNuance: number, sr: number, flags: number, readPos: number, curGain: number, peakGain: number
   ): void {
     const safeSr = sample.sampleRate > 0 ? sample.sampleRate : sr;
-    this.voiceState[v] = VOICE_STATE_ACTIVE; this.voiceTrackId[v] = trackId; this.voiceSlot[v] = slot; this.voiceSampleId[v] = sampleId;
+    this.voiceState[v] = VOICE_STATE_ACTIVE; this.voiceTrackId[v] = trackId; this.voicePlayerIdx[v] = playerIdx;
+    this.voiceSlot[v] = slot; this.voiceSampleId[v] = sampleId;
     this.voiceStartInBlock[v] = startInBlock; this.voiceStartFrame[v] = triggerFrame; this.voiceReadPos[v] = readPos;
     this.voiceSampleRateRatio[v] = safeSr / sr; this.voiceEventPitchNuance[v] = pitchNuance > 0 ? pitchNuance : 1.0;
     this.voiceCurrentGain[v] = curGain; this.voicePeakGain[v] = peakGain; this.voiceElapsedFrames[v] = 0;
@@ -117,9 +120,10 @@ export class WorkletVoicePoolSoa {
   }
 
   public applyEventPhysics(trackId: number, flags: number, evtFrame: number, startInBlock: number, contextSampleRate: number): void {
+    const playerIdx = (flags >>> PLAYER_IDX_SHIFT) & PLAYER_IDX_MASK;
     this.skinPhysics.applyTrigger(
-      trackId, flags, evtFrame, startInBlock, contextSampleRate, this.voiceState, this.voiceTrackId,
-      this.voiceStartFrame, this.voiceChokeStartInBlock, this.voiceChokeFramesLeft, this.voiceChokeDelta, this.barulho.mode
+      trackId, playerIdx, flags, evtFrame, startInBlock, contextSampleRate, this.voiceState, this.voiceTrackId,
+      this.voicePlayerIdx, this.voiceStartFrame, this.voiceChokeStartInBlock, this.voiceChokeFramesLeft, this.voiceChokeDelta, this.barulho.mode
     );
   }
 

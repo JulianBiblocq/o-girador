@@ -1,6 +1,7 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { isToadaBus } from './trackVisibilityHelpers';
 import { cloneTracksForTimeline } from './timelineGridExpandHelper';
 import { TimelineClipboard } from './timelineClipboardTypes';
@@ -49,23 +50,16 @@ export const pasteTimelineClipboardState = (
   for (const entry of clipboard.entries) {
     const destM = targetM + entry.relativeM;
     const targetTrackId = isSingleTrackClipboard && singleTrackTargetId !== null ? singleTrackTargetId : entry.trackId;
-    const destTrack = updatedTracks.find((t) => t.id === targetTrackId);
-    if (!destTrack) continue;
+    const rawDest = updatedTracks.find((t) => t.id === targetTrackId);
+    if (!rawDest) continue;
+    const destTrack = isSlaveTrack(rawDest, updatedTracks)
+      ? (resolveMasterTrack(rawDest.id, updatedTracks) || rawDest)
+      : rawDest;
 
-    pastedCellCoords.push({ trackId: targetTrackId, mIdx: destM });
+    pastedCellCoords.push({ trackId: destTrack.id, mIdx: destM });
     const isToada = isToadaBus(destTrack);
     const isVoicePux = Boolean(newPuxTrack && destTrack.id === newPuxTrack.id);
     const isVoiceCoro = Boolean(newCoroTrack && destTrack.id === newCoroTrack.id);
-    const isSlave = Boolean(destTrack.linkedToTrackId && !destTrack.isLinkFolder && !destTrack.isLinkMaster);
-
-    if (isSlave) {
-      const overrides = { ...(destTrack.patternOverrides || {}) };
-      const rawOvId = entry.overridePatternId !== undefined ? entry.overridePatternId : entry.patternId;
-      const effOvId = ensureTimelinePatternOnDestTrack(destTrack, rawOvId ?? null, entry.sourcePattern, updatedTracks, totalMeasures, lang, getMap(destTrack.id));
-      if (effOvId === null) delete overrides[destM]; else overrides[destM] = effOvId;
-      destTrack.patternOverrides = overrides;
-      continue;
-    }
 
     if (isToada) {
       if (entry.isToadaBusEntry) {

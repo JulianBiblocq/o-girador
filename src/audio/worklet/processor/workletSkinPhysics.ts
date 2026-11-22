@@ -73,8 +73,8 @@ export class WorkletSkinPhysicsSoa {
   }
 
   public applyTrigger(
-    trackId: number, flags: number, evtFrame: number, startInBlock: number, contextSampleRate: number,
-    voiceState: Uint8Array, voiceTrackId: Int32Array, voiceStartFrame: Float64Array,
+    trackId: number, playerIdx: number, flags: number, evtFrame: number, startInBlock: number, contextSampleRate: number,
+    voiceState: Uint8Array, voiceTrackId: Int32Array, voicePlayerIdx: Uint8Array, voiceStartFrame: Float64Array,
     chokeStart: Uint8Array, chokeLeft: Int32Array, chokeDelta: Float32Array, barulhoMode: Uint8Array
   ): void {
     const mode = flags & CHOKE_MODE_MASK;
@@ -85,7 +85,7 @@ export class WorkletSkinPhysicsSoa {
 
     for (let v = 0; v < MAX_WORKLET_VOICES; v++) {
       const st = voiceState[v];
-      if (st === 0 || voiceTrackId[v] !== trackId || voiceStartFrame[v] >= evtFrame) continue;
+      if (st === 0 || voiceTrackId[v] !== trackId || voicePlayerIdx[v] !== playerIdx || voiceStartFrame[v] >= evtFrame) continue;
       const cls = this.voiceClass[v], isBar = barulhoMode[v] !== 0;
 
       if (mode === CHOKE_TIMBAL_BASS_22MS && cls === VOICE_CLASS_TIMBAL_BASS) {

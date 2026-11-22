@@ -45,8 +45,11 @@ export function useWizardDragDrop(wizardLang: Language, showToast: (msg: string)
   };
 
   const addWithSound = (type: string, x: number, y: number) => {
-    const count = placedInstruments.filter((i) => i.instrumentType === type).length;
-    if (LIMITS[type] !== undefined && count >= LIMITS[type]) showToast(t[wizardLang].attentionSurcharge);
+    const count = useWizardStore.getState().placedInstruments.filter((i) => i.instrumentType === type).length;
+    if (LIMITS[type] !== undefined && count >= LIMITS[type]) {
+      showToast(t[wizardLang].attentionSurcharge);
+      return;
+    }
     addPlacedInstrument(type, x, y);
     playWizardSpatialHit(type, x, y);
   };

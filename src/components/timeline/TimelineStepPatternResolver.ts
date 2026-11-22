@@ -1,5 +1,6 @@
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../../data';
 import { resolveSlaveStepOpacity, SlaveFocusContext } from '../../utils/slaveStepOpacityResolver';
+import { resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { resolveVoiceStepData } from './TimelineStepVoiceResolver';
 
 export interface TimelineStepData {
@@ -58,19 +59,12 @@ export function resolveTimelineStepData(
     applyOwnInstrumentVisual(resolvedVal, inst);
   } else if (isSlave) {
     const parentBus = tracks.find((p) => p.id === parentBusTrackId) || tracks.find((p) => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
-    const masterTrack = tracks.find((t) => t.id === masterTrackId) || tracks.find((t) => (String(t.linkedToTrackId) === String(currentTrack.linkedToTrackId) || String(t.id) === String(currentTrack.linkedToTrackId)) && t.isLinkMaster);
-    const mp = masterTrack?.patterns?.find((p: any) => Boolean(p.measureAssignments?.[measureIdx])) || parentBus?.patterns?.find((p: any) => Boolean(p.measureAssignments?.[measureIdx])) || masterTrack?.patterns?.[0] || parentBus?.patterns?.[0];
+    const masterTrack = (masterTrackId ? tracks.find((t) => t.id === masterTrackId) : undefined) || resolveMasterTrack(currentTrack.id, tracks);
+    const mp = masterTrack?.patterns?.find((p: any) => Boolean(p.measureAssignments?.[measureIdx])) || parentBus?.patterns?.find((p: any) => Boolean(p.measureAssignments?.[measureIdx]));
     masterVal = mp?.activeSteps?.[actualStepIdx] ?? 0;
 
-    const ov = currentTrack.patternOverrides?.[measureIdx];
     const ownAssigned = currentTrack.patterns?.find((p: any) => Boolean(p.measureAssignments?.[measureIdx]));
-    if (ov === null) {
-      resolvedVal = 0;
-    } else if (ov !== undefined) {
-      const cp = currentTrack.patterns?.find((p: any) => p.id === ov) || parentBus?.patterns?.find((p: any) => p.id === ov) || masterTrack?.patterns?.find((p: any) => p.id === ov);
-      resolvedVal = cp?.activeSteps?.[actualStepIdx] ?? 0;
-      resolvedNote = cp?.notes?.[actualStepIdx] ?? '';
-    } else if (ownAssigned) {
+    if (ownAssigned) {
       resolvedVal = ownAssigned.activeSteps?.[actualStepIdx] ?? 0;
       resolvedNote = ownAssigned.notes?.[actualStepIdx] ?? '';
     } else {

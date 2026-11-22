@@ -1,98 +1,93 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, ArrowUpDown } from 'lucide-react';
-import { instrumentsConfig, ASSETS_BASE_URL } from '../../data';
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import React, { useState, useMemo } from 'react';
+import { Plus, ArrowUpDown, Link2 } from 'lucide-react';
+import { useSequencerStore, selectTracksHierarchyMeta } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
-import { useWindow } from '../../contexts/WindowContext';
+import { isSlaveTrack } from '../../utils/trackMasterResolver';
+import { InstrumentAddPickerPopover } from '../instrument-editor/InstrumentAddPickerPopover';
 import { TrackFocusSplitButton } from './TrackFocusSplitButton';
 
 interface MixerHeaderProps {
   t: (key: string) => string;
   noBorder?: boolean;
+  isRodaColumn?: boolean;
   className?: string;
 }
 
-export const MixerHeader: React.FC<MixerHeaderProps> = ({ t, noBorder = false, className = '' }) => {
+export const MixerHeader: React.FC<MixerHeaderProps> = ({ t, noBorder = false, isRodaColumn = false, className = '' }) => {
   const sequencer = useSequencer();
-  const currentWindow = useWindow();
   const isPracticeMode = useSequencerStore((s) => s.isPracticeMode);
   const handleReverseRodaTracks = useSequencerStore((s) => s.handleReverseRodaTracks);
+  const showLinkedTracksOnRoda = useSequencerStore((s) => s.showLinkedTracksOnRoda);
+  const toggleShowLinkedTracksOnRoda = useSequencerStore((s) => s.toggleShowLinkedTracksOnRoda);
+  const tracksMeta = useSequencerStore(selectTracksHierarchyMeta);
   const lang = useSequencerStore((s) => s.lang);
-  const [addDropOpen, setAddDropOpen] = useState(false);
-  const addDropRef = useRef<HTMLDivElement>(null);
+  const [addAnchorRect, setAddAnchorRect] = useState<DOMRect | null>(null);
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent | TouchEvent) {
-      if (addDropRef.current && !addDropRef.current.contains(e.target as Node)) {
-        setAddDropOpen(false);
-      }
-    }
-    if (addDropOpen) {
-      currentWindow.document.addEventListener('mousedown', handleClickOutside);
-      currentWindow.document.addEventListener('touchstart', handleClickOutside);
-    }
-    return () => {
-      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
-      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [addDropOpen, currentWindow]);
-
-  const list = instrumentsConfig
-    .map((inst, idx) => ({ inst, idx }))
-    .filter(({ inst }) => inst.id !== 'puxador' && inst.id !== 'coro');
-  const apitoItem = list.find((item) => item.inst.id === 'apito');
-  const rest = list.filter((item) => item.inst.id !== 'apito');
-  const sorted = apitoItem ? [...rest, apitoItem] : list;
+  const slaveCount = useMemo(
+    () => tracksMeta.filter((m) => isSlaveTrack(m as any, tracksMeta as any)).length,
+    [tracksMeta]
+  );
 
   return (
-    <div className={`${noBorder ? '' : 'border-b border-[var(--cordel-border,#333)] pb-2 mb-2'} shrink-0 w-full flex items-center gap-2 relative z-50 overflow-visible ${className}`}>
+    <div className={`${noBorder ? '' : 'border-b border-[var(--cordel-border)] pb-2 mb-2'} shrink-0 w-full flex items-center gap-1.5 relative z-50 overflow-visible ${className}`}>
       {!isPracticeMode && (
-        <div className="relative shrink-0" ref={addDropRef}>
+        <div className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setAddDropOpen(!addDropOpen)}
-            className="w-9 h-9 min-w-9 min-h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center transition-all cursor-pointer hover:opacity-80"
+            data-add-instrument-trigger="true"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setAddAnchorRect((prev) => (prev ? null : rect));
+            }}
+            className={`w-9 h-9 min-w-9 min-h-9 cordel-border cordel-button flex items-center justify-center transition-colors cursor-pointer ${
+              addAnchorRect
+                ? 'bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-accent)] hover:text-[var(--cordel-on-accent)]'
+            }`}
             title={t('addInst')}
           >
             <Plus className="w-4 h-4" />
           </button>
-          {addDropOpen && (
-            <div className="absolute top-10 left-0 w-48 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] max-h-[calc(100vh-160px)] overflow-y-auto z-[100]">
-              {sorted.map(({ inst, idx }) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    sequencer.handleAddTrackInstrument(idx, useSequencerStore.getState().currentMeasure);
-                    setAddDropOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-b border-[var(--cordel-border)] cursor-pointer"
-                >
-                  <img
-                    src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-                    alt={inst.name}
-                    className="w-4 h-4 object-contain filter invert opacity-80 shrink-0"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                  />
-                  <span className="truncate">{inst.name}</span>
-                </div>
-              ))}
-            </div>
+          {addAnchorRect && (
+            <InstrumentAddPickerPopover
+              anchorRect={addAnchorRect}
+              onSelectInstrument={(idx) => {
+                sequencer.handleAddTrackInstrument(idx, useSequencerStore.getState().currentMeasure);
+              }}
+              onClose={() => setAddAnchorRect(null)}
+            />
           )}
         </div>
       )}
 
       <TrackFocusSplitButton />
 
+      {isRodaColumn && (
+        <button
+          type="button"
+          data-testid="roda-toggle-linked-slaves-btn"
+          onClick={toggleShowLinkedTracksOnRoda}
+          className={`h-9 px-2 cordel-border cordel-button flex items-center gap-1 text-[10px] font-cactus font-bold transition-all cursor-pointer shrink-0 ${
+            showLinkedTracksOnRoda
+              ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:opacity-85'
+          }`}
+          title={
+            lang === 'pt'
+              ? (showLinkedTracksOnRoda ? 'Ocultar faixas ligadas na Roda' : 'Mostrar faixas ligadas na Roda')
+              : (showLinkedTracksOnRoda ? 'Masquer les pistes liées sur la Roda' : 'Afficher les pistes liées sur la Roda')
+          }
+        >
+          <Link2 size={12} className="shrink-0" />
+          <span>{lang === 'pt' ? 'Ligados' : 'Liés'}{slaveCount > 0 ? ` (${slaveCount})` : ''}</span>
+        </button>
+      )}
+
       <button
         type="button"
         onClick={() => handleReverseRodaTracks()}
         className="w-9 h-9 min-w-9 min-h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center transition-all cursor-pointer hover:opacity-80 shrink-0"
-        title={
-          lang === 'pt'
-            ? 'Inverter ordem das pistas (Topo ↔ Base / Exterior ↔ Centro)'
-            : "Inverser l'ordre des pistes (Haut ↔ Bas / Extérieur ↔ Centre)"
-        }
+        title={lang === 'pt' ? 'Inverter ordem das pistas (Topo ↔ Base / Exterior ↔ Centro)' : "Inverser l'ordre des pistes (Haut ↔ Bas / Extérieur ↔ Centre)"}
       >
         <ArrowUpDown size={14} />
       </button>

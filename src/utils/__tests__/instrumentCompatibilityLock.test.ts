@@ -89,7 +89,7 @@ describe('Strict Copy/Paste Lock by Stroke Family & Non-Regression', () => {
     expect(alfPtn.activeSteps).toEqual(['D', 'A', ['d', 'A'], 'I', 'C', 'X', 'B', 'b', '/', '.']);
   });
 
-  it('targets concrete slave tracks (Meião/Repique/Tarol) directly without redirecting to master, while resolving isLinkFolder', () => {
+  it('redirects bank paste on slave tracks (Meião/Repique/Tarol) to Master for 100% unison while resolving isLinkFolder', () => {
     const folder = { id: 90, instrumentIdx: idxOf('marcante'), isBusFolder: true, isLinkFolder: true, patterns: [] } as any;
     const master = makeTrack(1, 'marcante', ['D', 'E', 'D', 'E'], { isLinkMaster: true, linkedToTrackId: '90', busId: '90' });
     const slaveMeiao = makeTrack(2, 'meiao', [0, 0, 0, 0], { isLinkMaster: false, linkedToTrackId: '90', busId: '90' });
@@ -101,15 +101,18 @@ describe('Strict Copy/Paste Lock by Stroke Family & Non-Regression', () => {
 
     const copiedAlfaia = buildCopiedPatternPayload(master.patterns[0], tracks, master.id);
     expect(applySinglePatternPasteState(tracks, copiedAlfaia, gongue.id, gongue.patterns[0].id, 4, 'fr')).toBeNull();
-
     const pastedOnSlave = applySinglePatternPasteState(tracks, copiedAlfaia, slaveMeiao.id, slaveMeiao.patterns[0].id, 4, 'fr')!;
     expect(pastedOnSlave.find((t) => t.id === slaveMeiao.id)!.patterns[0].activeSteps).toEqual(['D', 'E', 'D', 'E']);
 
     const bankClip = copyAllTrackPatternsData(tracks, master.id, 'fr')!.clip;
     expect(pasteAllTrackPatternsState(tracks, bankClip, gongue.id, 'libraryOnly', 4, 'fr')).toBeNull();
     const bankOnSlave = pasteAllTrackPatternsState(tracks, bankClip, slaveMeiao.id, 'libraryOnly', 4, 'fr')!;
-    expect(bankOnSlave.tracks.find((t) => t.id === slaveMeiao.id)!.patterns.length).toBe(2);
-    expect(bankOnSlave.tracks.find((t) => t.id === master.id)!.patterns.length).toBe(1);
+    const updatedMaster = bankOnSlave.tracks.find((t) => t.id === master.id)!;
+    const updatedSlave = bankOnSlave.tracks.find((t) => t.id === slaveMeiao.id)!;
+    expect(updatedMaster.patterns.length).toBe(2);
+    expect(updatedSlave.patterns.length).toBe(2);
+    expect(updatedSlave.patterns[1].id).toBe(updatedMaster.patterns[1].id);
+    expect(updatedSlave.patterns[1].activeSteps).toEqual(['D', 'E', 'D', 'E']);
   });
 
   it('locks Timeline single-track vs multi-track paste, preserves Puxador+Coro tiling, and blocks cross-family step/vocal paste', () => {

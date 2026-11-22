@@ -1,3 +1,4 @@
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { TourStepDef } from './tourTypes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
@@ -19,8 +20,12 @@ export const TOUR_STEPS_PRACTICE: TourStepDef[] = [
     badgePt: 'Repertório & Modos',
     titleFr: 'Choisir son morceau et son parcours',
     titlePt: 'Escolher sua música e seu modo',
-    bodyFr: 'Ouvrez MENU pour charger un baque du catalogue de votre groupe ou du catalogue public, et basculer vers le Mode Studio, Dançador ou Cantador.',
-    bodyPt: 'Abra o MENU para carregar um baque do catálogo do seu grupo ou público, e alternar entre Modo Estúdio, Dançador ou Cantador.',
+    bodyFr: SHOW_DANCADOR
+      ? 'Ouvrez MENU pour charger un baque du catalogue de votre groupe ou du catalogue public, et basculer vers le Mode Studio, Dançador ou Cantador.'
+      : 'Ouvrez MENU pour charger un baque du catalogue de votre groupe ou du catalogue public, et basculer vers le Mode Studio ou Cantador.',
+    bodyPt: SHOW_DANCADOR
+      ? 'Abra o MENU para carregar um baque do catálogo do seu grupo ou público, e alternar entre Modo Estúdio, Dançador ou Cantador.'
+      : 'Abra o MENU para carregar um baque do catálogo do seu grupo ou público, e alternar entre Modo Estúdio ou Cantador.',
     prepare: () => ensureRodaSurface(false),
   },
   {

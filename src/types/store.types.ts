@@ -9,6 +9,13 @@ import type { BusCompressorSettings } from '../audio/effects/busCompressorTypes'
 export * from './pattern.types';
 export * from './section.types';
 
+export interface SectionPlayerPlacement {
+  id: string;
+  x: number;
+  y: number;
+  detuneCents?: number;
+}
+
 export interface TrackGroup {
   id: number;
   instrumentIdx: number;
@@ -61,6 +68,8 @@ export interface TrackGroup {
   phaseInverted?: boolean;
   /** Compresseur VCA de sous-groupe (`isBusFolder`, `isLinkFolder`, bus vocal Toada). */
   busCompressor?: BusCompressorSettings;
+  /** Escouade spatiale par piste dans le cône 120° de La Place (`1..5` Marcante, `1..4` autres percussions). */
+  sectionPlayers?: SectionPlayerPlacement[];
 }
 
 export type Track = TrackGroup;

@@ -1,10 +1,11 @@
 /**
- * O Girador - Processeur AudioWorklet Multi-Sorties de Percussions (< 122 lignes)
- * Typage strict `AudioWorkletGlobalScope` sans `any`, piloté par `currentFrame` et `sampleRate`.
+ * O Girador - Processeur AudioWorklet Multi-Sorties de Percussions (< 140 lignes)
+ * Typage strict `AudioWorkletGlobalScope` sans `any`, 256 voix SOA Zéro-GC et escouade spatiale par slot.
  */
 
 import {
   MAX_WORKLET_OUTPUTS,
+  MAX_WORKLET_PLAYERS_PER_SLOT,
   MAX_WORKLET_SAMPLES,
   PercussionWorkletInboundMessage,
   WorkletMessageEvent,
@@ -40,11 +41,17 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
   private readonly slotMuted = new Uint8Array(MAX_WORKLET_OUTPUTS);
   private readonly slotPitchRatio = new Float32Array(MAX_WORKLET_OUTPUTS);
   private readonly slotDecayNorm = new Float32Array(MAX_WORKLET_OUTPUTS);
+  private readonly slotPlayerGainL = new Float32Array(MAX_WORKLET_OUTPUTS * MAX_WORKLET_PLAYERS_PER_SLOT);
+  private readonly slotPlayerGainR = new Float32Array(MAX_WORKLET_OUTPUTS * MAX_WORKLET_PLAYERS_PER_SLOT);
+  private readonly slotPlayerPitchMul = new Float32Array(MAX_WORKLET_OUTPUTS * MAX_WORKLET_PLAYERS_PER_SLOT);
 
   constructor() {
     super();
     this.slotPitchRatio.fill(1.0);
     this.slotDecayNorm.fill(1.0);
+    this.slotPlayerGainL.fill(1.0);
+    this.slotPlayerGainR.fill(1.0);
+    this.slotPlayerPitchMul.fill(1.0);
     this.port.onmessage = (event: WorkletMessageEvent<PercussionWorkletInboundMessage>) => {
       this.handleMessage(event.data);
     };
@@ -87,6 +94,12 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
           this.slotMuted[s] = msg.isMuted ? 1 : 0;
           this.slotPitchRatio[s] = msg.pitchRatio > 0 ? msg.pitchRatio : 1.0;
           this.slotDecayNorm[s] = msg.decayNorm > 0 ? msg.decayNorm : 1.0;
+          const base = s * MAX_WORKLET_PLAYERS_PER_SLOT;
+          for (let k = 0; k < MAX_WORKLET_PLAYERS_PER_SLOT; k++) {
+            this.slotPlayerGainL[base + k] = msg.playerGainL && k < msg.playerGainL.length ? msg.playerGainL[k] : 1.0;
+            this.slotPlayerGainR[base + k] = msg.playerGainR && k < msg.playerGainR.length ? msg.playerGainR[k] : 1.0;
+            this.slotPlayerPitchMul[base + k] = msg.playerPitchMul && k < msg.playerPitchMul.length && msg.playerPitchMul[k] > 0 ? msg.playerPitchMul[k] : 1.0;
+          }
         }
         break;
       }
@@ -114,7 +127,8 @@ export class PercussionEngineProcessor extends AudioWorkletProcessor {
   ): boolean {
     processWorkletDspBlock(
       outputs, currentFrame, sampleRate, this.queue, this.pool,
-      this.samples, this.slotMuted, this.slotPitchRatio, this.slotDecayNorm
+      this.samples, this.slotMuted, this.slotPitchRatio, this.slotDecayNorm,
+      this.slotPlayerGainL, this.slotPlayerGainR, this.slotPlayerPitchMul
     );
     return true;
   }

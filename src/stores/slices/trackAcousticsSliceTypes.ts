@@ -1,4 +1,4 @@
-import { TrackGroup, MasterFX } from '../../types';
+import { TrackGroup, MasterFX, SectionPlayerPlacement } from '../../types';
 import type { SpeakerProfileId, StudioMasterBusConfig } from '../../audio/effects/studioFxPresets';
 
 export interface MasterEffectsActiveState {
@@ -41,6 +41,7 @@ export interface TrackAcousticsSlice {
   handleResetPatternMicrotimings: (trackId: number, patternId: number) => void;
   setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
   setTrackPan: (trackId: number, value: number) => void;
+  setTrackSectionPlayers: (trackId: number, players: SectionPlayerPlacement[] | undefined) => void;
   handleTrackLowCutToggle: (id: number) => void;
   handleTrackEQChange: (id: number, bands: Partial<TrackGroup['eqBands']>) => void;
   handleTrackEQReset: (id: number) => void;

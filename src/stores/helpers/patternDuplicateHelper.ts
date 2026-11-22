@@ -3,6 +3,8 @@ import { instrumentsConfig } from '../../data';
 import { isToadaBus } from './trackVisibilityHelpers';
 import { cloneTrackAutomationsForMeasure } from './trackAutomationCloneHelper';
 import { autoExpandMeasuresState } from './timelineGridAutoExpandHelper';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export const duplicateMeasurePatternState = (
   curr: {
@@ -26,30 +28,15 @@ export const duplicateMeasurePatternState = (
   const nextTotal = expanded.totalMeasures;
   const nextTracks = expanded.tracks;
 
-  const clickedTrack = nextTracks.find(t => t.id === trackId);
-  if (!clickedTrack) return { totalMeasures: nextTotal, tracks: nextTracks };
+  const rawClicked = nextTracks.find(t => t.id === trackId);
+  if (!rawClicked) return { totalMeasures: nextTotal, tracks: nextTracks };
 
-  const isLinkedSlave = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
-  const isLinkMaster = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
+  const clickedTrack = isSlaveTrack(rawClicked, nextTracks)
+    ? (resolveMasterTrack(rawClicked.id, nextTracks) || rawClicked)
+    : rawClicked;
+  const isLinkMaster = Boolean(!clickedTrack.isBusFolder && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster);
 
-  if (isLinkedSlave) {
-    const srcOverride = clickedTrack.patternOverrides?.[srcIdx];
-    return {
-      ...expanded,
-      tracks: nextTracks.map(t => {
-        if (t.id === trackId) {
-          const overrides = { ...(t.patternOverrides || {}) };
-          if (srcOverride === undefined) delete overrides[targetIdx];
-          else overrides[targetIdx] = srcOverride;
-          return { ...t, patternOverrides: overrides };
-        }
-        return t;
-      }),
-      tracksVersion: curr.tracksVersion + 1
-    };
-  }
-
-  let targetTrackId = trackId;
+  let targetTrackId = clickedTrack.id;
   let sourceOwnerTrack = clickedTrack;
   const parentBusId = isLinkMaster && clickedTrack.linkedToTrackId ? String(clickedTrack.linkedToTrackId) : null;
 
@@ -65,9 +52,7 @@ export const duplicateMeasurePatternState = (
     allowVarVal = activePat.measureAllowVariations?.[srcIdx];
   }
 
-  return {
-    ...expanded,
-    tracks: nextTracks.map(t => {
+  const mappedTracks = nextTracks.map(t => {
       if (isToadaTrackId && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
         const trackActivePat = t.patterns.find(p => p.measureAssignments?.[srcIdx]);
         const trackActivePatId = trackActivePat?.id ?? null;
@@ -120,7 +105,10 @@ export const duplicateMeasurePatternState = (
         };
       }
       return t;
-    }),
+    });
+  return {
+    ...expanded,
+    tracks: isLinkMaster ? syncMasterPatternsToLinkedFamily(mappedTracks, targetTrackId).tracks : mappedTracks,
     tracksVersion: curr.tracksVersion + 1
   };
 };

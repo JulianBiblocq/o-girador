@@ -2,7 +2,6 @@ import { Pattern } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { resolveActivePatternForCell, resolvePatternsListForTrack } from '../../utils/timelinePatternResolver';
-import { isSlaveTrack } from '../../utils/trackMasterResolver';
 
 export interface ResolvedMeasureData {
   activePattern: Pattern | null;
@@ -72,19 +71,10 @@ export function resolveTimelineTrackMeasureData(
     if (coroTrack?.patterns) toadaList.push(...coroTrack.patterns);
     currentPatternsList = toadaList;
   } else {
-    const isSlave = isSlaveTrack(trackMeta || targetTrack, allTracks);
-    if (isSlave) {
-      const override = trackMeta?.patternOverrides?.[mIdx];
-      if (override === null) {
-        isSilence = true; isOverridden = true;
-      } else if (override !== undefined) {
-        isOverridden = true;
-      }
-    }
     const resolved = resolveActivePatternForCell(trackData.id, mIdx, null, allTracks);
     activePattern = resolved.activePattern;
     activeTrack = resolved.ownerTrack || targetTrack;
-    if (!isSlave && !activePattern) isSilence = true;
+    if (!activePattern) isSilence = true;
     currentPatternsList = resolvePatternsListForTrack(targetTrack, allTracks);
   }
 
@@ -92,11 +82,7 @@ export function resolveTimelineTrackMeasureData(
   const spanMeasures = activePattern ? Math.max(1, Math.round((activePattern.steps ?? stepsPerMeasure) / stepsPerMeasure)) : 1;
   let startM = mIdx;
   if (activePattern && spanMeasures > 1) {
-    if (isOverridden && trackMeta?.patternOverrides) {
-      while (startM > 0 && trackMeta.patternOverrides?.[startM - 1] === activePattern.id) startM--;
-    } else {
-      while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) startM--;
-    }
+    while (startM > 0 && activePattern.measureAssignments?.[startM - 1] === true) startM--;
   }
   const relativeIdx = activePattern && spanMeasures > 1 ? (mIdx - startM) % spanMeasures : 0;
   const stepStart = relativeIdx * stepsPerMeasure;

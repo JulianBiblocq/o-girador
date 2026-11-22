@@ -3,6 +3,8 @@ import { instrumentsConfig } from '../../data';
 import { isToadaBus } from './trackVisibilityHelpers';
 import { expandGridMeasures, cloneTracksForTimeline } from './timelineGridExpandHelper';
 import { copyAutomations, duplicateVoiceMeasure } from './timelineDuplicateMeasureHelpers';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
+import { syncMasterPatternsToLinkedFamily } from '../../utils/trackLinkingSync';
 
 export const duplicateSelectedCellsState = (
   curr: {
@@ -65,22 +67,13 @@ export const duplicateSelectedCellsState = (
     const isPux = Boolean(pux && clk.id === pux.id);
     const isCoro = Boolean(coro && clk.id === coro.id);
     const isVoice = isToada || isPux || isCoro;
-    const isSlave = Boolean(clk.linkedToTrackId && !clk.isLinkFolder && !clk.isLinkMaster);
-    const isMaster = Boolean(clk.linkedToTrackId && !clk.isLinkFolder && clk.isLinkMaster);
-
-    const targetTrackId = (isMaster && clk.linkedToTrackId) ? Number(clk.linkedToTrackId) : trackId;
-    const srcOwner = (isMaster && clk.linkedToTrackId) ? (updatedTracks.find(t => t.id === targetTrackId) || clk) : clk;
+    const isSlave = isSlaveTrack(clk, updatedTracks);
+    const resolvedOwner = isSlave ? (resolveMasterTrack(clk.id, updatedTracks) || clk) : clk;
+    const targetTrackId = resolvedOwner.id;
+    const srcOwner = resolvedOwner;
 
     for (let m = mMin; m <= mMax; m++) {
       const targetIdx = m + L;
-      if (isSlave) {
-        const srcOver = clk.patternOverrides?.[m];
-        const overs = { ...(clk.patternOverrides || {}) };
-        if (srcOver === undefined) delete overs[targetIdx];
-        else overs[targetIdx] = srcOver;
-        clk.patternOverrides = overs;
-        continue;
-      }
 
       if (isVoice) {
         duplicateVoiceMeasure(pux, coro, m, targetIdx, isToada, isPux, nextTotal);
@@ -105,6 +98,15 @@ export const duplicateSelectedCellsState = (
     }
   }
 
+  let finalTracks = updatedTracks;
+  uniqueTrackIds.forEach((tid) => {
+    const rawTr = finalTracks.find((t) => t.id === tid);
+    const tr = rawTr && isSlaveTrack(rawTr, finalTracks) ? resolveMasterTrack(rawTr.id, finalTracks) : rawTr;
+    if (tr?.isLinkMaster && !tr.isBusFolder && !tr.isLinkFolder) {
+      finalTracks = syncMasterPatternsToLinkedFamily(finalTracks, tr.id).tracks;
+    }
+  });
+
   const nextSelected = cells.map(c => ({ trackId: c.trackId, mIdx: c.mIdx + L }));
   return {
     totalMeasures: nextTotal,
@@ -114,7 +116,7 @@ export const duplicateSelectedCellsState = (
     measureVols: nextVols,
     measureVolTransitions: nextVolTransitions,
     measureSignals: nextSignals,
-    tracks: updatedTracks,
+    tracks: finalTracks,
     selectedTimelineCells: nextSelected,
     selectionAnchorCell: nextSelected[0] || null,
     activeTimelineCell: nextSelected[0] ? { trackId: nextSelected[0].trackId, measureIdx: nextSelected[0].mIdx } : curr.activeTimelineCell,

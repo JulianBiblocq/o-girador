@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { EditableNumber } from './EditableNumber';
+import { StudioRangeSlider } from '../ui/StudioRangeSlider';
 
 interface VolumeSliderControlProps {
   currVol: number;
@@ -10,26 +11,38 @@ export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
   currVol,
   onChange,
 }) => {
+  const [dragPreviewVal, setDragPreviewVal] = useState<number | null>(null);
+  const clampedVol = Math.max(0, Math.min(100, Math.round(currVol)));
+  const displayVal = dragPreviewVal ?? clampedVol;
+
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="flex justify-between text-[10px] font-bold items-center">
+      <div className="flex justify-between text-[10px] font-bold items-center select-none">
         <span>Volume</span>
         <EditableNumber
-          value={currVol}
+          value={displayVal}
           suffix="%"
           min={0}
           max={100}
-          onChange={onChange}
+          onChange={(val) => {
+            setDragPreviewVal(null);
+            onChange(val);
+          }}
         />
       </div>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        value={currVol}
-        onChange={(e) => onChange(parseInt(e.target.value, 10))}
-        onDoubleClick={() => onChange(70)}
-        className="w-full cordel-range-volume cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10"
+      <StudioRangeSlider
+        value={clampedVol}
+        min={0}
+        max={100}
+        resetValue={70}
+        accentVar="var(--cordel-param-volume)"
+        ariaLabel="Volume"
+        onVisualChange={setDragPreviewVal}
+        onScrub={(val) => onChange(val)}
+        onReset={(resetVal) => {
+          setDragPreviewVal(null);
+          onChange(resetVal);
+        }}
       />
     </div>
   );

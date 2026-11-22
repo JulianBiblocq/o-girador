@@ -93,8 +93,7 @@ export const PupitreRibbon: React.FC<PupitreRibbonProps> = React.memo(({
         ))}
 
         <button
-          ref={addBtnRef}
-          type="button"
+          ref={addBtnRef} type="button" data-add-instrument-trigger="true"
           onClick={onToggleAddPicker}
           title={lang === 'fr' ? 'Ajouter un instrument' : 'Adicionar instrumento'}
           className={`shrink-0 flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 min-w-[32px] min-h-[32px] sm:min-w-[36px] sm:min-h-[36px] rounded-md flex items-center justify-center font-cactus font-bold text-lg leading-none border-2 border-dashed transition-all duration-150 select-none cursor-pointer ${

@@ -4,6 +4,7 @@
 import React from 'react';
 import { DragNumberBox } from '../../DragNumberBox';
 import { PanKnob } from '../../PanKnob';
+import { SectionSquadTriggerBadge } from '../spatial/SectionSquadTriggerBadge';
 import { reverbSends, distortionSends } from '../../../hooks/useAudioSync';
 import { previewTrackAuxSendDrag } from '../../../audio/effectsChain';
 import { useSequencerStore } from '../../../stores/useSequencerStore';
@@ -82,6 +83,7 @@ export const ChannelStripFxPan: React.FC<ChannelStripFxPanProps> = ({
         <div className="flex flex-col items-center justify-center w-full">
           <div className="flex items-center justify-center gap-1 w-full mb-0.5">
             <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 cursor-default">PAN</span>
+            <SectionSquadTriggerBadge trackId={trackId} compact={true} />
             {hasPanAuto && (
               <button
                 type="button"

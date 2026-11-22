@@ -1,10 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import * as Tone from 'tone';
 import { Volume2, Clock } from 'lucide-react';
 import { audioEngine } from '../../../hooks/useAudioSync';
 import { isDarkText } from '../../../data';
 import { applyCordelInkedPatina } from '../../../utils/colorHelpers';
+import { StudioRangeSlider } from '../../ui/StudioRangeSlider';
 import { StrokeMidiAndKeyBadge } from './StrokeMidiAndKeyBadge';
+import { NOMINAL_STEP_VOLUME, getDefaultStrokeDecay, getMinStrokeDecay } from './strokeInspectorScope';
 
 export interface StrokeColumnSlidersProps {
   symbol: string;
@@ -20,9 +22,9 @@ export interface StrokeColumnSlidersProps {
   isVoice: boolean;
   isFr: boolean;
   stats: { avgVolume: number; avgDecay: number };
-  playThrottledPreview: (symbol: string, volumePct: number, decayPct: number) => void;
-  applyMacroVolumeDelta: (stroke: string, delta: number, targetVal: number) => void;
-  applyMacroDecayDelta: (stroke: string, delta: number, targetVal: number) => void;
+  playThrottledPreview: (symbol: string, volumePct: number, decayPct: number, force?: boolean) => void;
+  applyMacroVolumeDelta: (stroke: string, delta: number, targetVal: number, options?: { skipUndo?: boolean }) => void;
+  applyMacroDecayDelta: (stroke: string, delta: number, targetVal: number, options?: { skipUndo?: boolean }) => void;
 }
 
 export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.memo((props) => {
@@ -33,21 +35,45 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
 
   const bgCol = applyCordelInkedPatina(instrument?.colors?.[symbol] || instrument?.color || '');
   const txtCol = isDarkText(instrument?.id, symbol, bgCol) ? 'var(--cordel-ink-dark)' : 'var(--cordel-on-accent)';
-  const volLabelRef = useRef<HTMLSpanElement>(null);
-  const decayLabelRef = useRef<HTMLSpanElement>(null);
   const currentVolRef = useRef<number>(stats.avgVolume);
   const currentDecayRef = useRef<number>(stats.avgDecay);
+  const minDecay = getMinStrokeDecay(isVoice);
+  const defaultDecay = getDefaultStrokeDecay(isVoice);
+
+  useEffect(() => { currentVolRef.current = stats.avgVolume; }, [stats.avgVolume]);
+  useEffect(() => { currentDecayRef.current = stats.avgDecay; }, [stats.avgDecay]);
+
+  const handleVolScrub = useCallback((val: number, isFirstChange: boolean) => {
+    currentVolRef.current = val;
+    applyMacroVolumeDelta(symbol, val - stats.avgVolume, val, { skipUndo: !isFirstChange });
+    playThrottledPreview(symbol, val, currentDecayRef.current);
+  }, [symbol, stats.avgVolume, applyMacroVolumeDelta, playThrottledPreview]);
+
+  const handleVolReset = useCallback((resetVal: number) => {
+    currentVolRef.current = resetVal;
+    applyMacroVolumeDelta(symbol, resetVal - stats.avgVolume, resetVal, { skipUndo: false });
+    playThrottledPreview(symbol, resetVal, currentDecayRef.current, true);
+  }, [symbol, stats.avgVolume, applyMacroVolumeDelta, playThrottledPreview]);
+
+  const handleDecayScrub = useCallback((val: number, isFirstChange: boolean) => {
+    currentDecayRef.current = val;
+    applyMacroDecayDelta(symbol, val - stats.avgDecay, val, { skipUndo: !isFirstChange });
+    playThrottledPreview(symbol, currentVolRef.current, val);
+  }, [symbol, stats.avgDecay, applyMacroDecayDelta, playThrottledPreview]);
+
+  const handleDecayReset = useCallback((resetVal: number) => {
+    currentDecayRef.current = resetVal;
+    applyMacroDecayDelta(symbol, resetVal - stats.avgDecay, resetVal, { skipUndo: false });
+    playThrottledPreview(symbol, currentVolRef.current, resetVal, true);
+  }, [symbol, stats.avgDecay, applyMacroDecayDelta, playThrottledPreview]);
 
   return (
     <div className="flex-1 min-w-0 bg-[var(--cordel-parchment-bg)] cordel-border-sm p-2.5 flex flex-col gap-2 shadow-sm w-full box-border">
       <div className="flex items-center gap-1.5 border-b border-[var(--cordel-ink-dark)]/15 pb-1 w-full min-w-0">
         <div
           onClick={() => {
-            if (audioEngine) {
-              try {
-                audioEngine.playNote(trackId, symbol, Tone.now(), currentVolRef.current / 100, currentDecayRef.current / 100);
-              } catch (_) {}
-            }
+            if (!audioEngine) return;
+            try { audioEngine.playNote(trackId, symbol, Tone.now(), currentVolRef.current / 100, currentDecayRef.current / 100); } catch (_) {}
           }}
           className="xilo-wood-stamp w-6 h-6 rounded-none flex items-center justify-center font-bold text-xs cursor-pointer active:scale-95 transition-transform shrink-0 border border-[var(--cordel-ink-dark)]/40"
           style={{ backgroundColor: bgCol, color: txtCol }}
@@ -63,55 +89,33 @@ export const StrokeColumnSliders: React.FC<StrokeColumnSlidersProps> = React.mem
         </div>
       </div>
 
-      <div className="flex flex-col gap-1 w-full min-w-0">
-        <div className="flex justify-between items-center text-[10px] font-bold text-[var(--cordel-ink-dark)] w-full min-w-0">
+      <StudioRangeSlider
+        value={stats.avgVolume} min={0} max={100} resetValue={NOMINAL_STEP_VOLUME}
+        accentVar="var(--cordel-param-volume)"
+        ariaLabel={`${label} Volume`}
+        resetTitle={isFr ? `Double-clic : réinitialiser à ${NOMINAL_STEP_VOLUME}%` : `Duplo clique: redefinir para ${NOMINAL_STEP_VOLUME}%`}
+        labelContent={
           <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate">
             <Volume2 size={12} className="text-[var(--cordel-param-volume)] shrink-0" />Volume :
           </span>
-          <span ref={volLabelRef} className="font-mono text-[var(--cordel-ink-dark)] shrink-0 ml-1">{stats.avgVolume}%</span>
-        </div>
-        <input
-          type="range" min="0" max="100" defaultValue={stats.avgVolume}
-          key={`stroke-vol-${symbol}-${stats.avgVolume}`}
-          onInput={(e) => {
-            const val = parseInt(e.currentTarget.value, 10);
-            currentVolRef.current = val;
-            if (volLabelRef.current) volLabelRef.current.textContent = `${val}%`;
-            playThrottledPreview(symbol, val, currentDecayRef.current);
-          }}
-          onChange={(e) => {
-            const val = parseInt(e.target.value, 10);
-            applyMacroVolumeDelta(symbol, val - stats.avgVolume, val);
-            playThrottledPreview(symbol, val, currentDecayRef.current);
-          }}
-          className="w-full cordel-range-volume cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10"
-        />
-      </div>
+        }
+        onScrub={handleVolScrub}
+        onReset={handleVolReset}
+      />
 
-      <div className="flex flex-col gap-1 w-full min-w-0">
-        <div className="flex justify-between items-center text-[10px] font-bold text-[var(--cordel-ink-dark)] w-full min-w-0">
+      <StudioRangeSlider
+        value={stats.avgDecay} min={minDecay} max={100} step={isVoice ? 5 : 1} resetValue={defaultDecay}
+        accentVar="var(--cordel-param-decay)"
+        ariaLabel={`${label} ${isVoice ? 'Durée' : 'Decay'}`}
+        resetTitle={isFr ? `Double-clic : réinitialiser à ${defaultDecay}%` : `Duplo clique: redefinir para ${defaultDecay}%`}
+        labelContent={
           <span className="flex items-center gap-1 text-[9px] text-[var(--cordel-text-muted)] truncate">
             <Clock size={12} className="text-[var(--cordel-param-decay)] shrink-0" />{isVoice ? (isFr ? 'Durée :' : 'Duração :') : 'Decay :'}
           </span>
-          <span ref={decayLabelRef} className="font-mono text-[var(--cordel-ink-dark)] shrink-0 ml-1">{stats.avgDecay}%</span>
-        </div>
-        <input
-          type="range" min="10" max="100" defaultValue={stats.avgDecay}
-          key={`stroke-decay-${symbol}-${stats.avgDecay}`}
-          onInput={(e) => {
-            const val = parseInt(e.currentTarget.value, 10);
-            currentDecayRef.current = val;
-            if (decayLabelRef.current) decayLabelRef.current.textContent = `${val}%`;
-            playThrottledPreview(symbol, currentVolRef.current, val);
-          }}
-          onChange={(e) => {
-            const val = parseInt(e.target.value, 10);
-            applyMacroDecayDelta(symbol, val - stats.avgDecay, val);
-            playThrottledPreview(symbol, currentVolRef.current, val);
-          }}
-          className="w-full cordel-range-decay cursor-pointer h-2 bg-[var(--cordel-ink-dark)]/10"
-        />
-      </div>
+        }
+        onScrub={handleDecayScrub}
+        onReset={handleDecayReset}
+      />
 
       {!isVoice && (
         <StrokeMidiAndKeyBadge

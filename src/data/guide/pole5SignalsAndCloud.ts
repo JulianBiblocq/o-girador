@@ -1,3 +1,4 @@
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { GuideActionCard } from './guideTypes';
 
 export const POLE_5_SIGNALS_AND_CLOUD_CARDS: GuideActionCard[] = [
@@ -42,13 +43,17 @@ export const POLE_5_SIGNALS_AND_CLOUD_CARDS: GuideActionCard[] = [
       'Ouvrez MENU > Sauvegarder le morceau (ou Mettre à jour le morceau) pour enregistrer dans le catalogue Cloud de votre groupe ; cochez Brouillon tant que l’arrangement doit rester réservé aux Mestres/Éditeurs.',
       'Dans A Oficina [O] > Son & Balanço > Mes Gabarits, sauvegardez votre configuration favorite de pistes, liaisons Maître/Esclave, accordages et Bus pour démarrer vos futurs morceaux en 1 clic.',
       'Depuis la barre de transport, exportez un fichier audio .wav (16-bit PCM stéréo sans perte) prêt à écouter ou partager.',
-      'Publiez le Cloud Bounce audio et la structure temporelle vers Organizador (fiches élèves du Varal) et Dançador (création chorégraphique calée mesure par mesure).',
+      SHOW_DANCADOR
+        ? 'Publiez le Cloud Bounce audio et la structure temporelle vers Organizador (fiches élèves du Varal) et Dançador (création chorégraphique calée mesure par mesure).'
+        : 'Publiez le Cloud Bounce audio et la structure temporelle vers Organizador (fiches élèves du Varal) et Cantador (synchronisation des Toadas).',
     ],
     stepsPt: [
       'Abra MENU > Salvar música (ou Atualizar música) para gravar no catálogo em Nuvem do grupo; marque Rascunho enquanto o arranjo for exclusivo para Mestres/Editores.',
       'Em A Oficina [O] > Som & Balanço > Meus Modelos, salve sua disposição favorita de faixas, vínculos Mestre/Escravo, afinações e Bus para iniciar novas músicas em 1 clique.',
       'Pela barra de transporte, exporte um arquivo de áudio .wav (16-bit PCM estéreo sem perdas) pronto para audição.',
-      'Publique o Cloud Bounce de áudio e o mapa de compassos para o Organizador (fichas do Varal) e para o Dançador (coreografia sincronizada compasso a compasso).',
+      SHOW_DANCADOR
+        ? 'Publique o Cloud Bounce de áudio e o mapa de compassos para o Organizador (fichas do Varal) e para o Dançador (coreografia sincronizada compasso a compasso).'
+        : 'Publique o Cloud Bounce de áudio e o mapa de compassos para o Organizador (fichas do Varal) e para o Cantador (sincronização das Toadas).',
     ],
     tipFr: 'Définissez le morceau d’accueil par défaut de votre groupe via l’étoile du sélecteur de catalogue afin que chaque membre tombe immédiatement sur le chantier du moment.',
     tipPt: 'Defina a música padrão do seu grupo pela estrela no catálogo para que cada integrante abra diretamente o repertório em estudo.',

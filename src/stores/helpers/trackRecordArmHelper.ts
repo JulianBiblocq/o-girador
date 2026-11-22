@@ -1,4 +1,5 @@
 import { TrackGroup } from '../../types';
+import { syncPatternAcrossLinkedFamily } from './patternStepLinkedTracksSync';
 
 export const toggleArmPatternState = (
   state: { armedTrackId: number | null; armedPatternId: number | null; isPatternRecording: boolean },
@@ -22,42 +23,30 @@ export const updatePatternStepState = (
   char: string | number | [string, string]
 ): { tracks: TrackGroup[]; changed: boolean } => {
   let changed = false;
-  const nextTracks = tracks.map(t => {
-    if (t.id === trackId || String(t.id) === String(trackId)) {
-      const nextPatterns = t.patterns.map(p => {
-        if (p.id === patternId) {
-          const currentActive = [...(p.activeSteps || [])];
-          const maxSteps = p.steps || currentActive.length || 16;
-          while (currentActive.length < maxSteps) {
-            currentActive.push(0);
-          }
-          if (stepIdx >= 0 && stepIdx < maxSteps) {
-            const nextVal = char === '0' ? 0 : char;
-            currentActive[stepIdx] = nextVal;
-            changed = true;
-            let nextNotes = p.notes;
-            if ((nextVal === 0 || nextVal === '0') && p.notes) {
-              nextNotes = [...p.notes];
-              nextNotes[stepIdx] = '';
-            }
-            let nextVols = p.volumes ? [...p.volumes] : Array(maxSteps).fill(70);
-            while (nextVols.length < maxSteps) nextVols.push(70);
-            return {
-              ...p,
-              activeSteps: currentActive,
-              volumes: nextVols,
-              ...(nextNotes ? { notes: nextNotes } : {})
-            };
-          }
-        }
-        return p;
-      });
-      return { ...t, patterns: nextPatterns };
+  const nextTracks = syncPatternAcrossLinkedFamily(tracks, trackId, patternId, (p) => {
+    const currentActive = [...(p.activeSteps || [])];
+    const maxSteps = p.steps || currentActive.length || 16;
+    while (currentActive.length < maxSteps) currentActive.push(0);
+    if (stepIdx < 0 || stepIdx >= maxSteps) return p;
+    const nextVal = char === '0' ? 0 : char;
+    currentActive[stepIdx] = nextVal;
+    changed = true;
+    let nextNotes = p.notes;
+    if ((nextVal === 0 || nextVal === '0') && p.notes) {
+      nextNotes = [...p.notes];
+      nextNotes[stepIdx] = '';
     }
-    return t;
+    const nextVols = p.volumes ? [...p.volumes] : Array(maxSteps).fill(70);
+    while (nextVols.length < maxSteps) nextVols.push(70);
+    return {
+      ...p,
+      activeSteps: currentActive,
+      volumes: nextVols,
+      ...(nextNotes ? { notes: nextNotes } : {}),
+    };
   });
 
-  return { tracks: nextTracks, changed };
+  return { tracks: changed ? nextTracks : tracks, changed };
 };
 
 export const setSelectedPatternIdState = (

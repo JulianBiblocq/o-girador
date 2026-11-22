@@ -1,20 +1,21 @@
 /**
- * O Girador - Audio Engine Low-Level Stroke Execution (< 130 lignes)
- * - Lecture phase-continue 100 % naturelle des tambours (`playbackRate = 2^(st/12)`).
- * - Fallback intelligent `A -> pool e (80 ms)` Alfaia et couche composite `D/E + X` Rimshot Caixa/Tarol.
+ * O Girador - Audio Engine Low-Level Stroke Execution & Spatial Squad Fallback/Preview (< 142 lignes)
  */
-
 import { getTone } from '../../ToneLoader';
 import { InstrumentAudioConfig, StrokeMapping } from '../../data/audioConfig';
 import { getEffectiveSkinChorusAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { TrackGroup } from '../../types';
-import { ALFAIA_INSTRUMENTS } from './engineTypes';
-import { EngineTuning } from './engineTuning';
+import { isAutomationBypassed } from '../../utils/automationBypassHelper';
+import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../../universes/maracatu/instruments/studioBankRegistry';
-import { EngineStrokePlayback } from './engineStrokePlayback';
 import { resolveTrackSectionTemperament } from '../groove/sectionTemperament';
+import { computeBarulhoPartnerEntrySpreadSec, selectSquadPlayerFile } from '../spatial/sectionBarulhoPhaseHelper';
+import { computeDeterministicStrokeJitterSec, resolveTrackSectionSpatialProfile } from '../spatial/sectionSpatialAcoustics';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../worklet/horizon/workletCompositeStrokeHelper';
 import type { NotePlayerDeps } from './enginePlayerTypes';
+import { EngineStrokePlayback } from './engineStrokePlayback';
+import { EngineTuning } from './engineTuning';
+import { ALFAIA_INSTRUMENTS } from './engineTypes';
 
 export function computeEffectiveDecayNorm(
   rawStepDecay: number | undefined,
@@ -33,19 +34,10 @@ export function computeEffectiveDecayNorm(
 
 export class EngineExecuteStroke {
   public static execute(
-    deps: NotePlayerDeps,
-    trackId: number | null,
-    instrumentId: string,
-    config: InstrumentAudioConfig,
-    stroke: StrokeMapping,
-    time: number,
-    velocity: number,
-    decayMultiplier: number,
-    overrideTuning: number | undefined,
-    isLiveHold: boolean,
-    track: TrackGroup | null,
-    requestedSymbol?: string,
-    maxBarulhoDurSec?: number
+    deps: NotePlayerDeps, trackId: number | null, instrumentId: string, config: InstrumentAudioConfig,
+    stroke: StrokeMapping, time: number, velocity: number, decayMultiplier: number,
+    overrideTuning: number | undefined, isLiveHold: boolean, track: TrackGroup | null,
+    requestedSymbol?: string, maxBarulhoDurSec?: number
   ): void {
     const effectiveSymbol = requestedSymbol || stroke.symbol;
 
@@ -63,20 +55,25 @@ export class EngineExecuteStroke {
 
     if (!stroke.isBarulho || (!isLiveHold && !maxBarulhoDurSec)) {
       deps.playbackCtx.barulho.stopBarulho(instrumentId, time);
+      for (let k = 1; k < 5; k++) deps.playbackCtx.barulho.stopBarulho(`${instrumentId}__p${k}`, time);
     }
+
+    const hasIndexedRR = typeof deps.roundRobin.selectFileIndex === 'function';
+    const pickBase = (s: StrokeMapping): number => (hasIndexedRR ? deps.roundRobin.selectFileIndex(instrumentId, s, time, trackId) : -1);
+    const pickFile = (s: StrokeMapping, base: number, k: number): string =>
+      base >= 0 ? selectSquadPlayerFile(s.files, base, k) : deps.roundRobin.selectFile(instrumentId, s, time, trackId);
 
     let resolvedStroke = stroke;
     let forceShort80ms = false;
-    let filePath = deps.roundRobin.selectFile(instrumentId, resolvedStroke, time, trackId);
-    let bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+    let baseIdx = pickBase(resolvedStroke);
+    let bufferEntry = deps.sampleLoader.bufferPool.get(pickFile(resolvedStroke, baseIdx, 0));
 
     if ((!bufferEntry || !bufferEntry.loaded) && ALFAIA_INSTRUMENTS.has(instrumentId) && (effectiveSymbol === 'A' || effectiveSymbol === 'a')) {
       const fallbackE = config.strokes.find((s) => s.symbol === 'e');
       if (fallbackE) {
-        resolvedStroke = fallbackE;
-        forceShort80ms = true;
-        filePath = deps.roundRobin.selectFile(instrumentId, resolvedStroke, time, trackId);
-        bufferEntry = deps.sampleLoader.bufferPool.get(filePath);
+        resolvedStroke = fallbackE; forceShort80ms = true;
+        baseIdx = pickBase(resolvedStroke);
+        bufferEntry = deps.sampleLoader.bufferPool.get(pickFile(resolvedStroke, baseIdx, 0));
       }
     }
     if (!bufferEntry || !bufferEntry.loaded) return;
@@ -87,9 +84,10 @@ export class EngineExecuteStroke {
     const effectiveTime = time + microDelaySec;
     const voiceGuardKey = trackId !== null ? trackId : instrumentId;
 
-    deps.voiceGuard.chokeTrackVoice(voiceGuardKey, effectiveSymbol, effectiveTime, instrumentId);
+    const hasPanAuto = track ? (!isAutomationBypassed(track, 'pan', storeState.globalAutomationBypass) && hasActiveTrackAutomation(track, 'pan')) : false;
+    const spatial = resolveTrackSectionSpatialProfile(track, instrumentId, Boolean(storeState.isEcoMode), hasPanAuto ? 0 : (track?.panVal ?? track?.pan ?? 0));
+    const synthCount = spatial.isNeutralSolo ? 1 : spatial.synthesizedCount;
 
-    const rawBuffer = bufferEntry.get() as AudioBuffer;
     const isLegacyRufada = effectiveSymbol === 'r' && !STUDIO_BANK_ENABLED[instrumentId as PendingStudioInstrumentId];
     const finalVelocity = isLegacyRufada ? velocity * 0.88 : velocity;
     const pitchNuance = isLegacyRufada ? 0.985 : (resolvedStroke.compositeRimSymbol && effectiveSymbol === 'a' ? 0.992 : 1.0);
@@ -98,30 +96,42 @@ export class EngineExecuteStroke {
     const calculatedPitch = resolvedStroke.isBarulho ? baseRate : baseRate * pitchNuance;
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
     const isStudioCalibrated = Boolean(config.calibratedStudioBank);
+    const rimStroke = resolvedStroke.compositeRimSymbol ? config.strokes.find((s) => s.symbol === resolvedStroke.compositeRimSymbol) : undefined;
+    const rimBaseIdx = rimStroke ? pickBase(rimStroke) : -1;
+    const stepSeed = Math.round(time * 100);
 
-    EngineStrokePlayback.play(
-      deps.playbackCtx, trackId, instrumentId, resolvedStroke,
-      rawBuffer, calculatedPitch, effectiveTime, finalVelocity, effectiveDecayNorm, isLiveHold,
-      { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec }
-    );
+    for (let k = 0; k < synthCount; k++) {
+      const entryK = k === 0 ? bufferEntry : (deps.sampleLoader.bufferPool.get(pickFile(resolvedStroke, baseIdx, k)) || bufferEntry);
+      if (!entryK?.loaded) continue;
+      const pSpec = spatial.isNeutralSolo ? undefined : spatial.players[k];
+      const jitter = !pSpec || resolvedStroke.isBarulho ? 0 : computeDeterministicStrokeJitterSec(Number(trackId) || 0, k, stepSeed, synthCount);
+      const barSpread = pSpec && resolvedStroke.isBarulho ? computeBarulhoPartnerEntrySpreadSec(k, synthCount) : 0;
+      const timeK = Math.max(effectiveTime, effectiveTime + (pSpec ? pSpec.baseDelaySec + jitter + barSpread : 0));
+      const pitchMul = pSpec ? pSpec.pitchMul : 1.0;
+      const vKey = k > 0 ? `${voiceGuardKey}__p${k}` : voiceGuardKey;
 
-    if (resolvedStroke.compositeRimSymbol) {
-      const rimStroke = config.strokes.find((s) => s.symbol === resolvedStroke.compositeRimSymbol);
-      const rimEntry = rimStroke ? deps.sampleLoader.bufferPool.get(deps.roundRobin.selectFile(instrumentId, rimStroke, time, trackId)) : undefined;
-      if (rimStroke && rimEntry?.loaded) {
-        EngineStrokePlayback.play(
-          deps.playbackCtx, trackId, instrumentId, rimStroke,
-          rimEntry.get() as AudioBuffer, baseRate, effectiveTime, finalVelocity * COMPOSITE_RIM_LAYER_VELOCITY_SCALE,
-          effectiveDecayNorm, false, { isStudioCalibrated, strokeSymbol: rimStroke.symbol }
-        );
+      deps.voiceGuard.chokeTrackVoice(vKey, effectiveSymbol, timeK, instrumentId);
+      EngineStrokePlayback.play(
+        deps.playbackCtx, trackId, instrumentId, resolvedStroke,
+        entryK.get() as AudioBuffer, calculatedPitch * pitchMul, timeK, finalVelocity, effectiveDecayNorm, isLiveHold,
+        { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec, playerIdx: k, playerSpec: pSpec }
+      );
+
+      if (rimStroke) {
+        const rimEntry = deps.sampleLoader.bufferPool.get(pickFile(rimStroke, rimBaseIdx, k));
+        if (rimEntry?.loaded) {
+          EngineStrokePlayback.play(
+            deps.playbackCtx, trackId, instrumentId, rimStroke,
+            rimEntry.get() as AudioBuffer, baseRate * pitchMul, timeK, finalVelocity * COMPOSITE_RIM_LAYER_VELOCITY_SCALE,
+            effectiveDecayNorm, false, { isStudioCalibrated, strokeSymbol: rimStroke.symbol, playerIdx: k, playerSpec: pSpec }
+          );
+        }
       }
     }
 
     if (instrumentId === 'apito' && effectiveSymbol !== '/' && effectiveSymbol !== '.') {
       const Tone = getTone();
-      Tone?.Draw?.schedule?.(() => {
-        window.dispatchEvent(new CustomEvent('o-girador-apito-shake'));
-      }, effectiveTime);
+      Tone?.Draw?.schedule?.(() => { window.dispatchEvent(new CustomEvent('o-girador-apito-shake')); }, effectiveTime);
     }
   }
 }

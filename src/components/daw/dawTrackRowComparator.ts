@@ -2,6 +2,7 @@
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { isToadaBus } from '../../stores/useSequencerStore';
+import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import type { DawTrackRowProps } from './dawTrackRowTypes';
 
 /**
@@ -52,9 +53,8 @@ export function areDawTrackRowPropsEqual(prev: DawTrackRowProps, next: DawTrackR
   // 5. Si la piste est un maître de groupe lié ou un dossier lié : surveiller ses pistes esclaves
   const isMaster = track.isLinkMaster || track.isLinkFolder;
   if (isMaster) {
-    const trackIdStr = String(track.id);
-    const prevSlaves = prev.tracks.filter(t => String(t.linkedToTrackId) === trackIdStr);
-    const nextSlaves = next.tracks.filter(t => String(t.linkedToTrackId) === trackIdStr);
+    const prevSlaves = prev.tracks.filter((t) => isSlaveTrack(t, prev.tracks) && resolveMasterTrack(t.id, prev.tracks)?.id === track.id);
+    const nextSlaves = next.tracks.filter((t) => isSlaveTrack(t, next.tracks) && resolveMasterTrack(t.id, next.tracks)?.id === track.id);
 
     if (prevSlaves.length !== nextSlaves.length) return false;
     for (let i = 0; i < nextSlaves.length; i++) {
@@ -63,10 +63,9 @@ export function areDawTrackRowPropsEqual(prev: DawTrackRowProps, next: DawTrackR
   }
 
   // 6. Si la piste est une esclave liée : surveiller son maître
-  if (track.linkedToTrackId && !track.isLinkMaster && !track.isLinkFolder) {
-    const linkedMasterId = String(track.linkedToTrackId);
-    const prevMaster = prev.tracks.find(t => String(t.id) === linkedMasterId);
-    const nextMaster = next.tracks.find(t => String(t.id) === linkedMasterId);
+  if (isSlaveTrack(track, next.tracks)) {
+    const prevMaster = resolveMasterTrack(track.id, prev.tracks);
+    const nextMaster = resolveMasterTrack(track.id, next.tracks);
     if (prevMaster !== nextMaster) return false;
   }
 
