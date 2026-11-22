@@ -12,6 +12,7 @@ interface LandingPageProps {
   lang: 'fr' | 'pt';
   onLanguageChange?: (lang: 'fr' | 'pt') => void;
   isManualOpen?: boolean;
+  onOpenPaperSheets?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -19,14 +20,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   lang,
   onLanguageChange,
   isManualOpen = false,
+  onOpenPaperSheets,
 }) => {
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const {
-    isToneReady, isUnlocking, currentLang, currentUser, isFr, organizadorGroupLogo,
+    isToneReady, isUnlocking, currentLang, currentUser, isFr, organizadorGroupLogo, mostradorHref,
     handleLanguageSelect, handleLaunchOrquestrador, handleCurrentAppClick,
-    handleLaunchOrganizador, handleLaunchCantador, handleLaunchDancador,
-    handleLaunchMostrador, handleEnterRoda, handleInstrumentTap,
-  } = useLandingPageLogic(onEnter, lang, onLanguageChange);
+    handleLaunchOrganizador, handleLaunchCantador, handleLaunchDancador, handleLaunchAfinador,
+    handleLaunchMostrador, handleEnterRoda, handleEnterPractice, handleEnterPrintA4,
+    handleEnterGuide, handleReturnToRoda, handleInstrumentTap,
+  } = useLandingPageLogic(onEnter, lang, onLanguageChange, onOpenPaperSheets);
 
   useEffect(() => {
     const handleHash = () => {
@@ -53,13 +56,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     >
       <div className="fixed inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-damas-mask" aria-hidden="true" />
 
-      <LandingHeader currentLang={currentLang} isManualOpen={isManualOpen} onReturnToApp={handleEnterRoda} />
+      <LandingHeader
+        currentLang={currentLang}
+        onLanguageSelect={handleLanguageSelect}
+        isManualOpen={isManualOpen}
+        onReturnToApp={handleReturnToRoda}
+      />
 
       <LandingHeroSection
         isFr={isFr}
         isToneReady={isToneReady}
         isUnlocking={isUnlocking}
         onEnterRoda={handleEnterRoda}
+        onEnterPractice={handleEnterPractice}
+        onEnterPrintA4={handleEnterPrintA4}
+        onEnterGuide={handleEnterGuide}
       />
 
       <LandingInstrumentsSection
@@ -72,12 +83,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <LandingFooter
         isFr={isFr}
         organizadorGroupLogo={organizadorGroupLogo}
+        mostradorHref={mostradorHref}
         onLanguageSelect={handleLanguageSelect}
         onLaunchOrquestrador={handleLaunchOrquestrador}
         onCurrentAppClick={handleCurrentAppClick}
         onLaunchOrganizador={handleLaunchOrganizador}
         onLaunchCantador={handleLaunchCantador}
         onLaunchDancador={handleLaunchDancador}
+        onLaunchAfinador={handleLaunchAfinador}
         onLaunchMostrador={handleLaunchMostrador}
         onOpenLegal={() => setIsLegalOpen(true)}
         currentUser={currentUser}

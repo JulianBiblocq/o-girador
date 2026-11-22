@@ -117,14 +117,14 @@ export const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], Pr
     closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false }),
     setIsMobileStudioMode: (val) => {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
-      const mode = val ? 'complet' : (saved === 'percussion' || saved === 'danse' ? (saved as any) : 'percussion');
+      const mode = val ? 'complet' : ((saved === 'danse' || saved === 'lecture') ? 'danse' : 'percussion');
       persistMobileViewMode(mode);
       set({ isMobileStudioMode: val, mobileViewMode: mode, isTracksCollapsed: true });
     },
     toggleMobileStudioMode: () =>
       set((state) => {
         const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
-        const mode = !state.isMobileStudioMode ? 'complet' : (saved === 'percussion' || saved === 'danse' ? (saved as any) : 'percussion');
+        const mode = !state.isMobileStudioMode ? 'complet' : ((saved === 'danse' || saved === 'lecture') ? 'danse' : 'percussion');
         persistMobileViewMode(mode);
         return { isMobileStudioMode: !state.isMobileStudioMode, mobileViewMode: mode, isTracksCollapsed: true };
       }),

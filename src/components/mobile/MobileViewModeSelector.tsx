@@ -40,7 +40,7 @@ export const MobileViewModeSelector: React.FC<Props> = ({ className = '', lang: 
   return (
     <div className={`relative flex items-center ${className}`}>
       <select
-        value={mobileViewMode}
+        value={(mobileViewMode as string) === 'lecture' ? 'danse' : mobileViewMode}
         onChange={(e) => handleModeChange(e.target.value)}
         className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase px-2 py-1.5 cordel-border-sm cursor-pointer shadow-[2px_2px_0_var(--cordel-border)] focus:outline-none appearance-none pr-6 tracking-wide"
         title={tMobile(lang, 'viewMode')}
@@ -51,8 +51,10 @@ export const MobileViewModeSelector: React.FC<Props> = ({ className = '', lang: 
         <option value="editeur">{tMobile(lang, 'modeEditeur')}</option>
         <option value="complet">{tMobile(lang, 'modeComplet')}</option>
       </select>
-      <span className="pointer-events-none absolute right-2 text-[10px] text-[#b94a2c]">
-        ▼
+      <span className="pointer-events-none absolute right-2 text-[var(--cordel-accent-readable)] flex items-center">
+        <svg viewBox="0 0 12 12" className="w-3 h-3 fill-none stroke-current stroke-[2.2]" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2.5 4.5 6 8l3.5-3.5" />
+        </svg>
       </span>
     </div>
   );

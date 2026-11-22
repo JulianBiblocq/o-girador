@@ -2,6 +2,7 @@ import React from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { getEcosystemUrl } from '../../constants/ecosystemUrls';
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { launchWithSSO } from '../../utils/crossAppAuth';
 
 interface HeaderMenuPracticeModeSwitchProps {
@@ -75,14 +76,16 @@ export const HeaderMenuPracticeModeSwitch: React.FC<HeaderMenuPracticeModeSwitch
         <span className="truncate">{isPt ? 'Modo Estúdio' : 'Mode Studio'}</span>
       </button>
 
-      <button type="button" onClick={handleSelectDanse} className={`${btnBase} ${idleCls}`} title="Dançador">
-        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 18l5-2 3 4 5-8 3 2" /><circle cx="17" cy="5" r="2" />
-        </svg>
-        <span className="truncate">{isPt ? 'Modo Dança' : 'Mode Danse'}</span>
-      </button>
+      {SHOW_DANCADOR && (
+        <button type="button" onClick={handleSelectDanse} className={`${btnBase} ${idleCls}`} title="Dançador">
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 18l5-2 3 4 5-8 3 2" /><circle cx="17" cy="5" r="2" />
+          </svg>
+          <span className="truncate">{isPt ? 'Modo Dança' : 'Mode Danse'}</span>
+        </button>
+      )}
 
-      <button type="button" onClick={handleSelectCantador} className={`${btnBase} ${idleCls}`} title="Cantador">
+      <button type="button" onClick={handleSelectCantador} className={`${btnBase} ${idleCls} ${SHOW_DANCADOR ? '' : 'col-span-2'}`} title="Cantador">
         <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 fill-none stroke-current stroke-[2]" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" />
         </svg>

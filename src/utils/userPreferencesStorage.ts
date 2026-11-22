@@ -97,7 +97,8 @@ export function setStoredDesktopStartupMode(mode: DesktopStartupMode): void {
 export function getStoredMobileStartupMode(): MobileStartupMode {
   if (typeof window === 'undefined') return 'last';
   try {
-    const raw = localStorage.getItem(MOBILE_STARTUP_STORAGE_KEY) || 'last';
+    const raw = (localStorage.getItem(MOBILE_STARTUP_STORAGE_KEY) || 'last').trim().toLowerCase();
+    if (raw === 'lecture' || raw === 'escuta') return 'danse';
     return VALID_MOBILE_MODES.has(raw) ? (raw as MobileStartupMode) : 'last';
   } catch { return 'last'; }
 }

@@ -13,6 +13,11 @@ export const LandingInstrumentsSection: React.FC<LandingInstrumentsSectionProps>
 }) => {
   return (
     <section className="w-full relative max-w-4xl mx-auto px-4 py-3 z-20">
+      <p className="font-cactus font-bold text-xs sm:text-sm text-[var(--cordel-accent-readable)] text-center mb-3 tracking-wide">
+        {isFr
+          ? "Touchez un instrument pour écouter les prises acoustiques brutes de l'atelier :"
+          : 'Toque em um instrumento para ouvir as gravações acústicas reais da oficina:'}
+      </p>
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4 justify-items-center">
         {BAQUE_INSTRUMENTS_DATA.map((instrument) => (
           <LandingInstrumentCard

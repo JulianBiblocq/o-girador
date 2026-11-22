@@ -1,7 +1,16 @@
+import { SHOW_AFINADOR, SHOW_DANCADOR } from '../../constants/featureFlags';
+
 export interface LegalArticle { id: string; num: string; title: string; content: string[]; }
 export interface LegalNoticeBundle {
   title: string; subtitle: string; lastUpdate: string; closeBtn: string; articles: LegalArticle[];
 }
+
+const ECOSYSTEM_LEGAL_LIST = [
+  'Sequenciador', 'Orquestrador', 'Organizador', 'Cantador',
+  ...(SHOW_AFINADOR ? ['Afinador'] : []),
+  ...(SHOW_DANCADOR ? ['Dançador'] : []),
+  'Mostrador',
+].join(', ');
 
 export const LEGAL_NOTICE_FR: LegalNoticeBundle = {
   title: 'Cadre Légal, CGU & Confidentialité',
@@ -14,7 +23,7 @@ export const LEGAL_NOTICE_FR: LegalNoticeBundle = {
       num: 'Article 1',
       title: 'Éditeur & Hébergement Technique',
       content: [
-        'L\'application O Girador (Séquenciad\'Or, Orchestrad\'Or, Organizad\'Or, Dançad\'Or) est conçue et éditée par Julian Biblocq.',
+        `L'écosystème O Girador (${ECOSYSTEM_LEGAL_LIST}) est conçu et édité par Julian Biblocq.`,
         'L\'hébergement statique, l\'authentification et la base de données temps réel sont assurés par Google Cloud et Firebase (Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irlande).'
       ]
     },
@@ -77,7 +86,7 @@ export const LEGAL_NOTICE_BR: LegalNoticeBundle = {
       num: 'Artigo 1',
       title: 'Editor & Hospedagem Técnica',
       content: [
-        'O aplicativo O Girador (Séquenciad\'Or, Orchestrad\'Or, Organizad\'Or, Dançad\'Or) é concebido e editado por Julian Biblocq.',
+        `O ecossistema O Girador (${ECOSYSTEM_LEGAL_LIST}) é concebido e editado por Julian Biblocq.`,
         'A hospedagem técnica, o sistema de autenticação e o banco de dados em tempo real são fornecidos pelo Google Cloud / Firebase (Google Ireland Limited).'
       ]
     },

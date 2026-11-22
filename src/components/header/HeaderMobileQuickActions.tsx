@@ -35,7 +35,7 @@ export const HeaderMobileQuickActions: React.FC<HeaderMobileQuickActionsProps> =
             s.closeDetailEditor();
             s.setIsMobileStudioMode(false);
             const saved = typeof window !== 'undefined' ? localStorage.getItem(MOBILE_VIEW_MODE_STORAGE_KEY) : null;
-            const target = (saved === 'percussion' || saved === 'danse') ? saved : 'percussion';
+            const target = saved === 'percussion' ? 'percussion' : (saved === 'danse' || saved === 'lecture') ? 'danse' : 'percussion';
             persistMobileViewModeLocally(target);
             s.setMobileViewMode(target);
           });

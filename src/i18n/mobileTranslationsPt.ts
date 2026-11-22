@@ -6,11 +6,11 @@ import { mobileTranslationsFr } from './mobileTranslationsFr';
 
 export const mobileTranslationsPt: Record<keyof typeof mobileTranslationsFr, string> = {
   // Modos de exibição
-  modePercussion: 'Modo percussão',
-  modeDanse: 'Modo dança',
-  modeChant: 'Modo canto (Cantador)',
-  modeEditeur: 'Modo edição',
-  modeComplet: 'Modo completo (Estúdio)',
+  modePercussion: 'Modo Percussão',
+  modeDanse: 'Modo Escuta',
+  modeChant: 'Modo Canto (Cantador)',
+  modeEditeur: 'Modo Scan e Fotos',
+  modeComplet: 'Modo Estúdio',
 
   // Vocabulário comum & transporte
   repere: 'Guia',
@@ -24,7 +24,7 @@ export const mobileTranslationsPt: Record<keyof typeof mobileTranslationsFr, str
   inverser: 'Inverter',
   fermerCamera: 'Fechar câmera',
 
-  // Modo Dança
+  // Modo Escuta
   exitNextLap: 'Sair no próximo giro',
   voix: 'Voz',
   synth: 'Synth',
@@ -43,14 +43,14 @@ export const mobileTranslationsPt: Record<keyof typeof mobileTranslationsFr, str
   aucunPupitreSeul: 'Nenhum (Apenas meu naipe)',
   resteDuBatuque: 'Resto do Batuque',
 
-  // Modo Edição - Scan & Sinais
+  // Modo Scan e Fotos - Scan & Sinais
   scanTab: 'Scan & Importações',
   signalTab: 'Sinais do Mestre',
   takePhoto: 'Tirar foto',
   gallery: 'Galeria',
   blankSheets: 'Fichas em branco A4',
   vigilancePoint: 'Ponto de atenção',
-  injectScore: 'INJETAR NO SEQUENCIADOR →',
+  injectScore: 'INJETAR NO SEQUENCIADOR ->',
   injectSuccess: 'Partitura injetada com sucesso!',
   onePhoto: '1 Foto (Fixo)',
   fourBeats: '4 Tempos',
@@ -109,11 +109,11 @@ export const mobileTranslationsPt: Record<keyof typeof mobileTranslationsFr, str
   speaker: 'Caixa USB / BT',
   room: 'Sala / Estúdio',
   headphones: 'Fones de Ouvido',
-  danceFocus: 'Foco Dança e Canto',
+  danceFocus: 'Foco Escuta e Canto',
   lockTouch: 'Bloquear tela tátil',
   themeLight: 'Tema Claro',
   themeDark: 'Tema Escuro',
-  studioMode: 'Modo Estúdio Completo',
+  studioMode: 'Modo Estúdio',
 
   // Modal de impressão de partituras
   scorePreview: 'Pré-visualização da Partitura',

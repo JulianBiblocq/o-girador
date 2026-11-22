@@ -1,8 +1,13 @@
 import React from 'react';
 import {
   AlfaiaCordelIcon, CaixaCordelIcon, GongueCordelIcon, AgbeCordelIcon,
-  MineiroCordelIcon, TimbalCordelIcon
+  MineiroCordelIcon, TimbalCordelIcon,
 } from './LandingCordelIcons';
+import { getRawAudioContext, safeResumeAudioContext, scheduleAudioContextAutoSuspend } from '../../audio/audioContextSuspendManager';
+import { fetchAndDecodeAudioSample } from '../../audio/engine/sampleFetchUtils';
+import { useAudioStore } from '../../stores/useAudioStore';
+import { getTone } from '@/src/ToneLoader';
+import { audioEngine } from '../../hooks/useAudioSync';
 
 export interface InstrumentStrokeInfo {
   symbol: string;
@@ -20,20 +25,16 @@ export interface BaqueInstrumentDef {
 
 export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
   {
-    id: 'marcante',
-    name: 'Alfaia',
-    Icon: AlfaiaCordelIcon,
+    id: 'marcante', name: 'Alfaia', Icon: AlfaiaCordelIcon,
     strokes: [
       { symbol: 'D', labelFr: 'Main forte', labelPt: 'Toque forte', file: '/Mixdown/Alfaia marcante D 1.ogg' },
-      { symbol: 'A', labelFr: 'Étouffé gauche (Abafado)', labelPt: 'Abafado esquerda', file: '/Mixdown/Alfaia marcante A 1.ogg' },
-      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau Igaraçu', file: '/Mixdown/Alfaia marcante I 1.ogg' },
+      { symbol: 'A', labelFr: 'Étouffé gauche', labelPt: 'Abafado', file: '/Mixdown/Alfaia marcante A 1.ogg' },
+      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau', file: '/Mixdown/Alfaia marcante I 1.ogg' },
       { symbol: 'd', labelFr: 'Coup faible', labelPt: 'Toque fraco', file: '/Mixdown/Alfaia marcante d_min 1.ogg' },
     ],
   },
   {
-    id: 'caixa',
-    name: 'Caixa',
-    Icon: CaixaCordelIcon,
+    id: 'caixa', name: 'Caixa', Icon: CaixaCordelIcon,
     strokes: [
       { symbol: 'D', labelFr: 'Coup fort', labelPt: 'Toque forte', file: '/Mixdown/Caixa studio F D 1.ogg' },
       { symbol: 'F', labelFr: 'Fla', labelPt: 'Fla', file: '/Mixdown/Caixa studio Fla D 1.ogg' },
@@ -41,9 +42,7 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     ],
   },
   {
-    id: 'gongue',
-    name: 'Gonguê',
-    Icon: GongueCordelIcon,
+    id: 'gongue', name: 'Gonguê', Icon: GongueCordelIcon,
     strokes: [
       { symbol: 'G', labelFr: 'Grave (corps)', labelPt: 'Grave (corpo)', file: '/Mixdown/Gongue G 1.ogg' },
       { symbol: 'A', labelFr: 'Aigu (bouche)', labelPt: 'Agudo (boca)', file: '/Mixdown/Gongue A 1.ogg' },
@@ -51,9 +50,7 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     ],
   },
   {
-    id: 'agbe',
-    name: 'Agbê',
-    Icon: AgbeCordelIcon,
+    id: 'agbe', name: 'Agbê', Icon: AgbeCordelIcon,
     strokes: [
       { symbol: 'E', labelFr: 'Frappe gauche', labelPt: 'Batida esquerda', file: '/Mixdown/Agbe F E 1.ogg' },
       { symbol: 'D', labelFr: 'Frappe droite', labelPt: 'Batida direita', file: '/Mixdown/Agbe F D 1.ogg' },
@@ -61,33 +58,26 @@ export const BAQUE_INSTRUMENTS_DATA: BaqueInstrumentDef[] = [
     ],
   },
   {
-    id: 'mineiro',
-    name: 'Mineiro',
-    Icon: MineiroCordelIcon,
+    id: 'mineiro', name: 'Mineiro', Icon: MineiroCordelIcon,
     strokes: [
-      { symbol: 'P', labelFr: 'P ↑ — Pousser (Avant)', labelPt: 'P ↑ — Projetar (Para frente)', file: '/Mixdown/Mineiro F P 1.ogg' },
-      { symbol: 'T', labelFr: 'T ↓ — Tirer (Vers soi)', labelPt: 'T ↓ — Trazer (Para trás)', file: '/Mixdown/Mineiro F T 1.ogg' },
-      { symbol: 'p', labelFr: 'p ↑ — Pousser faible', labelPt: 'p ↑ — Projetar fraco', file: '/Mixdown/Mineiro f_min p 1.ogg' },
+      { symbol: 'P', labelFr: 'Poussé fort', labelPt: 'Ida forte', file: '/Mixdown/Mineiro F P 1.ogg' },
+      { symbol: 'T', labelFr: 'Tiré fort', labelPt: 'Volta forte', file: '/Mixdown/Mineiro F T 1.ogg' },
+      { symbol: 'p', labelFr: 'Secousse', labelPt: 'Lateral', file: '/Mixdown/Mineiro f_min p 1.ogg' },
     ],
   },
   {
-    id: 'timbal',
-    name: 'Timbal',
-    Icon: TimbalCordelIcon,
+    id: 'timbal', name: 'Timbal', Icon: TimbalCordelIcon,
     strokes: [
-      { symbol: 'A', labelFr: 'Ouvert (aberto)', labelPt: 'Aberto', file: '/Mixdown/Timbal studio A D 1.ogg' },
-      { symbol: 'G', labelFr: 'Basse (baixo)', labelPt: 'Baixo', file: '/Mixdown/Timbal studio G D 1.ogg' },
-      { symbol: 'P', labelFr: 'Pressé (preso)', labelPt: 'Preso', file: '/Mixdown/Timbal studio P D 1.ogg' },
-      { symbol: 'S', labelFr: 'Claqué (slap)', labelPt: 'Slap', file: '/Mixdown/Timbal studio S D 1.ogg' },
+      { symbol: 'A', labelFr: 'Ouvert', labelPt: 'Aberto', file: '/Mixdown/Timbal studio A D 1.ogg' },
+      { symbol: 'G', labelFr: 'Basse', labelPt: 'Baixo', file: '/Mixdown/Timbal studio G D 1.ogg' },
+      { symbol: 'P', labelFr: 'Pressé', labelPt: 'Preso', file: '/Mixdown/Timbal studio P D 1.ogg' },
+      { symbol: 'S', labelFr: 'Claqué', labelPt: 'Slap', file: '/Mixdown/Timbal studio S D 1.ogg' },
     ],
   },
 ];
 
-import { getRawAudioContext } from '../../audio/audioContextSuspendManager';
-import { fetchAndDecodeAudioSample } from '../../audio/engine/sampleFetchUtils';
-
-export const ALL_LANDING_SAMPLES = BAQUE_INSTRUMENTS_DATA.flatMap(inst =>
-  inst.strokes.map(s => ({ id: inst.id, symbol: s.symbol, file: s.file }))
+export const ALL_LANDING_SAMPLES = BAQUE_INSTRUMENTS_DATA.flatMap((inst) =>
+  inst.strokes.map((s) => ({ id: inst.id, symbol: s.symbol, file: s.file }))
 );
 
 export const decodedAudioBuffers = new Map<string, AudioBuffer>();
@@ -111,4 +101,40 @@ export function preloadLandingSamples() {
       } catch (_) {}
     });
   } catch (_) {}
+}
+
+export async function playLandingInstrumentSample(instId: string, strokeSymbol: string, strokeFile: string): Promise<void> {
+  try {
+    await safeResumeAudioContext();
+    const ctx = getLandingAudioContext();
+    if (!ctx) return;
+    if (ctx.state !== 'running') await ctx.resume();
+    try {
+      const Tone = getTone();
+      if (Tone && Tone.context.state !== 'running') Tone.start().catch(() => {});
+    } catch (_) {}
+    useAudioStore.getState().unlockAudio();
+
+    const bufferKey = `${instId}_${strokeSymbol}`;
+    let buffer = decodedAudioBuffers.get(bufferKey) || decodedAudioBuffers.get(instId);
+    if (!buffer) {
+      buffer = (await fetchAndDecodeAudioSample(ctx, strokeFile)) ?? undefined;
+      if (buffer) decodedAudioBuffers.set(bufferKey, buffer);
+    }
+    if (buffer) {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const gainNode = ctx.createGain();
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      source.onended = () => {
+        source.disconnect();
+        gainNode.disconnect();
+      };
+      source.start(0);
+      scheduleAudioContextAutoSuspend(500);
+    }
+  } catch (_) {
+    if (audioEngine) audioEngine.playPreview(instId, strokeSymbol, 0, 1.0);
+  }
 }

@@ -53,12 +53,12 @@ export const LandingInstrumentCard: React.FC<LandingInstrumentCardProps> = React
         <span className="text-[10px] sm:text-[11px] text-[var(--cordel-accent-readable)] font-serif italic font-semibold leading-tight text-center truncate max-w-full px-1">
           {activeLabel}
         </span>
-        <div className="flex items-center justify-center gap-1 mt-1 opacity-75 group-hover:opacity-100">
+        <div className="flex items-center justify-center gap-1 mt-1">
           {instrument.strokes.map((_, idx) => (
             <span
               key={idx}
               className={`w-1.5 h-1.5 rounded-full transition-all ${
-                idx === strokeIdx ? 'bg-[var(--cordel-accent-readable)] scale-125' : 'bg-[var(--cordel-text)]/30'
+                idx === strokeIdx ? 'bg-[var(--cordel-accent-readable)] scale-125' : 'bg-[var(--cordel-text-muted)] opacity-45'
               }`}
             />
           ))}

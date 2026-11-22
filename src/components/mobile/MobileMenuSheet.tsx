@@ -117,7 +117,7 @@ export const MobileMenuSheet: React.FC<Props> = ({
               </button>
 
               <button type="button" onClick={() => { onClose(); onToggleStudio(); }} className="p-2.5 bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:translate-y-0.5 cursor-pointer">
-                <Monitor size={15} /> {lang === 'pt' ? 'Modo Estúdio Completo' : 'Mode Édition Studio'}
+                <Monitor size={15} /> {tMobile(lang, 'modeComplet')}
               </button>
             </div>
           </div>

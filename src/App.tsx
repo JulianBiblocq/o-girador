@@ -109,7 +109,7 @@ export default function App() {
     if (t) s.setEditingTrackId(t.id);
   }, []);
 
-  if (viewMode === 'landing') return <><SEO /><Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><svg className="animate-spin w-8 h-8 stroke-current fill-none stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" /></svg></div>}><LandingPage onEnter={() => { useSequencerStore.getState().setMobileViewMode('complet'); changeViewMode('roda'); }} lang={sequencer.lang} onLanguageChange={sequencer.setLang} isManualOpen={hasManuallyOpenedAbout} /></Suspense></>;
+  if (viewMode === 'landing') return <><SEO /><Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><svg className="animate-spin w-8 h-8 stroke-current fill-none stroke-2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" /></svg></div>}><LandingPage onEnter={() => changeViewMode('roda')} onOpenPaperSheets={() => { setPaperWorkshopInitialTab('sheets'); setIsPaperWorkshopOpen(true); }} lang={sequencer.lang} onLanguageChange={sequencer.setLang} isManualOpen={hasManuallyOpenedAbout} /></Suspense></>;
   if (viewMode === 'home') return <><SEO /><Home onEnter={(m) => changeViewMode(m as any)} lang={sequencer.lang} /></>;
 
   return (

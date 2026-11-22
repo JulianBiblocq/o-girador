@@ -55,8 +55,8 @@ export function useThemeManager({ lang }: UseThemeManagerOptions) {
   // Document title updates based on UI language
   useEffect(() => {
     document.title = lang === 'fr'
-      ? 'O Girador | Séquenceur dédié au Maracatu de Baque Virado'
-      : 'O Girador | Sequenciador dedicado ao Maracatu de Baque Virado';
+      ? "Sequenciador — L'atelier circulaire du Maracatu de Baque Virado"
+      : 'Sequenciador — A oficina circular do Maracatu de Baque Virado';
   }, [lang]);
 
   // Dark mode toggle callback

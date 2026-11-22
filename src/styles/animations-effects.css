@@ -55,7 +55,7 @@ body.has-wallpaper-none .wallpaper-surface-dark {
 }
 
 .cordel-booklet {
-  transform-origin: top center;
+  transform-origin: 50% -5px;
   will-change: transform;
   animation-name: cordelSwing;
   animation-timing-function: ease-in-out;
@@ -94,7 +94,7 @@ body.has-wallpaper-none .wallpaper-surface-dark {
   -moz-osx-font-smoothing: grayscale;
   display: inline-block;
   letter-spacing: 0.08em;
-  text-shadow: 0.5px 0.5px 0px rgba(139, 42, 26, 0.2);
+  text-shadow: 0.5px 0.5px 0px var(--cordel-shadow-color);
 }
 
 .cordel-stamp-red {

@@ -95,7 +95,7 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
           onClick={() => { onViewModeToggle('landing'); onCloseMenu(); }}
           className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-surface)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer col-span-2 transition-colors"
         >
-          <ScrollText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Sobre O Girador' : 'À propos'}
+          <ScrollText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Sobre' : 'À propos'}
         </button>
         {showWallpaperOption && onOpenWallpaperModal && (
           <button

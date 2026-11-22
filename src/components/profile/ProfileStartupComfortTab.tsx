@@ -63,10 +63,10 @@ export const ProfileStartupComfortTab: React.FC<ProfileStartupComfortTabProps> =
 
   const mobileOpts: Array<{ id: MobileStartupMode; label: string }> = [
     { id: 'last', label: isPt ? 'Retomar última vista / padrão da função' : 'Reprendre ma dernière vue / défaut selon rôle' },
-    { id: 'percussion', label: isPt ? 'Sempre Percussão / Focus' : 'Toujours Percussion / Focus' },
-    { id: 'danse', label: isPt ? 'Sempre Modo Dança (Dançador)' : 'Toujours Mode Danse (Dançador)' },
-    ...(canSeeEditor ? [{ id: 'editeur' as MobileStartupMode, label: isPt ? 'Atelier Scan & Sinais' : 'Atelier Scan & Signes' }] : []),
-    { id: 'complet', label: isPt ? 'Sempre Modo Studio Completo' : 'Toujours Mode Studio Complet' },
+    { id: 'percussion', label: isPt ? 'Sempre Modo Percussão' : 'Toujours Mode Percussion' },
+    { id: 'danse', label: isPt ? 'Sempre Modo Escuta' : 'Toujours Mode Lecture' },
+    ...(canSeeEditor ? [{ id: 'editeur' as MobileStartupMode, label: isPt ? 'Modo Scan e Fotos' : 'Mode Scan & Photos' }] : []),
+    { id: 'complet', label: isPt ? 'Sempre Modo Estúdio' : 'Toujours Mode Studio' },
   ];
 
   const btnCls = (active: boolean) =>

@@ -88,9 +88,8 @@ body.has-wallpaper-gravure::before {
   mask-size: 120px 120px;
 }
 
-/* Calibrage spécifique LandingPage (papier beige cordel) */
+/* Calibrage filigrane LandingPage (compatible thèmes Clair et Sombre via var(--cordel-text)) */
 #landing-page {
-  --cordel-text: #1a1a1a;
   --wallpaper-opacity: 0.12;
 }
 

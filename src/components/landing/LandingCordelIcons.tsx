@@ -81,3 +81,14 @@ export const CordelDiamondBullet: React.FC = () => (
     <polygon points="4,0 8,4 4,8 0,4" />
   </svg>
 );
+
+export const AfinadorCordelBadgeSvg: React.FC = () => (
+  <svg viewBox="0 0 64 64" className="w-full h-full text-[var(--cordel-paper-ink)] bg-[var(--cordel-paper-surface)]" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="32" cy="32" r="29" stroke="var(--cordel-wood)" strokeWidth="3.2" />
+    <circle cx="32" cy="32" r="24" strokeDasharray="3 2.5" strokeWidth="1.2" />
+    <path d="M25 16v13a7 7 0 0 0 14 0V16" strokeWidth="2.8" />
+    <line x1="32" y1="36" x2="32" y2="50" strokeWidth="2.8" />
+    <circle cx="32" cy="50" r="2.2" fill="currentColor" />
+    <path d="M18 22q-4 7 0 14M46 22q4 7 0 14" stroke="var(--cordel-wood)" strokeWidth="1.8" />
+  </svg>
+);

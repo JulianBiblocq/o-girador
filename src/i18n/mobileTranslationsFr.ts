@@ -4,11 +4,11 @@
 
 export const mobileTranslationsFr = {
   // Modes d'affichage
-  modePercussion: 'Mode percussion',
-  modeDanse: 'Mode danse',
-  modeChant: 'Mode chant (Cantador)',
-  modeEditeur: 'Mode édition',
-  modeComplet: 'Mode complet (Studio)',
+  modePercussion: 'Mode Percussion',
+  modeDanse: 'Mode Lecture',
+  modeChant: 'Mode Chant (Cantador)',
+  modeEditeur: 'Mode Scan & Photos',
+  modeComplet: 'Mode Studio',
 
   // Vocabulaire commun & transport
   repere: 'Repère',
@@ -22,7 +22,7 @@ export const mobileTranslationsFr = {
   inverser: 'Inverser',
   fermerCamera: 'Fermer la caméra',
 
-  // Mode Danse
+  // Mode Lecture
   exitNextLap: 'Sortir au prochain tour',
   voix: 'Voix',
   synth: 'Synth',
@@ -41,14 +41,14 @@ export const mobileTranslationsFr = {
   aucunPupitreSeul: 'Aucun (Mon pupitre seul)',
   resteDuBatuque: 'Reste du Batuque',
 
-  // Mode Édition - Scan & Signes
+  // Mode Scan & Photos - Scan & Signes
   scanTab: 'Scan & Imports Papier',
   signalTab: 'Signes du Mestre',
   takePhoto: 'Prendre photo',
   gallery: 'Galerie',
   blankSheets: 'Fiches vierges A4',
   vigilancePoint: 'Point de vigilance',
-  injectScore: 'INJECTER DANS LE SÉQUENCEUR →',
+  injectScore: 'INJECTER DANS LE SEQUENCIADOR ->',
   injectSuccess: 'Partition injectée avec succès !',
   onePhoto: '1 Photo (Fixe)',
   fourBeats: '4 Temps',
@@ -79,7 +79,7 @@ export const mobileTranslationsFr = {
   savedPresets: 'Mes réglages sauvegardés',
   saveCurrentPreset: 'Sauver ce réglage',
   presetNamePlaceholder: 'Nom du réglage (ex: Mains)...',
-  resetDefault: 'Valeurs d’usine',
+  resetDefault: "Valeurs d'usine",
 
   // Sauvegarde & Galerie Signes
   saveSignal: 'Enregistrer le signe',
@@ -102,16 +102,16 @@ export const mobileTranslationsFr = {
 
   // Menu tiroir & Outils
   toolsMenu: 'Menu Outils & Réglages',
-  viewMode: 'Mode d’affichage',
+  viewMode: "Mode d'affichage",
   masterEQ: 'Égalisation Master',
   speaker: 'Enceinte USB / BT',
   room: 'Salle / Studio',
   headphones: 'Casque',
-  danceFocus: 'Focus Danse & Chant',
+  danceFocus: 'Focus Écoute & Chant',
   lockTouch: "Verrouiller l'écran tactile",
   themeLight: 'Thème Clair',
   themeDark: 'Thème Sombre',
-  studioMode: 'Mode Édition Studio',
+  studioMode: 'Mode Studio',
 
   // Modale impression partition
   scorePreview: 'Aperçu de la Partition',

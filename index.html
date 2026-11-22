@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Primary SEO -->
-    <title>O Girador | Sequenciador dedicado ao Maracatu de Baque Virado</title>
-    <meta name="description" content="Découvrez O Girador, l'application et séquenceur dédié au Maracatu de Baque Virado. Banques sonores haute fidélité, balanço, humanisation du micro-timing et partage d'arrangements pour batuqueiros et mestres." />
-    <meta name="keywords" content="maracatu, baque virado, séquenceur, boîte à rythmes, sequenciador, ritmo, alfaia, caixa, tarol, gonguê, agbê, mineiro, timbal, percussão, percussion brésilienne, recife, pernambuco, nação, bloco, toadas, balanço, drum machine, o-girador, roda de maracatu" />
+    <title>Sequenciador — L'atelier circulaire du Maracatu de Baque Virado</title>
+    <meta name="description" content="Écoutez la tourne à 360°, isolez votre instrument, ralentissez le tempo et composez vos baques gratuitement jusqu'à 30 mesures en ligne." />
+    <meta name="keywords" content="maracatu, baque virado, sequenciador, ritmo, alfaia, caixa, tarol, gonguê, agbê, mineiro, timbal, percussão, percussion brésilienne, recife, pernambuco, nação, bloco, batuque, toadas, balanço, o-girador, roda de maracatu" />
     <meta name="author" content="Julian Biblocq" />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#0a0807" />
@@ -24,22 +24,22 @@
     <!-- Open Graph (Facebook, WhatsApp, Discord, LinkedIn...) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sequenciador.o-girador.com/" />
-    <meta property="og:title" content="O Girador - Sequenciador de Maracatu de Baque Virado" />
-    <meta property="og:description" content="Boîte à rythmes en ligne et séquenceur interactif à 360° pour créer, écouter et décortiquer les rythmes du Maracatu de Baque Virado. Outil gratuit de percussions de Recife et Pernambuco." />
+    <meta property="og:title" content="Sequenciador — L'atelier circulaire du Maracatu de Baque Virado" />
+    <meta property="og:description" content="Écoutez la tourne à 360°, isolez votre instrument, ralentissez le tempo et composez vos baques gratuitement jusqu'à 30 mesures en ligne." />
     <meta property="og:image" content="https://sequenciador.o-girador.com/og-image.jpg" />
     <meta property="og:image:secure_url" content="https://sequenciador.o-girador.com/og-image.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="O Girador — Séquenceur de Maracatu de Baque Virado" />
+    <meta property="og:image:alt" content="Sequenciador — L'atelier circulaire du Maracatu de Baque Virado" />
     <meta property="og:locale" content="pt_BR" />
     <meta property="og:locale:alternate" content="fr_FR" />
     <meta property="og:site_name" content="O Girador" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="O Girador - Sequenciador de Maracatu de Baque Virado" />
-    <meta name="twitter:description" content="Créez et écoutez les rythmes du Maracatu de Baque Virado. Séquenceur circulaire interactif, banques de sons réels et balanço." />
+    <meta name="twitter:title" content="Sequenciador — L'atelier circulaire du Maracatu de Baque Virado" />
+    <meta name="twitter:description" content="Écoutez la tourne à 360°, isolez votre instrument, ralentissez le tempo et composez vos baques gratuitement jusqu'à 30 mesures en ligne." />
     <meta name="twitter:image" content="https://sequenciador.o-girador.com/og-image.jpg" />
 
     <!-- Schema.org Structured Data (JSON-LD) -->
@@ -47,9 +47,9 @@
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      "name": "O Girador",
+      "name": "O Girador — Sequenciador",
       "url": "https://sequenciador.o-girador.com/",
-      "description": "Séquenceur interactif circulaire à 360° et boîte à rythmes en ligne dédiée au Maracatu de Baque Virado de Recife et Pernambuco. Créez, visualisez et écoutez des patrons rythmiques d'alfaia, caixa, tarol, gonguê, agbê et mineiro.",
+      "description": "Écoutez la tourne à 360°, isolez votre instrument, ralentissez le tempo et composez vos baques gratuitement jusqu'à 30 mesures en ligne.",
       "applicationCategory": "MultimediaApplication",
       "operatingSystem": "Web, iOS, Android, Windows, macOS",
       "offers": {
@@ -63,7 +63,7 @@
       },
       "inLanguage": ["pt-BR", "fr-FR"],
       "genre": "Maracatu de Baque Virado",
-      "keywords": "maracatu, baque virado, sequenciador, ritmo, alfaia, caixa, tarol, gonguê, agbê, mineiro, percussão brasileira, recife, pernambuco"
+      "keywords": "maracatu, baque virado, sequenciador, batuque, alfaia, caixa, tarol, gonguê, agbê, mineiro, timbal, percussão brasileira, recife, pernambuco"
     }
     </script>
 
@@ -77,14 +77,14 @@
         font-style: normal;
         font-display: swap;
       }
-      /* Landing Page Styles */
-      body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #0a0807; overflow-x: hidden; }
-      
+      /* Landing Page Base Container */
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: var(--cordel-bg); overflow-x: hidden; }
+
       #landing-page {
         position: fixed;
         inset: 0;
-        background-color: var(--cordel-bg, #f4ecd8);
-        color: var(--cordel-text, #1a1a1a);
+        background-color: var(--cordel-bg);
+        color: var(--cordel-text);
         z-index: 9999;
         display: flex;
         flex-direction: column;
@@ -96,8 +96,7 @@
         transition: opacity 0.8s ease-out;
         font-family: 'Lora', serif;
       }
-      
-      /* Background texture simulation */
+
       #landing-page::before {
         content: "";
         position: fixed;
@@ -107,198 +106,44 @@
         background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
       }
 
-      /* Top Right: Login */
-      .lp-header {
-        display: flex;
-        justify-content: flex-end;
-        position: relative;
-        z-index: 2;
-      }
-      .lp-login {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: 2px solid #1a1a1a;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        cursor: pointer;
-        background: transparent;
-        color: #1a1a1a;
-        transition: all 0.2s;
-        font-family: 'Cactus', sans-serif;
-      }
-      .lp-login:hover {
-        background: #1a1a1a;
-        color: #f4ecd8;
-      }
-
-      .lp-center {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        padding-left: clamp(1rem, 4vw, 6rem);
-        gap: 2rem;
-        position: relative;
-        z-index: 2;
-        flex: 1; /* Take middle space */
-      }
-      
-      .lp-o-container {
-        position: relative;
-        width: clamp(130px, 20vw, 250px);
-        height: clamp(130px, 20vw, 250px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      .lp-alfaia-svg {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        animation: lp-spin 40s linear infinite;
-      }
-      @keyframes lp-spin { 100% { transform: rotate(360deg); } }
-
-      .lp-entra-btn {
-        position: relative;
-        z-index: 10;
-        background: #f4ecd8;
-        border: 2px solid #1a1a1a;
-        border-radius: 50%;
-        width: 65%;
-        height: 65%;
-        font-family: 'Cactus', sans-serif;
-        font-size: clamp(0.9rem, 2vw, 1.5rem);
-        color: #1a1a1a;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        line-height: 1.1;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
-        transition: all 0.3s;
-      }
-      .lp-entra-btn:hover {
-        background: #b33939; /* Ocre / Brique */
-        color: #f4ecd8;
-        border-color: #b33939;
-        transform: scale(1.05);
-      }
-
-      .lp-title {
-        font-family: 'Cactus', sans-serif;
-        font-size: clamp(4rem, 12vw, 12rem);
-        line-height: 1;
-        margin: 0;
-        color: #1a1a1a;
-        letter-spacing: -0.05em;
-      }
-
-      /* Bottom: Text & Bandeira */
-      .lp-footer {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: clamp(1rem, 3vw, 3rem);
-        align-items: end;
-        position: relative;
-        z-index: 2;
-        margin-top: -10vh;
-      }
-
-      .lp-text-container {
-        display: flex;
-        flex-direction: column;
-        gap: clamp(1rem, 2vh, 1.5rem);
-        margin-left: clamp(1rem, 4vw, 6rem);
-        margin-bottom: clamp(1rem, 3vh, 2rem);
-      }
-
-      .lp-text {
-        max-width: 750px;
-        font-size: clamp(0.75rem, 1vw, 0.95rem);
-        line-height: 1.4;
-        color: #1a1a1a;
-      }
-      .lp-text p {
-        margin-top: 0;
-        margin-bottom: 0.75rem;
-      }
-      .lp-text p:last-child {
-        margin-bottom: 0;
-      }
-      .lp-bandeira {
-        width: clamp(280px, 40vw, 450px);
-        position: relative;
-      }
-      .lp-bandeira svg {
-        width: 100%;
-        height: auto;
-        display: block;
-        overflow: visible;
-      }
-      .lp-fringes {
-        transform-origin: 100px 220px;
-        animation: lp-wind 3s ease-in-out infinite alternate;
-      }
-      @keyframes lp-wind {
-        0% { transform: skewX(2deg) scaleY(1); }
-        100% { transform: skewX(-6deg) scaleY(1.05); }
-      }
-      
       .sr-only {
         position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;
-      }
-
-      @media (max-width: 1024px) {
-        .lp-center { flex-direction: column; text-align: center; gap: 1rem; padding-left: 0; }
-        .lp-footer { grid-template-columns: 1fr; gap: 2rem; justify-items: center; margin-top: 2rem; }
-        .lp-text-container { margin-left: 0; margin-bottom: 0; text-align: center; align-items: center; }
-        .lp-text { text-align: center; margin-left: 0; }
-        .lp-mestre-message { transform: none; width: 90%; max-width: 400px; margin-bottom: 0; margin-top: 1rem; }
-        .lp-mestre-message:hover { transform: none; }
-        .lp-bandeira { width: 100%; margin: 0 auto; max-width: 300px; transform: none; }
-        .lp-title { font-size: 3.5rem; }
       }
     </style>
   </head>
   <body>
     <noscript>
-      <div style="padding: 2rem; background: #f4ecd8; color: #1a1a1a; font-family: serif; max-width: 900px; margin: 0 auto;">
-        <h1>O Girador — Séquenceur de Maracatu de Baque Virado</h1>
-        <p><strong>O sequenciador circular dedicado ao Maracatu de Baque Virado de Recife e Pernambuco.</strong></p>
-        <p>O Girador est un outil interactif, une boîte à rythmes et un carnet de notes musical conçu pour documenter, décortiquer et transmettre les toadas et les rythmes traditionnels de Maracatu de Baque Virado. Il permet de visualiser le cycle en 360°, d'isoler chaque pupitre d'instruments (Alfaia, Caixa, Tarol, Gonguê, Agbê, Mineiro) et de restituer le balanço organique grâce à un réglage fin du micro-timing.</p>
-        
-        <h2>Les 4 Livrets de Cordel de l'Écosystème O Girador</h2>
+      <div style="padding: 2rem; font-family: serif; max-width: 900px; margin: 0 auto;">
+        <h1>Sequenciador — L'atelier circulaire du Maracatu de Baque Virado — Rythme, Chant &amp; Partition</h1>
+        <p><strong>A oficina circular do Maracatu de Baque Virado — Ritmo, Canto e Partitura.</strong></p>
+        <p>Le Maracatu vit dans la rue, par le chant, l'écoute et la transmission directe des mestres. Pensé comme un carnet de mémoire — sans jamais remplacer les répétitions — Sequenciador réunit sur un même établi la tourne à 360° du batuque, l'écriture multipiste, les toadas et le cahier papier.</p>
+
+        <h2>Les 4 Livrets de Cordel</h2>
         <article>
-          <h3>Livret 01 : La tradition orale (« La mémoire d'abord »)</h3>
-          <p>Le Maracatu de Baque Virado vit dans la rue, par le chant, l'écoute et la transmission directe des mestres. Cet outil ne remplace ni les répétitions ni l'enseignement oral. Il a été pensé comme un carnet de notes : un support pour poser des repères, documenter les toadas et mémoriser les arrangements de chaque batuque et Nações.</p>
+          <h3>Livret 01 : Le Studio &amp; la Roda</h3>
+          <p>Double lecture Roda 360° et Timeline linéaire, sons acoustiques réels, accordage dans A Oficina et réglage fin d'O Balanço.</p>
         </article>
         <article>
-          <h3>Livret 02 : Le Séquenceur (« Apprendre et décortiquer le baque »)</h3>
-          <p>Cycle à 360°, écoute analytique par pupitre, banques de sons acoustiques enregistrées sur instruments réels et réglage fin du micro-timing (balanço).</p>
+          <h3>Livret 02 : Pratique, Lecture &amp; Chant</h3>
+          <p>Mode Pratique &amp; Tocar Junto, Mode Lecture sur mobile pour gérer les 6 familles d'instruments, Toadas et Signes du Mestre.</p>
         </article>
         <article>
-          <h3>Livret 03 : Organizador & Dançador (« De la partition à la répétition »)</h3>
-          <p>Passerelle pédagogique, partitions pour conducteurs de répétition et synchronisation des mouvements de danse traditionnelle.</p>
+          <h3>Livret 03 : Du Papier au Son</h3>
+          <p>Tablatures vierges gratuites A4, Scanner Photo de grilles manuscrites et Presse PDF de partitions et Mini-Rodas.</p>
         </article>
         <article>
-          <h3>Livret 04 : Orquestrador (« Connecter les Nações et les groupes »)</h3>
-          <p>Cartographie mondiale des groupes et Nações de Maracatu et partage d'arrangements.</p>
+          <h3>Livret 04 : L'Écosystème O Girador</h3>
+          <p>Organizador &amp; Mostrador, Cantador et Orquestrador — carte mondiale des Nações et groupes de Maracatu.</p>
         </article>
-        
+
         <h2>Applications de l'Écosystème O Girador</h2>
         <ul>
-          <li><a href="https://www.o-girador.com">Orquestrador — Hub central et cartographie mondiale</a></li>
-          <li><a href="https://organizador.o-girador.com/demo">Organizador — Gestion d'association et atelier pédagogique</a></li>
-          <li><a href="https://dancador.o-girador.com">Dançador — Chorégraphie et danse</a></li>
-          <li><a href="https://cantador.o-girador.com">Cantador — Laboratoire vocal et Toadas</a></li>
-          <li><a href="https://www.o-girador.com/#legal">Cadre Légal, Mentions Légales & Confidentialité</a></li>
+          <li><a href="https://www.o-girador.com">Orquestrador — Hub central et carte mondiale</a></li>
+          <li><a href="https://organizador.o-girador.com/demo">Organizador — Gestion associative et fiches pédagogiques</a></li>
+          <li><a href="https://cantador.o-girador.com">Cantador — Chant des Toadas (Puxador &amp; Coro)</a></li>
+          <li><a href="https://organizador.o-girador.com/demo?app=mostrador">Mostrador — Vitrine publique des groupes</a></li>
+          <li><a href="https://sequenciador.o-girador.com/#legal">Mentions légales &amp; CGU</a></li>
         </ul>
-        <p><em>Veuillez activer JavaScript dans votre navigateur pour profiter de l'expérience interactive 360° et du moteur audio haute fidélité d'O Girador.</em></p>
       </div>
     </noscript>
     <!-- React App Container -->

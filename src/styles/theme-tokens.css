@@ -56,6 +56,9 @@
   --fx-reverb-accent: #2a5c8a; --fx-disto-accent: #c25e1a; --fx-comp-accent: #d4af37;
   --fx-comp-knob: #d4af37; --fx-active-text: #f4ecd8; --fx-comp-active-text: #1a1a1a;
   --polarity-active-bg: var(--fx-comp-accent); --polarity-active-text: var(--fx-comp-active-text); --bus-gr-bar: #f2a516;
+  --cordel-post-stop-1: #7a461b; --cordel-post-stop-2: #b58245; --cordel-post-stop-3: #9c6c33; --cordel-post-stop-4: #573110; --cordel-post-bracket: #38210c;
+  --cordel-rope-fiber: #eaddcf; --cordel-rope-core: #2c2723; --cordel-rope-twist: #3c342f;
+  --cordel-flag-blue: #1b4965; --cordel-flag-star: #f4a261; --cordel-flag-sun: #e9c46a; --cordel-flag-green: #2a9d8f;
   --wallpaper-opacity: 0.16; --wallpaper-mixer-opacity: 0.16;
 }
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Trash2, FileText, Save, Folder } from 'lucide-react';
 import { PresetAccordionSelector } from '../PresetAccordionSelector';
 import { BoutonExportDanse } from '../BoutonExportDanse';
+import { SHOW_DANCADOR } from '../../constants/featureFlags';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWizardStore } from '../../stores/useWizardStore';
@@ -122,7 +123,7 @@ export const HeaderProjectDropdownContent: React.FC<HeaderProjectDropdownContent
           </button>
         )}
 
-        {showStudioActions && isMestreOrAdmin && (
+        {SHOW_DANCADOR && showStudioActions && isMestreOrAdmin && (
           <div className="col-span-2 mt-0.5">
             <BoutonExportDanse />
           </div>

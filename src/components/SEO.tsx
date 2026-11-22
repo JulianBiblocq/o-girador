@@ -10,27 +10,24 @@ interface SEOProps {
 }
 
 export const SEO: React.FC<SEOProps> = ({
-  title = "O Girador Séquenceur | Boîte à rythmes et percussions brésiliennes",
-  description = "Créez, écoutez et partagez vos rythmes de percussions brésiliennes (Maracatu, Samba...). Un séquenceur en ligne interactif gratuit.",
-  keywords = "séquenceur, boîte à rythmes, maracatu, percussions brésiliennes, baque virado, logiciel musique",
-  url = "https://sequenciador.o-girador.com",
-  image = "https://sequenciador.o-girador.com/og-image.jpg" // Image générique de couverture
+  title = "Sequenciador — L'atelier circulaire du Maracatu de Baque Virado",
+  description = "Écoutez la tourne à 360°, isolez votre instrument, ralentissez le tempo et composez vos baques gratuitement jusqu'à 30 mesures en ligne.",
+  keywords = 'maracatu, baque virado, sequenciador, roda 360, batuque, alfaia, caixa, tarol, gonguê, agbê, mineiro, timbal, toadas, balanço, o-girador',
+  url = 'https://sequenciador.o-girador.com/',
+  image = 'https://sequenciador.o-girador.com/og-image.jpg',
 }) => {
   return (
     <Helmet>
-      {/* Balises standards */}
       <title>{title}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
 
-      {/* Open Graph (Facebook, LinkedIn, etc.) */}
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={url} />
       <meta property="og:image" content={image} />
       <meta property="og:type" content="website" />
 
-      {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />

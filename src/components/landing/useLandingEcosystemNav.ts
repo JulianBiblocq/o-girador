@@ -30,7 +30,7 @@ export function useLandingEcosystemNav(currentUser: User | null, userProfile: Us
     return () => { cancelled = true; };
   }, [currentUser, userProfile?.groupId, userProfile?.groupLogoUrl]);
 
-  const openApp = useCallback((appKey: 'orquestrador' | 'cantador' | 'dancador', appLabel: string) => {
+  const openApp = useCallback((appKey: 'orquestrador' | 'cantador' | 'dancador' | 'afinador', appLabel: string) => {
     const url = getEcosystemUrl(appKey);
     if (currentUser) launchCrossApp(url, { appKey, appLabel });
     else window.open(url, '_blank', 'noopener,noreferrer');
@@ -39,6 +39,7 @@ export function useLandingEcosystemNav(currentUser: User | null, userProfile: Us
   const handleLaunchOrquestrador = useCallback((e: React.MouseEvent) => { e.preventDefault(); openApp('orquestrador', 'Orquestrador'); }, [openApp]);
   const handleLaunchCantador = useCallback((e: React.MouseEvent) => { e.preventDefault(); openApp('cantador', 'Cantador'); }, [openApp]);
   const handleLaunchDancador = useCallback((e: React.MouseEvent) => { e.preventDefault(); openApp('dancador', 'Dançador'); }, [openApp]);
+  const handleLaunchAfinador = useCallback((e: React.MouseEvent) => { e.preventDefault(); openApp('afinador', 'Afinador'); }, [openApp]);
   const handleCurrentAppClick = useCallback((e: React.MouseEvent) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }, []);
 
   const handleLaunchOrganizador = useCallback((e: React.MouseEvent) => {
@@ -47,23 +48,29 @@ export function useLandingEcosystemNav(currentUser: User | null, userProfile: Us
     else launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: 'Organizador' });
   }, [currentUser]);
 
+  const rawGroupId = userProfile?.groupId?.trim()?.toLowerCase();
+  const mostradorHref = currentUser && rawGroupId
+    ? `https://mostrador.o-girador.com/${encodeURIComponent(rawGroupId)}`
+    : 'https://organizador.o-girador.com/demo?app=mostrador';
+
   const handleLaunchMostrador = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    const rawGroupId = userProfile?.groupId?.trim()?.toLowerCase();
     if (!currentUser || !rawGroupId) window.open('https://organizador.o-girador.com/demo?app=mostrador', '_blank', 'noopener,noreferrer');
     else launchCrossApp(`https://mostrador.o-girador.com/${encodeURIComponent(rawGroupId)}`, { appKey: 'mostrador', appLabel: 'Mostrador' });
-  }, [currentUser, userProfile?.groupId]);
+  }, [currentUser, rawGroupId]);
 
   const organizadorGroupLogo =
     currentUser && !isWhiteLabelCaptureActive() ? (userProfile?.groupLogoUrl || cloudGroupLogo || null) : null;
 
   return {
     organizadorGroupLogo,
+    mostradorHref,
     handleLaunchOrquestrador,
     handleCurrentAppClick,
     handleLaunchOrganizador,
     handleLaunchCantador,
     handleLaunchDancador,
+    handleLaunchAfinador,
     handleLaunchMostrador,
   };
 }
