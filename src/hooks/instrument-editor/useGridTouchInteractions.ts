@@ -2,7 +2,7 @@
 import React, { useRef } from 'react';
 import * as Tone from 'tone';
 import { audioEngine } from '../useAudioSync';
-import { getNextNuanceState, getAlternatingStroke } from '../../utils/instrumentStrokes';
+import { getAlternatingPairForInstrument, getAlternatingStroke } from '../../utils/instrumentStrokes';
 import { getSculptNumber } from '../../components/instrument-editor/grid/gridConstants';
 import { Pattern } from '../../types';
 import type { UseGridTouchInteractionsParams } from './gridTouchTypes';
@@ -86,27 +86,27 @@ export function useGridTouchInteractions(params: UseGridTouchInteractionsParams)
 
     const currentSubVal = (subIndex !== undefined && Array.isArray(value)) ? value[subIndex] : (Array.isArray(value) ? value[0] : value);
     const tool = activeToolRef.current;
+    const splitPair = isAlternatingRef.current && tool && tool !== '0' ? getAlternatingPairForInstrument(tool, instrument?.id, instrument?.type) : null;
     let nextVal: string | number;
     if (!tool || tool === '0' || tool === '') {
       nextVal = 0;
+    } else if (splitPair) {
+      nextVal = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
     } else {
       const normCur = String(currentSubVal ?? '0').trim();
-      const isAlternationEligible = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
-      if (isAlternationEligible) {
-        nextVal = getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded);
-      } else if (normCur === tool) {
-        nextVal = 0;
-      } else {
-        nextVal = tool;
-      }
+      nextVal = normCur === tool ? 0 : tool;
     }
 
     let finalVal: string | number | [string, string] = nextVal === '0' ? 0 : nextVal;
     if (Array.isArray(value)) {
-      const arr = [...value] as [string, string];
       const targetSub = subIndex !== undefined ? subIndex : 0;
-      arr[targetSub] = String(nextVal);
-      finalVal = arr;
+      if (splitPair) {
+        finalVal = splitPair;
+      } else {
+        const arr = [...value] as [string, string];
+        arr[targetSub] = String(nextVal);
+        finalVal = arr;
+      }
       setSelectedSubIndex(targetSub);
     } else {
       setSelectedSubIndex(null);

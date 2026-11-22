@@ -11,37 +11,19 @@ const NO_ALTERNATION_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique', 'alf
 
 export interface StrokeWritingDockProps {
   trackId: number;
-  instrument: {
-    id: string;
-    type: string;
-    colors: Record<string, string>;
-    color?: string;
-    name?: string;
-    [key: string]: any;
-  };
-  lang: string;
-  isLeftHanded: boolean;
-  activeTool: string;
-  onSelectTool: (tool: string) => void;
-  isAlternating?: boolean;
-  onToggleAlternating?: () => void;
-  onOpenBottomSheet?: () => void;
-  showInspectorButton?: boolean;
-  isMultiSelectActive?: boolean;
-  selectionCount?: number;
-  canPasteRange?: boolean;
-  onToggleMultiSelect?: () => void;
-  onExitMultiSelect?: () => void;
-  onDuplicateRange?: () => void;
-  onCopyRange?: () => void;
-  onCutRange?: () => void;
-  onPasteRange?: () => void;
-  onClearRange?: () => void;
+  instrument: { id: string; type: string; colors: Record<string, string>; color?: string; name?: string; [key: string]: any };
+  lang: string; isLeftHanded: boolean; activeTool: string; onSelectTool: (tool: string) => void;
+  isAlternating?: boolean; onToggleAlternating?: () => void; onDisableAlternating?: () => void;
+  onOpenBottomSheet?: () => void; showInspectorButton?: boolean;
+  isMultiSelectActive?: boolean; selectionCount?: number; canPasteRange?: boolean;
+  onToggleMultiSelect?: () => void; onExitMultiSelect?: () => void;
+  onDuplicateRange?: () => void; onCopyRange?: () => void; onCutRange?: () => void;
+  onPasteRange?: () => void; onClearRange?: () => void;
 }
 
 export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
   trackId, instrument, lang, isLeftHanded, activeTool, onSelectTool,
-  isAlternating = false, onToggleAlternating, onOpenBottomSheet, showInspectorButton = true,
+  isAlternating = false, onToggleAlternating, onDisableAlternating, onOpenBottomSheet, showInspectorButton = true,
   isMultiSelectActive = false, selectionCount = 0, canPasteRange = false,
   onToggleMultiSelect, onExitMultiSelect,
   onDuplicateRange, onCopyRange, onCutRange, onPasteRange, onClearRange,
@@ -63,19 +45,20 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
   }, [hostWin]);
 
   const isFr = lang === 'fr';
-  const matrixSpec = useMemo(
-    () => buildStrokeDockMatrix(instrument.id, instrument.type, isFr, isLeftHanded),
-    [instrument.id, instrument.type, isFr, isLeftHanded]
-  );
+  const matrixSpec = useMemo(() => buildStrokeDockMatrix(instrument.id, instrument.type, isFr, isLeftHanded), [instrument.id, instrument.type, isFr, isLeftHanded]);
   const isEraserActive = activeTool === '0' || activeTool === '';
   const isScissorsActive = activeTool === 'scissors';
   const isSelectionModeActive = isMultiSelectActive || selectionCount > 1;
   const supportsAlternation = !NO_ALTERNATION_INSTRUMENTS.has(instrument.id) && !NO_ALTERNATION_INSTRUMENTS.has(instrument.type);
 
   const handlePickBrushTool = useCallback((tool: string) => {
+    if (isAlternating) {
+      if (onDisableAlternating) onDisableAlternating();
+      else onToggleAlternating?.();
+    }
     if (isMultiSelectActive || selectionCount > 0) onExitMultiSelect?.();
     onSelectTool(tool);
-  }, [isMultiSelectActive, selectionCount, onExitMultiSelect, onSelectTool]);
+  }, [isAlternating, onDisableAlternating, onToggleAlternating, isMultiSelectActive, selectionCount, onExitMultiSelect, onSelectTool]);
 
   const colCount = matrixSpec.directionalCols.length + matrixSpec.centralCols.length;
   const inspectorReserve = showInspectorButton && onOpenBottomSheet && dockWidth < 1024 ? (dockWidth >= 640 ? 120 : 62) : 0;

@@ -19,6 +19,7 @@ export interface EditorBottomDockBarProps {
   handleDockSelectTool: (tool: string) => void;
   isAlternating: boolean;
   onToggleAlternating: () => void;
+  onDisableAlternating?: () => void;
   onOpenBottomSheet: () => void;
   isMultiSelectActive?: boolean;
   selectionCount?: number;
@@ -37,7 +38,7 @@ export const EditorBottomDockBar: React.FC<EditorBottomDockBarProps> = React.mem
     isVocalContext, effectiveEditTrackId, patternId, selectedStepIdx,
     setSelectedStepIdx, selectedStepIsPreRoll, setSelectedStepIsPreRoll,
     lang, patternSteps, inst, isLeftHanded, activeTool, handleDockSelectTool,
-    isAlternating, onToggleAlternating, onOpenBottomSheet,
+    isAlternating, onToggleAlternating, onDisableAlternating, onOpenBottomSheet,
     isMultiSelectActive, selectionCount, canPasteRange,
     onToggleMultiSelect, onExitMultiSelect,
     onDuplicateRange, onCopyRange, onCutRange, onPasteRange, onClearRange,
@@ -66,6 +67,7 @@ export const EditorBottomDockBar: React.FC<EditorBottomDockBarProps> = React.mem
           onSelectTool={handleDockSelectTool}
           isAlternating={isAlternating}
           onToggleAlternating={onToggleAlternating}
+          onDisableAlternating={onDisableAlternating}
           onOpenBottomSheet={onOpenBottomSheet}
           isMultiSelectActive={isMultiSelectActive}
           selectionCount={selectionCount}

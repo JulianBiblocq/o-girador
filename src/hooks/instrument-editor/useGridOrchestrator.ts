@@ -61,6 +61,8 @@ export function useGridOrchestrator(props: InstrumentPatternGridProps) {
   }, []);
 
   const handleSelectStepForSculpt = useCallback((idx: number, sub?: 0 | 1 | null) => {
+    const activeEl = document.activeElement as HTMLElement | null;
+    if (activeEl?.classList?.contains('step-input-cell')) activeEl.blur();
     setSelectedStepIdx(idx); setSelectedStepIndices([]); setSelectedPatternId(pattern.id);
     setSelectedVariationId(null); setSelectedSubIndex(sub ?? null);
     useSequencerStore.setState({ selectedStepIdx: idx, selectedSubIndex: sub ?? null, selectedStepIsPreRoll: false });
@@ -68,18 +70,18 @@ export function useGridOrchestrator(props: InstrumentPatternGridProps) {
 
   const handleCellChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, idx: number, value: any, subIndex?: 0 | 1) => {
     if (activeTool === 'scissors') { e.preventDefault(); return; }
+    if (selectedPatternId !== pattern.id || selectedVariationId !== null) return;
     const newVal = e.target.value;
     let finalVal: string | [string, string] = String(newVal);
     if (subIndex !== undefined && Array.isArray(value)) {
       finalVal = [...value] as [string, string];
       finalVal[subIndex] = String(newVal);
     }
-    if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
-    else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
+    handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
     const sId = usePaperVigilanceStore.getState().activeSequencerScoreId;
     const pt = usePaperVigilanceStore.getState().points.find((p) => (!sId || p.scoreId === sId) && p.patternId === pattern.id && p.stepIndex === idx);
     if (pt) usePaperVigilanceStore.getState().removePoint(pt.id);
-  }, [activeTool, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
+  }, [activeTool, selectedPatternId, selectedVariationId, trackId, pattern.id, handleTrackStepValueChange]);
 
   const multiInteractions = useGridMultiSelectInteractions({
     trackId, pattern, instrumentId: instrument.id, isMultiSelectActive, selectedStepIdx,

@@ -8,6 +8,7 @@ export interface UseGridCellKeyboardNavParams {
   trackId: number;
   pattern: Pattern;
   activeTool: string;
+  selectedPatternId: number;
   selectedVariationId: string | null;
   instrument: { id: string; type: string; [key: string]: any };
   lang: string;

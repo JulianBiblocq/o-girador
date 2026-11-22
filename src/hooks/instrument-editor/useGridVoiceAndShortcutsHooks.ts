@@ -75,7 +75,7 @@ export function useGridVoiceAndShortcutsHooks(params: UseGridVoiceAndShortcutsPa
     isMultiSelectActive: params.isMultiSelectActive, selectedPatternId: params.selectedPatternId,
     selectedStepIdx: params.selectedStepIdx, selectedStepIndices: params.selectedStepIndices,
     selectedSubIndex: params.selectedSubIndex, selectedStepIsPreRoll: params.selectedStepIsPreRoll,
-    pattern: params.pattern, trackId: params.trackId, isVoice: isVoiceTrack,
+    pattern: params.pattern, trackId: params.trackId, isVoice: isVoiceTrack, instrument: params.instrument,
     selectedVariationId: params.selectedVariationId, handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, handleVoiceStepClear: params.handleVoiceStepClear,
     focusVoiceStep, focusCell: params.focusCell, setSelectedStepIdx: params.setSelectedStepIdx,

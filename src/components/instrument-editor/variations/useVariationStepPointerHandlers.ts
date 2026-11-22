@@ -35,6 +35,8 @@ export function useVariationStepPointerHandlers(params: PointerParams) {
 
   const handleMouseDown = useCallback((e: React.MouseEvent, subIndex?: 0 | 1) => {
     e.stopPropagation();
+    const activeEl = (hostWin?.document || document).activeElement as HTMLElement | null;
+    if (activeEl && activeEl !== e.target && activeEl.classList?.contains('step-input-cell')) activeEl.blur();
     const snap = selectionSnapRef?.current;
     const curVarActive = snap ? snap.isVarActive : isVarActive;
     const curStepIdx = snap ? snap.selectedStepIdx : selectedStepIdx;

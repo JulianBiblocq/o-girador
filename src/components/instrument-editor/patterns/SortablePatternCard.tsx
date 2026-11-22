@@ -42,8 +42,8 @@ export const SortablePatternCard: React.FC<SortablePatternCardProps> = React.mem
           }}
           className={`p-4 flex flex-col gap-3 transition-all duration-150 cursor-pointer rounded-xs ${
             isSelected
-              ? 'border-2 border-[#8b2a1a] shadow-[3px_3px_0px_#8b2a1a] bg-[#f9f5ea]'
-              : 'border border-[#1a1a1a]/30 shadow-[1px_1px_0px_rgba(26,26,26,0.15)] bg-[#f0e6d2]/80 hover:bg-[#f0e6d2]'
+              ? 'border-2 border-[var(--cordel-wood)] shadow-[3px_3px_0px_var(--cordel-wood)] bg-[var(--cordel-paper-surface)]'
+              : 'border border-[var(--cordel-ink-dark)]/30 shadow-[1px_1px_0px_var(--cordel-shadow-color)] bg-[var(--cordel-parchment-panel)]/80 hover:bg-[var(--cordel-parchment-panel)]'
           } ${armedPatternId === ptn.id ? 'cordel-arm-pulse' : ''}`}
           style={style}
         >

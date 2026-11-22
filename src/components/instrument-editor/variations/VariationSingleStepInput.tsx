@@ -20,12 +20,14 @@ interface VariationSingleStepInputProps {
   activeTool: string;
   isLeftHanded: boolean;
   trackId: number;
+  isVarActive: boolean;
   isTouchDevice: boolean;
   isMultiSelectActive: boolean;
   isMultiSelected: boolean;
   isPassiveCursor: boolean;
   onSelectPattern: (id: number) => void;
   setSelectedPatternId: (id: number) => void;
+  setSelectedVariationId: (id: string | null) => void;
   setSelectedStepIdx: (idx: number | null) => void;
   setSelectedStepIndices: (indices: number[]) => void;
   onVariationStepValueChange?: (ptnId: number, varId: string, idx: any, val: any, opts?: { skipUndo?: boolean }) => void;
@@ -37,9 +39,9 @@ interface VariationSingleStepInputProps {
 
 export const VariationSingleStepInput: React.FC<VariationSingleStepInputProps> = (props) => {
   const {
-    i, val, variation, ptn, inst, lang, activeTool, isLeftHanded, trackId,
+    i, val, variation, ptn, inst, lang, activeTool, isLeftHanded, trackId, isVarActive,
     isTouchDevice, isMultiSelectActive, isMultiSelected, isPassiveCursor,
-    onSelectPattern, setSelectedPatternId, setSelectedStepIdx, setSelectedStepIndices,
+    onSelectPattern, setSelectedPatternId, setSelectedVariationId, setSelectedStepIdx, setSelectedStepIndices,
     onVariationStepValueChange, handleTogglePlay, onMouseDown, onMouseEnter, onTouchStart,
   } = props;
 
@@ -73,6 +75,8 @@ export const VariationSingleStepInput: React.FC<VariationSingleStepInputProps> =
       style={{ width: '34px', height: '34px' }}
     >
       <input
+        data-track-id={trackId}
+        data-pattern-id={ptn.id}
         data-step-index={i}
         data-variation-id={variation.id}
         type="text"
@@ -85,16 +89,17 @@ export const VariationSingleStepInput: React.FC<VariationSingleStepInputProps> =
           if (!isTouchDevice) e.target.select();
           onSelectPattern(ptn.id);
           setSelectedPatternId(ptn.id);
+          setSelectedVariationId(variation.id);
         }}
         onMouseDown={onMouseDown}
         onMouseEnter={onMouseEnter}
         onTouchStart={onTouchStart}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        onChange={(e) => onVariationStepValueChange?.(ptn.id, variation.id, i, e.target.value)}
+        onChange={(e) => { if (isVarActive) onVariationStepValueChange?.(ptn.id, variation.id, i, e.target.value); }}
         onKeyDown={(e) => handleVariationStepKeyDown({
           e, stepIdx: i, val, ptnId: ptn.id, variationId: variation.id,
           volumes: variation.volumes, decays: variation.decays, inst, lang,
-          isLeftHanded, trackId, onVariationStepValueChange, setSelectedStepIdx,
+          isLeftHanded, trackId, isVarActive, onVariationStepValueChange, setSelectedStepIdx,
           setSelectedStepIndices, handleTogglePlay,
         })}
         className={`step-input-cell w-full h-full m-0 text-center text-sm font-bold outline-none p-0 box-border rounded-none cursor-pointer ${

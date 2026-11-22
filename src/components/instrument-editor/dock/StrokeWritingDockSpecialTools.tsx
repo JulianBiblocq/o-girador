@@ -32,7 +32,7 @@ export const StrokeWritingDockSpecialTools: React.FC<StrokeWritingDockSpecialToo
           className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm border-2 transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
             isAlternating ? activeCls : idleCls
           }`}
-          title={isFr ? 'Mode Alternance (Frisé) : Pas 1,3,5... Coup Fort | Pas 2,4,6... Coup Faible' : 'Modo Alternância : Passo 1,3,5... Toque Forte | Passo 2,4,6... Toque Fraco'}
+          title={isFr ? 'Mode Alternance (Frisé biomécanique Droite / Gauche)' : 'Modo Alternância (Direita / Esquerda)'}
         >
           <ArrowLeftRight size={14} className={isAlternating ? 'text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-wood)]'} />
           <div className="flex flex-col items-start leading-tight">

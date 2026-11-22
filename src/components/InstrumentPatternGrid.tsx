@@ -18,8 +18,9 @@ const EMPTY_STEP_INDICES: number[] = [];
 
 const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = (props) => {
   const o = useGridOrchestrator(props);
-  useGridShiftShortcuts({ trackId: props.trackId, patternId: props.pattern.id });
+  useGridShiftShortcuts({ trackId: props.trackId, patternId: props.pattern.id, selectedPatternId: props.selectedPatternId });
   const isActiveMainGrid = props.selectedPatternId === props.pattern.id && props.selectedVariationId === null;
+  const isSelectedVoiceGrid = props.selectedPatternId === props.pattern.id;
 
   return (
     <div
@@ -46,8 +47,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = (pr
           lang={o.lang}
           isTupletEditMode={props.isTupletEditMode}
           selectedPatternId={props.selectedPatternId}
-          selectedStepIdx={props.selectedStepIdx}
-          selectedStepIsPreRoll={props.selectedStepIsPreRoll}
+          selectedStepIdx={isSelectedVoiceGrid ? props.selectedStepIdx : null}
+          selectedStepIsPreRoll={isSelectedVoiceGrid ? props.selectedStepIsPreRoll : false}
           selectedStepRange={o.selectedStepRange}
           isMultiSelectActive={props.isMultiSelectActive}
           preRollLengthComputed={o.preRollLengthComputed}

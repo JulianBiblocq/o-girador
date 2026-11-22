@@ -12,6 +12,8 @@ import {
 interface VariationSplitCellVisualProps {
   i: number;
   val: [string, string];
+  ptnId: number;
+  trackId: number;
   variationId: string;
   inst: any;
   activeTool?: string;
@@ -40,7 +42,7 @@ function resolveHalfColors(inst: any, rawStroke: string, isSelectedEmptyTint: bo
 }
 
 export const VariationSplitCellVisual: React.FC<VariationSplitCellVisualProps> = ({
-  i, val, variationId, inst, activeTool, isFocused, isMultiSelected,
+  i, val, ptnId, trackId, variationId, inst, activeTool, isFocused, isMultiSelected,
   isMultiSelectActive, selectedSubIndex, onMouseDown, onMouseEnter, onTouchStart,
 }) => {
   const left = resolveHalfColors(inst, val[0], isMultiSelected);
@@ -55,8 +57,11 @@ export const VariationSplitCellVisual: React.FC<VariationSplitCellVisualProps> =
 
   return (
     <div
+      data-track-id={trackId}
+      data-pattern-id={ptnId}
       data-step-index={i}
       data-variation-id={variationId}
+      onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       className={`step-input-cell xilo-wood-stamp relative flex items-center justify-center font-bold outline-none p-0 box-border m-[1px] rounded-none transition-transform duration-150 ${borderClass}`}
       style={{

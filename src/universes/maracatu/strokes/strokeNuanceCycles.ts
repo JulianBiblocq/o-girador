@@ -87,15 +87,35 @@ export function getWheelNuanceState(
   return direction === 'up' ? symbols[Math.max(0, currentIdx - 1)] : symbols[Math.min(symbols.length - 1, currentIdx + 1)];
 }
 
+const TIMBAL_HANDED_SYMBOLS = new Set(['g', 'a', 's', 't', 'd', 'p', 'f', 'v']);
+
+export function getAlternatingPairForInstrument(
+  activeTool: string, instId: string, instType = ''
+): [string, string] | null {
+  if (!activeTool || activeTool === '0' || activeTool === 'scissors') return null;
+  if (instId === 'caixa' || instId === 'tarol' || instType === 'caixa') {
+    return activeTool === 'A' || activeTool === 'a' ? ['A', 'a'] : ['d', 'e'];
+  }
+  if (['marcante', 'meiao', 'repique', 'alfaia'].includes(instId) || instType === 'alfaia') {
+    return activeTool === 'd' || activeTool === 'e' ? ['d', 'e'] : ['D', 'E'];
+  }
+  if (instId === 'agbe') return activeTool === 'e' ? ['e', 'd'] : ['E', 'd'];
+  if (instId === 'mineiro') return ['p', 't'];
+  if (instId === 'timbal') {
+    const low = activeTool.toLowerCase();
+    return TIMBAL_HANDED_SYMBOLS.has(low) ? [low.toUpperCase(), low] : ['D', 'd'];
+  }
+  if (instId === 'gongue' || instType === 'gongue') {
+    return activeTool === 'g' || activeTool === 'a' ? ['g', 'a'] : ['G', 'A'];
+  }
+  return null;
+}
+
 export function getAlternatingStroke(
-  stepIdx: number, activeTool: string, instId: string, instType = '', lang = 'fr', isLeftHanded = false
+  stepIdx: number, activeTool: string, instId: string, instType = '', _lang = 'fr', _isLeftHanded = false
 ): string {
-  if (activeTool === '0' || activeTool === '' || String(activeTool) === '0') return '0';
-  const pairs = getStrokePairs(instId, instType, lang, isLeftHanded);
-  const matchedPair = pairs.find(
-    (p) => p.id === activeTool || p.strong.symbol === activeTool || p.strokes.some((s) => s.symbol === activeTool)
-  );
-  if (!matchedPair) return activeTool;
-  if (stepIdx % 2 === 1 && matchedPair.weak) return matchedPair.weak.symbol;
-  return matchedPair.strong.symbol;
+  if (activeTool === '0' || activeTool === '' || String(activeTool) === '0' || activeTool === 'scissors') return '0';
+  const pair = getAlternatingPairForInstrument(activeTool, instId, instType);
+  if (pair) return stepIdx % 2 === 0 ? pair[0] : pair[1];
+  return activeTool;
 }

@@ -4,7 +4,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useWindow } from '../../contexts/WindowContext';
-import { getAlternatingStroke } from '../../utils/instrumentStrokes';
+import { getAlternatingPairForInstrument, getAlternatingStroke } from '../../utils/instrumentStrokes';
 import { playGridStepPreview } from './playGridStepPreview';
 import { readFreshStepState, computeErasedStepResult, computePaintedStepResult } from './gridStepMutationHelpers';
 
@@ -36,10 +36,7 @@ export function useGridPaintAndEraseGesture(params: UseGridPaintAndEraseGestureP
   isAlternatingRef.current = isAlternating;
 
   const ensureGestureUndo = useCallback(() => {
-    if (!gestureUndoPushedRef.current) {
-      useSequencerStore.getState().pushUndoState();
-      gestureUndoPushedRef.current = true;
-    }
+    if (!gestureUndoPushedRef.current) { useSequencerStore.getState().pushUndoState(); gestureUndoPushedRef.current = true; }
   }, []);
 
   const eraseStepAt = useCallback((idx: number, subIndex: 0 | 1 | undefined, variationId: string | null) => {
@@ -62,19 +59,11 @@ export function useGridPaintAndEraseGesture(params: UseGridPaintAndEraseGestureP
   }, [trackId, patternId, ensureGestureUndo, onCommitStep, onSelectCell]);
 
   useEffect(() => {
+    const cancelOnly = () => { pointerModeRef.current = 'idle'; gestureUndoPushedRef.current = false; pendingToggleClearRef.current = null; };
     const flushAndReset = (e: MouseEvent) => {
       const pending = pendingToggleClearRef.current;
-      if (e.button === 0 && pending && pointerModeRef.current === 'paint') {
-        applyPaintCell(pending.idx, pending.subIndex, pending.variationId, 0);
-      }
-      pointerModeRef.current = 'idle';
-      gestureUndoPushedRef.current = false;
-      pendingToggleClearRef.current = null;
-    };
-    const cancelOnly = () => {
-      pointerModeRef.current = 'idle';
-      gestureUndoPushedRef.current = false;
-      pendingToggleClearRef.current = null;
+      if (e.button === 0 && pending && pointerModeRef.current === 'paint') applyPaintCell(pending.idx, pending.subIndex, pending.variationId, 0);
+      cancelOnly();
     };
     hostWin.addEventListener('mouseup', flushAndReset);
     hostWin.addEventListener('pointercancel', cancelOnly);
@@ -86,6 +75,17 @@ export function useGridPaintAndEraseGesture(params: UseGridPaintAndEraseGestureP
     };
   }, [hostWin, applyPaintCell]);
 
+  const applyAlternatingSplitCell = useCallback((idx: number, subIndex: 0 | 1 | undefined, variationId: string | null, pair: [string, string]) => {
+    const { ptn, rawVal } = readFreshStepState(trackId, patternId, variationId, idx);
+    if (!Array.isArray(rawVal)) return false;
+    if (String(rawVal[0] ?? '0') === pair[0] && String(rawVal[1] ?? '0') === pair[1]) return true;
+    ensureGestureUndo();
+    onCommitStep(idx, pair, variationId, { skipUndo: true });
+    onSelectCell?.(idx, subIndex ?? 0, variationId);
+    if (ptn) playGridStepPreview(trackId, ptn, pair[subIndex ?? 0], idx, subIndex);
+    return true;
+  }, [trackId, patternId, ensureGestureUndo, onCommitStep, onSelectCell]);
+
   const beginPaintOrToggle = useCallback((idx: number, subIndex: 0 | 1 | undefined, variationId: string | null) => {
     gestureUndoPushedRef.current = false;
     pendingToggleClearRef.current = null;
@@ -96,9 +96,11 @@ export function useGridPaintAndEraseGesture(params: UseGridPaintAndEraseGestureP
       return;
     }
     pointerModeRef.current = 'paint';
-    const isAlt = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
-    const stroke = isAlt ? getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded) : tool;
+    const splitPair = isAlternatingRef.current ? getAlternatingPairForInstrument(tool, instrument?.id, instrument?.type) : null;
+    const isAlt = Boolean(splitPair);
     const { rawVal } = readFreshStepState(trackId, patternId, variationId, idx);
+    if (isAlt && splitPair && Array.isArray(rawVal) && applyAlternatingSplitCell(idx, subIndex, variationId, splitPair)) return;
+    const stroke = isAlt ? getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded) : tool;
     const curSub = Array.isArray(rawVal) ? rawVal[subIndex ?? 0] : rawVal;
     if (!isAlt && String(curSub ?? '0').trim() === String(stroke)) {
       pendingToggleClearRef.current = { idx, subIndex, variationId };
@@ -106,7 +108,7 @@ export function useGridPaintAndEraseGesture(params: UseGridPaintAndEraseGestureP
       return;
     }
     applyPaintCell(idx, subIndex, variationId, stroke);
-  }, [instrument?.id, instrument?.type, lang, isLeftHanded, trackId, patternId, eraseStepAt, applyPaintCell, onSelectCell]);
+  }, [instrument?.id, instrument?.type, lang, isLeftHanded, trackId, patternId, eraseStepAt, applyPaintCell, applyAlternatingSplitCell, onSelectCell]);
 
   const continueGestureOnEnter = useCallback((idx: number, e: React.MouseEvent | undefined, subIndex: 0 | 1 | undefined, variationId: string | null) => {
     const buttons = e?.buttons ?? 0;
@@ -122,10 +124,11 @@ export function useGridPaintAndEraseGesture(params: UseGridPaintAndEraseGestureP
     if (pending && (pending.idx !== idx || pending.subIndex !== subIndex || pending.variationId !== variationId)) {
       pendingToggleClearRef.current = null;
     }
-    const isAlt = (tool === 'D' || tool === 'E') && isAlternatingRef.current;
-    const stroke = isAlt ? getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded) : tool;
+    const splitPair = isAlternatingRef.current ? getAlternatingPairForInstrument(tool, instrument?.id, instrument?.type) : null;
+    if (splitPair && applyAlternatingSplitCell(idx, subIndex, variationId, splitPair)) return;
+    const stroke = splitPair ? getAlternatingStroke(idx, tool, instrument?.id, instrument?.type, lang, isLeftHanded) : tool;
     applyPaintCell(idx, subIndex, variationId, stroke);
-  }, [instrument?.id, instrument?.type, lang, isLeftHanded, eraseStepAt, applyPaintCell]);
+  }, [instrument?.id, instrument?.type, lang, isLeftHanded, eraseStepAt, applyPaintCell, applyAlternatingSplitCell]);
 
   const beginErase = useCallback((idx: number, subIndex: 0 | 1 | undefined, variationId: string | null) => {
     gestureUndoPushedRef.current = false;

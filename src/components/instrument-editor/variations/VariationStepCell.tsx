@@ -23,8 +23,11 @@ export const VariationStepCell: React.FC<VariationStepCellProps> = React.memo((p
 
   return (
     <div
+      data-track-id={trackId}
+      data-pattern-id={ptn.id}
       data-step-index={i}
       data-variation-id={variation.id}
+      onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       className={`relative flex flex-col items-center ${isMultiSelected ? 'z-20' : ''}`}
       style={{ width: '36px' }}
@@ -32,7 +35,7 @@ export const VariationStepCell: React.FC<VariationStepCellProps> = React.memo((p
       <div className="text-[8px] text-[var(--cordel-text-muted)] font-bold mb-0.5 z-10 relative">{i + 1}</div>
       {Array.isArray(val) ? (
         <VariationSplitCellVisual
-          i={i} val={val} variationId={variation.id} inst={inst} activeTool={activeTool}
+          i={i} val={val} ptnId={ptn.id} trackId={trackId} variationId={variation.id} inst={inst} activeTool={activeTool}
           isFocused={isFocused} isMultiSelected={isMultiSelected}
           isMultiSelectActive={isMultiSelectActive} selectedSubIndex={selectedSubIndex}
           onMouseDown={pointer.handleMouseDown} onMouseEnter={pointer.handleMouseEnter}
@@ -42,10 +45,10 @@ export const VariationStepCell: React.FC<VariationStepCellProps> = React.memo((p
         <VariationSingleStepInput
           i={i} val={val} variation={variation} ptn={ptn} inst={inst} lang={lang}
           activeTool={activeTool} isLeftHanded={isLeftHanded} trackId={trackId}
-          isTouchDevice={isTouchDevice} isMultiSelectActive={isMultiSelectActive}
+          isVarActive={isVarActive} isTouchDevice={isTouchDevice} isMultiSelectActive={isMultiSelectActive}
           isMultiSelected={isMultiSelected} isPassiveCursor={isPassiveCursor}
           onSelectPattern={onSelectPattern} setSelectedPatternId={setSelectedPatternId}
-          setSelectedStepIdx={setSelectedStepIdx}
+          setSelectedVariationId={setSelectedVariationId} setSelectedStepIdx={setSelectedStepIdx}
           setSelectedStepIndices={(arr) => setSelectedStepIndices(arr)}
           onVariationStepValueChange={onVariationStepValueChange} handleTogglePlay={handleTogglePlay}
           onMouseDown={(e) => pointer.handleMouseDown(e)}

@@ -24,12 +24,14 @@ export function useEditorBottomDockRangeProps(params: {
       selectionCount: editorState.selectedStepIndices.length,
       canPasteRange,
       handleDockSelectTool: (tool: string) => {
+        editorState.setIsAlternating(false);
         editorState.setActiveTool(tool);
         if (editorState.isMultiSelectActive || editorState.selectedStepIndices.length > 0) {
           editorState.setIsMultiSelectActive(false);
           editorState.setSelectedStepIndices([]);
         }
       },
+      onDisableAlternating: () => editorState.setIsAlternating(false),
       onToggleMultiSelect: () => {
         editorState.setIsMultiSelectActive((prev: boolean) => {
           if (prev) editorState.setSelectedStepIndices([]);

@@ -8,6 +8,7 @@ export interface UsePatternGridKeyboardParams {
   pattern: { id: number; steps?: number; activeSteps?: any[]; variations?: any[] } | null | undefined;
   trackId: number;
   isVoice: boolean;
+  instrument?: { id: string; type: string; [key: string]: any };
   selectedVariationId?: string | null;
   handleVariationStepValueChange: (tId: number, pId: number, varId: string, idx: number, val: any) => void;
   handleTrackStepValueChange: (tId: number, pId: number, idx: number, val: any) => void;

@@ -24,6 +24,12 @@ export const VariationCard: React.FC<VariationCardProps> = React.memo((props) =>
   return (
     <div
       key={variation.id}
+      onClick={(e) => {
+        e.stopPropagation();
+        props.onSelectPattern(ptn.id);
+        props.setSelectedPatternId(ptn.id);
+        props.setSelectedVariationId(variation.id);
+      }}
       onContextMenu={(e) => e.preventDefault()}
       className="flex flex-col gap-1.5 p-2 bg-[var(--cordel-parchment-panel)]/60 cordel-border-sm border-dashed"
     >

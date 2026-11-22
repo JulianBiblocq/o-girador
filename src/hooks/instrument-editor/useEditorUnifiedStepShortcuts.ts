@@ -7,15 +7,9 @@ import { applyVocalRangeDuplicateState } from '../../stores/helpers/vocalRangeDu
 import { Pattern } from '../../types';
 
 interface UseEditorUnifiedStepShortcutsParams {
-  effectiveEditTrackId: number;
-  isVocalContext: boolean;
-  displayedPatterns: Pattern[];
-  selectedPatternId: number;
-  selectedVariationId: string | null;
-  selectedStepIdx: number | null;
-  selectedStepIndices: number[];
-  selectedStepIsPreRoll: boolean;
-  isMultiSelectActive: boolean;
+  effectiveEditTrackId: number; isVocalContext: boolean; displayedPatterns: Pattern[];
+  selectedPatternId: number; selectedVariationId: string | null; selectedStepIdx: number | null;
+  selectedStepIndices: number[]; selectedStepIsPreRoll: boolean; isMultiSelectActive: boolean;
   setSelectedStepIdx: (idx: number | null) => void;
   setSelectedStepIndices: React.Dispatch<React.SetStateAction<number[]>>;
   setSelectedSubIndex: (sub: 0 | 1 | null) => void;
@@ -38,6 +32,13 @@ export function useEditorUnifiedStepShortcuts(p: UseEditorUnifiedStepShortcutsPa
 
       const activeEl = hostDoc.activeElement as HTMLElement | null;
       const isPercCell = Boolean(activeEl?.classList?.contains('step-input-cell'));
+      if (isPercCell && activeEl) {
+        const domPtnId = activeEl.getAttribute('data-pattern-id');
+        const domVarId = activeEl.getAttribute('data-variation-id') || null;
+        if ((domPtnId && Number(domPtnId) !== selectedPatternId) || domVarId !== (selectedVariationId ?? null)) {
+          activeEl.blur();
+        }
+      }
       const isVoiceField = Boolean(activeEl && (activeEl.classList.contains('v-syl') || activeEl.classList.contains('v-note')));
       if (isEditableTarget(activeEl) && !isPercCell && !isVoiceField) return;
 

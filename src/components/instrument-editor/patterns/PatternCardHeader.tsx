@@ -46,25 +46,25 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
     <div
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenContextMenu?.(ptn, e.clientX, e.clientY); }}
       onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
-      className="flex flex-wrap items-center justify-between gap-2 border-b-[2px] border-[#1a1a1a] pb-1.5 select-none"
+      className="flex flex-wrap items-center justify-between gap-2 border-b-[2px] border-[var(--cordel-ink-dark)] pb-1.5 select-none"
     >
       <div className="flex flex-wrap items-center gap-2 min-w-0">
         {totalPatternsCount > 1 && (
-          <div {...attributes} {...listeners} className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] touch-none">
+          <div {...attributes} {...listeners} className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-ink-dark)]/60 hover:text-[var(--cordel-ink-dark)] touch-none">
             <GripVertical size={16} />
           </div>
         )}
-        <input type="radio" checked={isSelected} onChange={() => onSelectPattern?.(ptn.id)} className="w-4 h-4 accent-[#1a1a1a] cursor-pointer" />
+        <input type="radio" checked={isSelected} onChange={() => onSelectPattern?.(ptn.id)} className="w-4 h-4 accent-[var(--cordel-ink-dark)] cursor-pointer" />
         {editingPatternId === ptn.id ? (
           <input
             type="text" value={editName} onChange={(e) => setEditName(e.target.value)} onBlur={() => handleSaveName?.(ptn.id)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName?.(ptn.id); if (e.key === 'Escape') setEditingPatternId(null); }}
-            className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 font-cactus font-bold text-sm px-1.5 py-0.5 rounded border border-[#1a1a1a] bg-[#f4ecd8] outline-none text-[#1a1a1a]`}
+            className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 font-cactus font-bold text-sm px-1.5 py-0.5 rounded border border-[var(--cordel-ink-dark)] bg-[var(--cordel-parchment-panel)] outline-none text-[var(--cordel-ink-dark)]`}
             autoFocus onFocus={(e) => e.target.select()}
           />
         ) : (
           <span
-            className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 truncate font-cactus font-bold text-sm cursor-pointer select-none px-1.5 py-0.5 rounded border border-transparent ${isSelected ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
+            className={`${isVocalContext ? 'w-48 sm:w-60' : 'w-32'} shrink-0 truncate font-cactus font-bold text-sm cursor-pointer select-none px-1.5 py-0.5 rounded border border-transparent ${isSelected ? 'text-[var(--cordel-ink-dark)]' : 'text-[var(--cordel-text-muted)]'}`}
             onClick={() => onSelectPattern?.(ptn.id)} onDoubleClick={() => { setEditingPatternId(ptn.id); setEditName(ptn.name || ''); }}
           >
             {ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
@@ -75,34 +75,36 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
             <XiloChisel size={10} />
           </button>
         )}
-        <span ref={badgeRef} data-active-badge={ptn.id} onClick={() => !isSelected && onSelectPattern?.(ptn.id)} className={isSelected ? 'bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]' : 'text-[#666] text-[9px] uppercase px-1 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none cursor-pointer'}>
+        <span ref={badgeRef} data-active-badge={ptn.id} onClick={() => !isSelected && onSelectPattern?.(ptn.id)} className={isSelected ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_var(--cordel-ink-dark)]' : 'text-[var(--cordel-text-muted)] text-[9px] uppercase px-1 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none cursor-pointer'}>
           {isSelected ? `► ${lang === 'fr' ? 'ACTIF' : 'ATIVO'}` : (lang === 'fr' ? 'Activer' : 'Ativar')}
         </span>
         <button
+          type="button"
           onClick={(e) => { e.stopPropagation(); isSoloLoop ? onStopSoloPattern?.() : onPlaySoloPattern?.(ptn.id, 'ensemble'); }}
-          className={`p-1 rounded-sm transition-colors ${isSoloLoop ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'}`}
+          className={`p-1 rounded-sm transition-colors cursor-pointer ${isSoloLoop ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : 'text-[var(--cordel-ink-dark)] hover:bg-[var(--cordel-ink-dark)]/10'}`}
           title={isSoloLoop ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif complet en solo' : 'Ouvir padrão em solo')}
         >
           {isSoloLoop ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
         </button>
         {!isVocalContext && (
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); toggleArmPattern?.(trackId, ptn.id); }}
-            className={`px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm transition-all cursor-pointer select-none flex items-center gap-1 ${armedPatternId === ptn.id ? 'bg-[#e67e22] text-[#1a1a1a] shadow-sm animate-pulse' : 'border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] bg-transparent'}`}
+            className={`px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm transition-all cursor-pointer select-none flex items-center gap-1 ${armedPatternId === ptn.id ? 'bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] shadow-sm animate-pulse' : 'border border-[var(--cordel-ink-dark)]/40 text-[var(--cordel-ink-dark)]/70 hover:text-[var(--cordel-ink-dark)] bg-transparent'}`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${armedPatternId === ptn.id ? 'bg-[#8b2a1a]' : 'bg-[#1a1a1a]/40'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${armedPatternId === ptn.id ? 'bg-[var(--cordel-on-accent)]' : 'bg-[var(--cordel-ink-dark)]/40'}`} />
             <span>{armedPatternId === ptn.id ? `● ${lang === 'fr' ? 'ARMÉ' : 'ARMADO'}` : 'ARM'}</span>
           </button>
         )}
         {usage.length === 0 ? (
-          <span className="shrink-0 flex items-center gap-1 text-[11px] text-[#1a1a1a]/40 italic select-none">{lang === 'fr' ? 'Non assigné' : 'Não atribuído'}</span>
+          <span className="shrink-0 flex items-center gap-1 text-[11px] text-[var(--cordel-ink-dark)]/40 italic select-none">{lang === 'fr' ? 'Non assigné' : 'Não atribuído'}</span>
         ) : (
-          <div className="shrink-0 flex items-center gap-1.5 text-xs text-[#1a1a1a]/70 select-none">
+          <div className="shrink-0 flex items-center gap-1.5 text-xs text-[var(--cordel-ink-dark)]/70 select-none">
             <span className="opacity-60 text-[11px]"></span>
             {usage.map((u, uIdx) => (
               <div key={uIdx} className="flex items-center gap-1">
                 <span className="font-bold text-[11px] uppercase tracking-wider">{u.trackName}</span>
-                <span className="font-mono text-[11px] font-bold bg-[#1a1a1a]/5 px-1 py-0.5 rounded border border-[#1a1a1a]/20">{formatMeasureRanges(u.measures, lang)}</span>
+                <span className="font-mono text-[11px] font-bold bg-[var(--cordel-ink-dark)]/5 px-1 py-0.5 rounded border border-[var(--cordel-ink-dark)]/20">{formatMeasureRanges(u.measures, lang)}</span>
               </div>
             ))}
           </div>
@@ -110,12 +112,12 @@ export const PatternCardHeader: React.FC<PatternCardHeaderProps> = React.memo((p
       </div>
       <div className="flex items-center gap-2.5 shrink-0 ml-auto">
         {!isVocalContext && (
-          <div className="h-6 px-2 py-0.5 rounded-[2px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] inline-flex items-center font-cactus font-bold text-[11px] uppercase tabular-nums select-none bg-[#f4ecd8] text-[#1a1a1a]">
+          <div className="h-6 px-2 py-0.5 rounded-[2px] border border-[var(--cordel-ink-dark)] shadow-[1px_1px_0px_var(--cordel-ink-dark)] inline-flex items-center font-cactus font-bold text-[11px] uppercase tabular-nums select-none bg-[var(--cordel-parchment-panel)] text-[var(--cordel-ink-dark)]">
             {lang === 'fr' ? 'PROBA' : 'PROB'} : {baseProb}%
           </div>
         )}
         <MetricDivisionSelector steps={ptn.steps} patternId={ptn.id} lang={lang} onChangeSteps={onStepsChange} />
-        <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern?.(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[#1a1a1a]' : 'text-[#1a1a1a]/60 hover:text-rose-700 hover:bg-rose-100/50 cursor-pointer'}`}></button>
+        <button type="button" disabled={totalPatternsCount <= 1} onClick={(e) => { e.stopPropagation(); onDeletePattern?.(ptn.id); }} className={`w-5 h-5 flex items-center justify-center rounded text-xs font-bold shrink-0 transition-colors ${totalPatternsCount <= 1 ? 'opacity-20 cursor-not-allowed text-[var(--cordel-ink-dark)]' : 'text-[var(--cordel-ink-dark)]/60 hover:text-[var(--cordel-wood)] hover:bg-[var(--cordel-wood)]/10 cursor-pointer'}`}></button>
       </div>
     </div>
   );

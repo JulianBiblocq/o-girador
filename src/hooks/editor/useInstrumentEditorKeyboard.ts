@@ -22,6 +22,7 @@ export interface UseInstrumentEditorKeyboardParams {
   onClearStepSelection?: () => void;
   activeTool: string;
   setActiveTool: (tool: string) => void;
+  setIsAlternating?: (val: boolean) => void;
   handleClose: () => void;
   onKeyDown?: (e: KeyboardEvent) => void;
   puxTrack?: any;
@@ -33,7 +34,7 @@ export interface UseInstrumentEditorKeyboardParams {
 export function useInstrumentEditorKeyboard({
   isSettingsOpen, isVocalContext, track, inst, lang, isLeftHanded,
   selectedStepIdx, selectedStepIndices = [], isMultiSelectActive = false,
-  onClearStepSelection, activeTool, setActiveTool, handleClose, onKeyDown,
+  onClearStepSelection, activeTool, setActiveTool, setIsAlternating, handleClose, onKeyDown,
   puxTrack, coroTrack, isCoroActive, handleSwitchVocalTrack,
 }: UseInstrumentEditorKeyboardParams) {
   const hostWin = useWindow();
@@ -103,7 +104,7 @@ export function useInstrumentEditorKeyboard({
       }
 
       if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
-        e.preventDefault(); setActiveTool('0'); return;
+        e.preventDefault(); setIsAlternating?.(false); setActiveTool('0'); return;
       }
 
       if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
@@ -121,6 +122,7 @@ export function useInstrumentEditorKeyboard({
           const isAlfaia = ['marcante', 'meiao', 'repique'].includes(inst.id);
           const isDedicatedHand = ((inst.id === 'caixa' || inst.id === 'tarol') && sym === 'a') || (inst.id === 'timbal' && ['g', 'a', 's', 't', 'd', 'p'].includes(sym));
           const isWeak = !isUpper && !isDedicatedHand && sym === pair.weak?.symbol;
+          setIsAlternating?.(false);
           setActiveTool(sym);
           if (audioEngine && track) {
             try { audioEngine.playNote(track.id, sym, Tone.now(), isAlfaia ? 0.7 : (isWeak ? 0.6 : 0.95), isAlfaia ? 1.0 : (isWeak ? 0.8 : 1.0)); } catch (_) {}
@@ -133,5 +135,5 @@ export function useInstrumentEditorKeyboard({
 
     hostDoc.addEventListener('keydown', onKey);
     return () => hostDoc.removeEventListener('keydown', onKey);
-  }, [hostWin, handleClose, onKeyDown, selectedStepIdx, selectedStepIndices, isMultiSelectActive, onClearStepSelection, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack, setActiveTool]);
+  }, [hostWin, handleClose, onKeyDown, selectedStepIdx, selectedStepIndices, isMultiSelectActive, onClearStepSelection, isSettingsOpen, activeTool, inst.id, inst.type, lang, isLeftHanded, track, isVocalContext, isCoroActive, puxTrack, coroTrack, handleSwitchVocalTrack, setActiveTool, setIsAlternating]);
 }

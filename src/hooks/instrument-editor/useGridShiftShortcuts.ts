@@ -7,9 +7,10 @@ import { getUpperTagName } from '../../utils/crossRealmDom';
 interface UseGridShiftShortcutsParams {
   trackId: number;
   patternId: number;
+  selectedPatternId?: number | null;
 }
 
-export function useGridShiftShortcuts({ trackId, patternId }: UseGridShiftShortcutsParams) {
+export function useGridShiftShortcuts({ trackId, patternId, selectedPatternId }: UseGridShiftShortcutsParams) {
   const hostWin = useWindow();
 
   useEffect(() => {
@@ -18,7 +19,8 @@ export function useGridShiftShortcuts({ trackId, patternId }: UseGridShiftShortc
       if (useSequencerSettingsStore.getState().isSettingsOpen) return;
       if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
       const store = useSequencerStore.getState();
-      if (store.selectedPatternId !== null && store.selectedPatternId !== undefined && store.selectedPatternId !== patternId) {
+      const activePtnId = selectedPatternId ?? store.selectedPatternId;
+      if (activePtnId !== patternId) {
         return;
       }
 

@@ -9,7 +9,7 @@ export type { UsePatternGridKeyboardParams };
 export function usePatternGridKeyboard(params: UsePatternGridKeyboardParams) {
   const {
     isMultiSelectActive, selectedPatternId, selectedStepIdx, selectedStepIndices,
-    selectedSubIndex, selectedStepIsPreRoll, pattern, trackId, isVoice, selectedVariationId,
+    selectedSubIndex, selectedStepIsPreRoll, pattern, trackId, isVoice, instrument, selectedVariationId,
     handleVariationStepValueChange, handleTrackStepValueChange, handleVoiceStepClear,
     focusVoiceStep, focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex,
   } = params;
@@ -22,7 +22,7 @@ export function usePatternGridKeyboard(params: UsePatternGridKeyboardParams) {
 
     const hostDoc = hostWin?.document || document;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (useSequencerSettingsStore.getState().isSettingsOpen) return;
+      if (useSequencerSettingsStore.getState().isSettingsOpen || e.defaultPrevented) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const activeEl = hostDoc.activeElement as HTMLElement | null;
@@ -35,7 +35,7 @@ export function usePatternGridKeyboard(params: UsePatternGridKeyboardParams) {
       const totalSteps = (varObj ? varObj.steps?.length : pattern.steps) || 16;
       const currentVal = stepsArr?.[idx];
 
-      if (e.key === 'Delete') {
+      if (e.key === 'Delete' || (!isVoice && e.key === '0')) {
         e.preventDefault(); e.stopPropagation();
         if (isVoice) {
           handleVoiceStepClear(trackId, pattern.id, idx, selectedStepIsPreRoll);
@@ -90,29 +90,49 @@ export function usePatternGridKeyboard(params: UsePatternGridKeyboardParams) {
         else if (e.key === 'ArrowLeft') { e.preventDefault(); focusVoiceStep(idx - 1, 'syl', selectedStepIsPreRoll); }
         else if (e.key === 'ArrowDown' && (idx % 16) < 8 && idx + 8 < totalSteps) { e.preventDefault(); focusVoiceStep(idx + 8, 'syl', selectedStepIsPreRoll); }
         else if (e.key === 'ArrowUp' && (idx % 16) >= 8) { e.preventDefault(); focusVoiceStep(idx - 8, 'syl', selectedStepIsPreRoll); }
-      } else if (e.key === 'ArrowRight') {
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
         e.preventDefault();
         if (Array.isArray(currentVal) && selectedSubIndex === 0) { setSelectedSubIndex(1); focusCell(idx, 1); }
         else if (idx < totalSteps - 1) {
           const next = idx + 1, nVal = stepsArr?.[next], nSub = Array.isArray(nVal) ? 0 : null;
           setSelectedStepIdx(next); setSelectedStepIndices([]); setSelectedSubIndex(nSub); focusCell(next, nSub);
         }
-      } else if (e.key === 'ArrowLeft') {
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
         e.preventDefault();
         if (Array.isArray(currentVal) && selectedSubIndex === 1) { setSelectedSubIndex(0); focusCell(idx, 0); }
         else if (idx > 0) {
           const prev = idx - 1, pVal = stepsArr?.[prev], pSub = Array.isArray(pVal) ? 1 : null;
           setSelectedStepIdx(prev); setSelectedStepIndices([]); setSelectedSubIndex(pSub); focusCell(prev, pSub);
         }
+        return;
+      }
+
+      const activeMatchesCell = isPercCell && activeEl &&
+        Number(activeEl.getAttribute('data-pattern-id')) === pattern.id &&
+        (activeEl.getAttribute('data-variation-id') || null) === (selectedVariationId ?? null) &&
+        Number(activeEl.getAttribute('data-step-index')) === idx;
+
+      if (!activeMatchesCell && e.key.length === 1 && /^[a-zA-Z/.]$/.test(e.key)) {
+        e.preventDefault(); e.stopPropagation();
+        const char = (['marcante', 'meiao', 'repique', 'alfaia'].includes(instrument?.id || '') && e.key === 'a') ? 'A' : e.key;
+        let finalVal: any = char;
+        if (Array.isArray(currentVal)) {
+          const sub = selectedSubIndex === 1 ? 1 : 0;
+          const arr = [...currentVal] as [string, string];
+          arr[sub] = char;
+          finalVal = arr;
+        }
+        if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
+        else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
       }
     };
 
     hostWin.addEventListener('keydown', handleKeyDown);
     return () => hostWin.removeEventListener('keydown', handleKeyDown);
-  }, [
-    hostWin, isMultiSelectActive, selectedPatternId, selectedStepIdx, selectedStepIndices,
-    selectedStepIsPreRoll, selectedSubIndex, pattern, selectedVariationId, trackId, isVoice,
-    handleVariationStepValueChange, handleTrackStepValueChange, handleVoiceStepClear,
-    focusVoiceStep, focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex,
-  ]);
+  }, [hostWin, isMultiSelectActive, selectedPatternId, selectedStepIdx, selectedStepIndices, selectedStepIsPreRoll, selectedSubIndex, pattern, selectedVariationId, trackId, isVoice, instrument, handleVariationStepValueChange, handleTrackStepValueChange, handleVoiceStepClear, focusVoiceStep, focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
 }

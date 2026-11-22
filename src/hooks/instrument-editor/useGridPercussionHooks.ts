@@ -45,20 +45,26 @@ interface UseGridPercussionHooksParams {
 
 export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
   const { swingOffsets } = useGridSwingOffsets({ pattern: params.pattern, track: params.track });
+  const selectMainGridStep = React.useCallback((idx: number) => {
+    params.setSelectedPatternId(params.pattern.id);
+    params.setSelectedVariationId(null);
+    params.setSelectedStepIdx(idx);
+  }, [params]);
+
   const handleScissorsClick = useGridScissorsLogic({
     trackId: params.trackId, pattern: params.pattern, instrument: params.instrument,
-    isLeftHanded: params.isLeftHanded, selectedVariationId: params.selectedVariationId,
+    isLeftHanded: params.isLeftHanded, selectedVariationId: null,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange,
-    setSelectedStepIdx: params.setSelectedStepIdx, setSelectedStepIndices: params.setSelectedStepIndices,
+    setSelectedStepIdx: selectMainGridStep, setSelectedStepIndices: params.setSelectedStepIndices,
     setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
   const { handleClearStep, handleCellContextMenu } = useGridClearStep({
-    trackId: params.trackId, pattern: params.pattern, selectedVariationId: params.selectedVariationId,
+    trackId: params.trackId, pattern: params.pattern, selectedVariationId: null,
     selectedStepIdx: params.selectedStepIdx, handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedSubIndex: params.setSelectedSubIndex,
-    setSelectedStepIdx: params.setSelectedStepIdx, setSelectedStepIsPreRoll: params.setSelectedStepIsPreRoll,
+    setSelectedStepIdx: selectMainGridStep, setSelectedStepIsPreRoll: params.setSelectedStepIsPreRoll,
     setVoiceStepContextMenu: params.setContextMenu,
   });
 
@@ -79,20 +85,20 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
   const { handleCellTouchStart, handleCellTouchMove, handleCellTouchEnd } = useGridTouchInteractions({
     trackId: params.trackId, pattern: params.pattern, instrument: params.instrument,
     activeTool: params.activeTool, isAlternating: params.isAlternating, lang: params.lang,
-    isLeftHanded: params.isLeftHanded, selectedVariationId: params.selectedVariationId,
+    isLeftHanded: params.isLeftHanded, selectedVariationId: null,
     isMultiSelectActive: params.isMultiSelectActive, handleScissorsClick,
     handleStepTouchStartMulti: params.handleStepTouchStartMulti, onStepTouchStart: params.onStepTouchStart,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
-    handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: params.setSelectedStepIdx,
+    handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: selectMainGridStep,
     setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
   useGridWheelNuances({
     gridRef: params.gridRef, trackId: params.trackId, pattern: params.pattern,
-    selectedPatternId: params.selectedPatternId, selectedVariationId: params.selectedVariationId,
+    selectedPatternId: params.selectedPatternId, selectedVariationId: null,
     instrument: params.instrument, lang: params.lang, isLeftHanded: params.isLeftHanded,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
-    handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: params.setSelectedStepIdx,
+    handleTrackStepValueChange: params.handleTrackStepValueChange, setSelectedStepIdx: selectMainGridStep,
     setSelectedStepIndices: params.setSelectedStepIndices, setSelectedSubIndex: params.setSelectedSubIndex,
   });
 
@@ -102,8 +108,8 @@ export function useGridPercussionHooks(params: UseGridPercussionHooksParams) {
 
   const handleCellKeyDown = useGridCellKeyboardNav({
     trackId: params.trackId, pattern: params.pattern, activeTool: params.activeTool,
-    selectedVariationId: params.selectedVariationId, instrument: params.instrument,
-    lang: params.lang, isLeftHanded: params.isLeftHanded, focusCell: params.focusCell,
+    selectedPatternId: params.selectedPatternId, selectedVariationId: params.selectedVariationId,
+    instrument: params.instrument, lang: params.lang, isLeftHanded: params.isLeftHanded, focusCell: params.focusCell,
     handleVariationStepValueChange: params.handleVariationStepValueChange,
     handleTrackStepValueChange: params.handleTrackStepValueChange,
     handleTrackStepKeyDown: params.handleTrackStepKeyDown, setSelectedStepIdx: params.setSelectedStepIdx,

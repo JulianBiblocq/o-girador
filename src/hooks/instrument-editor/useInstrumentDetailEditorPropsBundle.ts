@@ -90,7 +90,20 @@ export function useInstrumentDetailEditorPropsBundle(core: any, props: any) {
     selectedStepIsPreRoll: editorState.selectedStepIsPreRoll, setSelectedStepIsPreRoll: editorState.setSelectedStepIsPreRoll,
     lang, patternSteps: activePattern?.steps ?? displayedPatterns[0]?.steps ?? 16, inst, isLeftHanded, activeTool: editorState.activeTool,
     isAlternating: editorState.isAlternating,
-    onToggleAlternating: () => editorState.setIsAlternating((p: boolean) => !p),
+    onToggleAlternating: () => {
+      const next = !editorState.isAlternating;
+      editorState.setIsAlternating(next);
+      if (next) {
+        if (editorState.isMultiSelectActive || editorState.selectedStepIndices.length > 0) {
+          editorState.setIsMultiSelectActive(false);
+          editorState.setSelectedStepIndices([]);
+        }
+        if (!editorState.activeTool || editorState.activeTool === '0' || editorState.activeTool === 'scissors') {
+          const fb = inst?.id === 'mineiro' ? 'p' : inst?.id === 'agbe' ? 'E' : (inst?.id === 'caixa' || inst?.id === 'tarol') ? 'd' : 'D';
+          editorState.setActiveTool(fb);
+        }
+      }
+    },
     onOpenBottomSheet: () => ctrl.setIsInspectorMobileOpen(true),
     ...dockRangeProps,
   };

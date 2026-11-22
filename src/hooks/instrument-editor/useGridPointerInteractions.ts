@@ -71,6 +71,8 @@ export function useGridPointerInteractions(params: UseGridPointerInteractionsPar
 
   const handleCellMouseDown = useCallback((e: React.MouseEvent<any>, idx: number, value: any, subIndex?: 0 | 1) => {
     e.stopPropagation();
+    const activeEl = (hostWin?.document || document).activeElement as HTMLElement | null;
+    if (activeEl && activeEl !== e.target && activeEl.classList?.contains('step-input-cell')) activeEl.blur();
     if (e.button === 2) {
       e.preventDefault(); setSelectedPatternId(pattern.id); setSelectedVariationId(null);
       gesture.beginErase(idx, subIndex, null); return;

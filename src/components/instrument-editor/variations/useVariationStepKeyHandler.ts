@@ -16,6 +16,7 @@ export function handleVariationStepKeyDown(params: {
   lang: string;
   isLeftHanded: boolean;
   trackId: number;
+  isVarActive?: boolean;
   onVariationStepValueChange?: (ptnId: number, varId: string, idx: number, val: string) => void;
   setSelectedStepIdx: (idx: number | null) => void;
   setSelectedStepIndices: (indices: number[]) => void;
@@ -23,9 +24,14 @@ export function handleVariationStepKeyDown(params: {
 }) {
   const {
     e, stepIdx, val, ptnId, variationId, volumes, decays, inst, lang,
-    isLeftHanded, trackId, onVariationStepValueChange, setSelectedStepIdx,
+    isLeftHanded, trackId, isVarActive = true, onVariationStepValueChange, setSelectedStepIdx,
     setSelectedStepIndices, handleTogglePlay,
   } = params;
+
+  if (!isVarActive) {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); }
+    return;
+  }
 
   const inputEl = e.currentTarget;
   const cardGrid = inputEl.closest('.step-boxes');
@@ -33,13 +39,13 @@ export function handleVariationStepKeyDown(params: {
   const indexInGrid = inputs.indexOf(inputEl);
 
   if (e.code === 'Space') {
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     handleTogglePlay();
     return;
   }
 
   if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '0') {
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     onVariationStepValueChange?.(ptnId, variationId, stepIdx, '0');
     if (e.key === 'Backspace' && indexInGrid > 0) {
       const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
@@ -72,32 +78,28 @@ export function handleVariationStepKeyDown(params: {
   }
 
   if (e.key === 'ArrowRight' || e.key === 'Tab' || e.key === 'Enter') {
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     if (indexInGrid < inputs.length - 1) {
       const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
-      nextEl.focus();
-      nextEl.select();
-      setSelectedStepIdx(stepIdx + 1);
-      setSelectedStepIndices([]);
+      nextEl.focus(); nextEl.select();
+      setSelectedStepIdx(stepIdx + 1); setSelectedStepIndices([]);
     }
     return;
   }
 
   if (e.key === 'ArrowLeft') {
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     if (indexInGrid > 0) {
       const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
-      prevEl.focus();
-      prevEl.select();
-      setSelectedStepIdx(stepIdx - 1);
-      setSelectedStepIndices([]);
+      prevEl.focus(); prevEl.select();
+      setSelectedStepIdx(stepIdx - 1); setSelectedStepIndices([]);
     }
     return;
   }
 
   const rawChar = e.key;
   if (rawChar.length === 1 && rawChar.match(/^[a-zA-Z0-9/.]$/) && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     const char = (['marcante', 'meiao', 'repique', 'alfaia'].includes(inst?.id) && rawChar === 'a') ? 'A' : rawChar;
     onVariationStepValueChange?.(ptnId, variationId, stepIdx, char);
     if (audioEngine) {

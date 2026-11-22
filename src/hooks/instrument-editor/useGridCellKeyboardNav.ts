@@ -10,20 +10,24 @@ import type { UseGridCellKeyboardNavParams } from './gridCellKeyboardNavTypes';
 
 export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
   const {
-    trackId, pattern, activeTool, selectedVariationId, instrument, lang,
+    trackId, pattern, activeTool, selectedPatternId, selectedVariationId, instrument, lang,
     isLeftHanded, focusCell, handleVariationStepValueChange,
     handleTrackStepValueChange, handleTrackStepKeyDown,
     setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex
   } = params;
 
   return React.useCallback((e: React.KeyboardEvent<any>, idx: number, value: any, subIndex?: 0 | 1) => {
+    if (pattern.id !== selectedPatternId || selectedVariationId !== null) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); }
+      return;
+    }
     if (activeTool === 'scissors' && !['ArrowRight', 'ArrowLeft', 'Tab'].includes(e.key)) {
       e.preventDefault(); e.stopPropagation(); return;
     }
     const totalSteps = pattern?.steps || 16;
 
     if (e.key === 'ArrowRight' || e.key === 'Tab') {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       if (Array.isArray(value) && subIndex === 0) { setSelectedSubIndex(1); focusCell(idx, 1); return; }
       if (idx < totalSteps - 1) {
         const nextIdx = idx + 1; const nextVal = pattern?.activeSteps?.[nextIdx];
@@ -35,7 +39,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
     }
 
     if (e.key === 'ArrowLeft') {
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       if (Array.isArray(value) && subIndex === 1) { setSelectedSubIndex(0); focusCell(idx, 0); return; }
       if (idx > 0) {
         const prevIdx = idx - 1; const prevVal = pattern?.activeSteps?.[prevIdx];
@@ -54,8 +58,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
       const nextVal = getWheelNuanceState(valToCycle, dir, instrument?.id, instrument?.type, lang, isLeftHanded);
       let finalVal: string | number | [string, string] = nextVal;
       if (Array.isArray(value)) { const arr = [...value] as [string, string]; arr[sub] = String(nextVal); finalVal = arr; }
-      if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-      else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+      handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
       if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
         try {
           const vol = getSculptNumber(pattern?.volumes?.[idx], 70) / 100;
@@ -67,19 +70,17 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
     }
 
     if (e.key === 'Backspace') {
-      e.preventDefault(); useSequencerStore.getState().pushUndoState();
+      e.preventDefault(); e.stopPropagation(); useSequencerStore.getState().pushUndoState();
       if (Array.isArray(value)) {
         if (subIndex === 1) {
           const arr = [...value] as [string, string]; arr[1] = '0';
           const finalVal = (arr[0] === '0' || !arr[0]) ? 0 : arr;
-          if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-          else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
           setSelectedSubIndex(0); focusCell(idx, 0);
         } else if (subIndex === 0) {
           const arr = [...value] as [string, string]; arr[0] = '0';
           const finalVal = (arr[1] === '0' || !arr[1]) ? 0 : arr;
-          if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-          else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
           if (idx > 0) {
             const prevIdx = idx - 1; const prevVal = pattern?.activeSteps?.[prevIdx];
             setSelectedStepIdx(prevIdx); setSelectedStepIndices([]);
@@ -88,8 +89,7 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
           }
         }
       } else {
-        if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, 0 as any);
-        else handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
+        handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
         if (idx > 0) {
           const prevIdx = idx - 1; const prevVal = pattern?.activeSteps?.[prevIdx];
           setSelectedStepIdx(prevIdx); setSelectedStepIndices([]);
@@ -101,23 +101,21 @@ export function useGridCellKeyboardNav(params: UseGridCellKeyboardNavParams) {
     }
 
     if (e.key === 'Delete' || e.key === '0') {
-      e.preventDefault(); useSequencerStore.getState().pushUndoState();
+      e.preventDefault(); e.stopPropagation(); useSequencerStore.getState().pushUndoState();
       if (Array.isArray(value)) {
         if (subIndex === 0 || subIndex === 1) {
           const arr = [...value] as [string, string]; arr[subIndex] = '0';
           const finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
-          if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
-          else handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
           if (finalVal === 0) { setSelectedSubIndex(null); focusCell(idx); }
         }
       } else {
-        if (selectedVariationId) handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, 0 as any);
-        else handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
+        handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
       }
       return;
     }
 
     const inputEl = e.currentTarget as HTMLInputElement;
     handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl?.value || '', inputEl);
-  }, [activeTool, pattern, selectedVariationId, instrument, lang, isLeftHanded, focusCell, handleVariationStepValueChange, handleTrackStepValueChange, handleTrackStepKeyDown, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex, trackId]);
+  }, [activeTool, pattern, selectedPatternId, selectedVariationId, instrument, lang, isLeftHanded, focusCell, handleVariationStepValueChange, handleTrackStepValueChange, handleTrackStepKeyDown, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex, trackId]);
 }

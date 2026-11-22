@@ -94,7 +94,7 @@ export function useInstrumentDetailEditorCore(props: {
   useInstrumentEditorShortcuts({
     isSettingsOpen, isVocalContext, track: effectiveTrack, inst, lang, isLeftHanded, selectedStepIdx: editorState.selectedStepIdx,
     selectedStepIndices: editorState.selectedStepIndices, isMultiSelectActive: editorState.isMultiSelectActive, onClearStepSelection: clearStepSelection,
-    activeTool: editorState.activeTool, setActiveTool: editorState.setActiveTool, handleClose: ctrl.handleClose,
+    activeTool: editorState.activeTool, setActiveTool: editorState.setActiveTool, setIsAlternating: editorState.setIsAlternating, handleClose: ctrl.handleClose,
     puxTrack, coroTrack, isCoroActive, handleSwitchVocalTrack: editorState.handleSwitchVocalTrack,
   });
 
