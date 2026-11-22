@@ -2,15 +2,12 @@
  * O Girador - Audio Engine Native Web Audio Buffer Playback & Spatial Squad Panning (< 138 lignes)
  */
 import { StrokeMapping } from '../../data/audioConfig';
+import { computeVelocityToneCutoffHz } from '../groove/strokeHumanizationDsp';
 import type { SectionPlayerAcousticSpec } from '../spatial/sectionSpatialAcoustics';
 import { createSpatialPlayerRouting } from '../spatial/webAudioPlayerPanner';
 import { PlaybackContext, PooledGainNode } from './engineTypes';
 import { playBarulhoStroke } from './engineBarulhoPlayback';
-import {
-  computeEnginePeakGain,
-  computeProgressiveDecayEnvelope,
-  ProgressiveDecayEnvelope,
-} from './strokeEnvelopeHelper';
+import { computeEnginePeakGain, computeProgressiveDecayEnvelope, ProgressiveDecayEnvelope } from './strokeEnvelopeHelper';
 
 export { computeEnginePeakGain, computeProgressiveDecayEnvelope };
 export type { PlaybackContext, ProgressiveDecayEnvelope };
@@ -21,6 +18,8 @@ export interface StrokePlaybackOptions {
   strokeSymbol?: string;
   maxBarulhoDurSec?: number;
   playerIdx?: number;
+  partnerRank?: number;
+  skipVoiceGuard?: boolean;
   playerSpec?: SectionPlayerAcousticSpec;
 }
 
@@ -61,11 +60,12 @@ export class EngineStrokePlayback {
       return;
     }
 
+    const toneCutoffHz = stroke.isBarulho ? 0 : computeVelocityToneCutoffHz(velocity);
     const needsTimbalLp = !stroke.isBarulho && instrumentId === 'timbal' && (effectiveSymbol === 'G' || effectiveSymbol === 'g');
     let lpFilter: BiquadFilterNode | null = null;
-    if (needsTimbalLp && typeof ctx.audioContext.createBiquadFilter === 'function') {
+    if ((needsTimbalLp || toneCutoffHz > 0) && typeof ctx.audioContext.createBiquadFilter === 'function') {
       lpFilter = ctx.audioContext.createBiquadFilter();
-      lpFilter.type = 'lowpass'; lpFilter.frequency.value = 20000; lpFilter.Q.value = Math.SQRT1_2;
+      lpFilter.type = 'lowpass'; lpFilter.frequency.value = toneCutoffHz > 0 ? toneCutoffHz : 20000; lpFilter.Q.value = needsTimbalLp ? Math.SQRT1_2 : 0.5;
       source.connect(lpFilter); lpFilter.connect(spatialRoute.entryNode);
     } else {
       source.connect(spatialRoute.entryNode);
@@ -75,14 +75,14 @@ export class EngineStrokePlayback {
       playBarulhoStroke(
         ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch,
         time, gainMultiplier, isLiveHold, effectiveSymbol, opts.maxBarulhoDurSec,
-        opts.playerIdx ?? 0, spatialRoute.cleanup
+        opts.playerIdx ?? 0, spatialRoute.cleanup, opts.partnerRank ?? 0
       );
     } else {
       this.playOneShot(
         ctx, trackId, source, gainNode, instrumentId, buffer,
         calculatedPitch, time, gainMultiplier, decayMultiplier,
         Boolean(opts.forceShort80ms), effectiveSymbol, lpFilter,
-        opts.playerIdx ?? 0, spatialRoute.cleanup
+        opts.playerIdx ?? 0, spatialRoute.cleanup, Boolean(opts.skipVoiceGuard)
       );
     }
   }
@@ -91,7 +91,7 @@ export class EngineStrokePlayback {
     ctx: PlaybackContext, trackId: number | null, source: AudioBufferSourceNode, gainNode: GainNode,
     instrumentId: string, buffer: AudioBuffer, calculatedPitch: number, time: number,
     gainMultiplier: number, decayMultiplier: number, forceShort80ms: boolean,
-    strokeSymbol: string, lpFilter: BiquadFilterNode | null = null, playerIdx = 0, extraCleanup?: () => void
+    strokeSymbol: string, lpFilter: BiquadFilterNode | null = null, playerIdx = 0, extraCleanup?: () => void, skipVoiceGuard = false
   ): void {
     ctx.scheduledHits.add(source);
     const realWorldDuration = buffer.duration / calculatedPitch;
@@ -129,6 +129,7 @@ export class EngineStrokePlayback {
       ctx.voiceGuard.removeActiveVoice(instrumentId, source);
     };
 
+    if (skipVoiceGuard) return;
     const baseKey = trackId !== null ? trackId : instrumentId;
     const voiceKey = playerIdx > 0 ? `${baseKey}__p${playerIdx}` : baseKey;
     const activeVoice = ctx.voiceGuard.getActiveVoice(

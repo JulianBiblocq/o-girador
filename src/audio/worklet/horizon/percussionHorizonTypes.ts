@@ -11,6 +11,7 @@ export interface HorizonPackerEngineDeps {
   getTrackSlot(trackId: number | string): number;
   getTrackUnisonDelaySec(trackId: number | string): number;
   getTrackBalancoAdherence(trackId: number | string): number;
+  getTrackPartnerRank?(trackId: number | string): number;
   getTrackPitchRatio(trackId: number | string): number;
   getTrackSpatialProfile?(trackId: number | string): SectionSpatialProfile | undefined;
   getSampleId(filePath: string, isLoop?: boolean): number;
@@ -26,7 +27,7 @@ export interface HorizonEngineLike extends HorizonPackerEngineDeps {
   getIsPlaying(): boolean;
   getCurrentTime(): number;
   getSampleRate(): number;
-  syncTracksToWorklet(tracks: Track[]): void;
+  syncTracksToWorklet(tracks: Track[], liveBpm?: number): void;
   pushWorkletEvents(eventsData: Float64Array, eventCount: number): void;
   purgeWorkletFromFrame(fromFrame: number, measureSeqId?: number): void;
   purgeRoundRobinFromTime(fromTimeSec: number): void;

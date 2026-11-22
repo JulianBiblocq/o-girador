@@ -61,7 +61,7 @@ export class EngineSchedulerClock {
 
   public start(scheduledStartTime?: number): void {
     if (this.isPlaying) return;
-    this.nextTickTime = scheduledStartTime !== undefined ? scheduledStartTime : (this.audioContext.currentTime + 0.025);
+    this.nextTickTime = scheduledStartTime !== undefined ? scheduledStartTime : (this.audioContext.currentTime + 0.045);
     this.schedulingStep = this.currentStep;
     this.schedulingMeasure = this.currentMeasure;
     this.anchorNoteTime = this.nextTickTime;
@@ -91,7 +91,7 @@ export class EngineSchedulerClock {
 
   public forceReanchor(): void {
     if (!this.isPlaying) return;
-    this.nextTickTime = this.audioContext.currentTime + 0.025;
+    this.nextTickTime = this.audioContext.currentTime + 0.045;
     this.mustReanchor = true; this.scheduler();
   }
 

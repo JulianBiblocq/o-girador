@@ -1,3 +1,5 @@
+import { computeBeatProtectedStepVolume } from '../../audio/groove/strokeHumanizationDsp';
+
 export function normalizeStrokeKey(inst: any, state: any): string | null {
   if (!state || state === 0 || state === '0' || state === '-') return null;
   let targetKey: string | null = typeof state === 'string' ? state.trim() : String(state).trim();
@@ -24,16 +26,10 @@ export function computeStepVolume(
   rawStepVol: any,
   strokeIndex: number,
   nextRand: () => number,
-  stepInMeasure = -1
+  stepInMeasure = -1,
+  isBeatHead?: boolean
 ): number {
-  let baseVol = Array.isArray(rawStepVol) ? (rawStepVol[strokeIndex] ?? 70) : (rawStepVol ?? 70);
-  if (baseVol === null || isNaN(baseVol)) baseVol = 70;
-  const isStrongBeat = strokeIndex === 0 && (stepInMeasure === 0 || stepInMeasure === 4 || stepInMeasure === 8 || stepInMeasure === 12);
-  const beatAccent = isStrongBeat ? baseVol * 0.03 : 0;
-  const volVariation = (nextRand() * 2 - 1) * (baseVol * 0.05);
-  let finalVol = Math.max(0, Math.min(100, baseVol + beatAccent + volVariation));
-  if (isNaN(finalVol)) finalVol = 70;
-  return finalVol / 100;
+  return computeBeatProtectedStepVolume(rawStepVol, strokeIndex, nextRand, stepInMeasure, isBeatHead);
 }
 
 export function computeStepDecay(rawStepDecay: any, strokeIndex: number): number {

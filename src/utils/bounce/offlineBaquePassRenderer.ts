@@ -5,14 +5,17 @@ import { BarulhoLookaheadPoint } from '../../audio/barulho/barulhoRampPlanner';
 import { EngineRoundRobin } from '../../audio/engine/engineRoundRobin';
 import { EngineVirtualStrokes } from '../../audio/engine/engineVirtualStrokes';
 import { computeSectionTemperamentMap } from '../../audio/groove/sectionTemperament';
+import { resolveAudibleSympathySnareTrack } from '../../audio/groove/snareSympathyPlanner';
 import { instrumentsConfig } from '../../data';
 import { instrumentAudioConfigs } from '../../data/audioConfig';
+import { getEffectiveRodaBreathingAmount, useSequencerStore } from '../../stores/useSequencerStore';
 import { resolveTrackFromPackedData } from '../../workers/compiler/compiledTrackIdResolver';
 import { buildFlatSongSchedule } from '../../workers/compiler/flatScheduleBuilder';
 import { OfflineBarulhoPhraseTracker } from '../baqueBounceBarulhoRenderer';
 import { applyBusCompressorInPlace, applyBusInsertEqInPlace, sumBusStemWithPanInto } from '../baqueBounceBusInsertDsp';
 import { planBounceBusStems, resolveBusStemReturn } from '../baqueBounceBusStems';
 import { scheduleOfflineBounceStroke } from '../baqueBounceStrokeScheduler';
+import { scheduleOfflineSnareSympathyIfEligible } from '../baqueBounceSympathyHelper';
 import { resolveBounceNoteTrigger } from '../baqueBounceTiming';
 import { buildOfflineTrackGraph } from '../baqueBounceTrackGraph';
 import type { FullSongUnrolledTimeline } from './fullSongBounceTiming';
@@ -79,16 +82,27 @@ export async function renderOfflineBaquePass(params: {
     lookaheadPts.push({ trackId: tr.id, instId: inst.id, timeSec: triggerSec, symbol: String.fromCharCode((packed >>> 9) & 0x7F), velocity: schedule[i * 4 + 2] });
   }
   const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timeline.totalDurationSec);
+  const breathingAmount = getEffectiveRodaBreathingAmount(useSequencerStore.getState());
+  const snareCandidate = resolveAudibleSympathySnareTrack(rawTracks, breathingAmount, null);
+  const lastBuzzTimeSecRef = { value: -10 };
 
   for (let i = 0; i < schedule.length / 4; i++) {
     const absTick = schedule[i * 4], packed = schedule[i * 4 + 1], stepVol = schedule[i * 4 + 2], microPct = schedule[i * 4 + 3];
     const tr = resolveTrackFromPackedData(packed, unrolledTracks, schedule), inst = tr ? instrumentsConfig[tr.instrumentIdx] : null;
     if (!tr || !inst || !baqueIdSet.has(tr.id)) continue;
-    const { mIdx, circleStepIdx, triggerSec } = resolveBounceNoteTrigger(absTick, packed, microPct, tr, unrolledTracks, inst.id, timeline.timing, globalSwing, temperamentMap);
+    const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
+    const { mIdx, circleStepIdx, triggerSec, isBeatHead, partnerRank, measureBpm } = resolveBounceNoteTrigger(absTick, packed, microPct, tr, unrolledTracks, inst.id, timeline.timing, globalSwing, temperamentMap);
     await scheduleOfflineBounceStroke({
       offlineCtx: pass1Ctx, graph, track: tr, allTracks: rawTracks, chorusAmount, isEcoMode,
       globalAutomationBypass: globalBypass, instId: inst.id, instCfg: configMap.get(inst.id)!, strokesMaps,
-      sampleCache, offlineRR, barulhoTracker, packed, strokeSymbol: String.fromCharCode((packed >>> 9) & 0x7F), mIdx, circleStepIdx, triggerSec, stepVol, totalDurationSec: timeline.totalDurationSec,
+      sampleCache, offlineRR, barulhoTracker, packed, strokeSymbol, mIdx, circleStepIdx, triggerSec, stepVol, totalDurationSec: timeline.totalDurationSec,
+      isBeatHead, partnerRank, measureBpm,
+    });
+    await scheduleOfflineSnareSympathyIfEligible({
+      offlineCtx: pass1Ctx, graph, alfaiaTrackId: tr.id, alfaiaInstId: inst.id, strokeSymbol, stepVol,
+      stepSeed: mIdx * 64 + circleStepIdx * 2 + (packed & 1), triggerSec, totalDurationSec: timeline.totalDurationSec,
+      breathingAmount, snareCandidate, lastBuzzTimeSecRef, lookaheadPoints: barulhoTracker.lookahead,
+      allTracks: rawTracks, configMap, strokesMaps, sampleCache, offlineRR,
     });
   }
   barulhoTracker.finalizeAll(timeline.totalDurationSec);

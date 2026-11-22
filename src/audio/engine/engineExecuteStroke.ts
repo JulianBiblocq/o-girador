@@ -9,19 +9,17 @@ import { isAutomationBypassed } from '../../utils/automationBypassHelper';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../../universes/maracatu/instruments/studioBankRegistry';
 import { resolveTrackSectionTemperament } from '../groove/sectionTemperament';
+import { computeAlfaiaHighBpmDecayNorm, computeLivePlayerVelocityBreathing } from '../groove/strokeHumanizationDsp';
 import { computeBarulhoPartnerEntrySpreadSec, selectSquadPlayerFile } from '../spatial/sectionBarulhoPhaseHelper';
 import { computeDeterministicStrokeJitterSec, resolveTrackSectionSpatialProfile } from '../spatial/sectionSpatialAcoustics';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../worklet/horizon/workletCompositeStrokeHelper';
 import type { NotePlayerDeps } from './enginePlayerTypes';
 import { EngineStrokePlayback } from './engineStrokePlayback';
+import { triggerWebAudioSnareSympathyIfEligible } from './engineSympathyHelper';
 import { EngineTuning } from './engineTuning';
 import { ALFAIA_INSTRUMENTS } from './engineTypes';
 
-export function computeEffectiveDecayNorm(
-  rawStepDecay: number | undefined,
-  rawTrackDecay: number | undefined,
-  isPreviewOverride = false
-): number {
+export function computeEffectiveDecayNorm(rawStepDecay?: number, rawTrackDecay?: number, isPreviewOverride = false): number {
   const s = rawStepDecay ?? 1;
   const stepDecayNorm = s > 1 ? s / 100 : s;
   const t = rawTrackDecay ?? 100;
@@ -84,8 +82,8 @@ export class EngineExecuteStroke {
     if (!bufferEntry || !bufferEntry.loaded) return;
 
     const allTracks = deps.trackLookupMap.size > 0 ? Array.from(deps.trackLookupMap.values()) : storeState.tracks;
-    const microDelaySec = overrideTuning !== undefined ? 0 : resolveTrackSectionTemperament(track, allTracks).attackSpreadSec;
-    const effectiveTime = time + microDelaySec;
+    const temp = overrideTuning !== undefined ? { rank: 0, attackSpreadSec: 0 } : resolveTrackSectionTemperament(track, allTracks);
+    const effectiveTime = time + temp.attackSpreadSec;
     const voiceGuardKey = trackId !== null ? trackId : instrumentId;
 
     const isLegacyRufada = effectiveSymbol === 'r' && !STUDIO_BANK_ENABLED[instrumentId as PendingStudioInstrumentId];
@@ -94,7 +92,8 @@ export class EngineExecuteStroke {
     const chorusAmount = getEffectiveSkinChorusAmount(storeState);
     const baseRate = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning, allTracks, chorusAmount);
     const calculatedPitch = resolvedStroke.isBarulho ? baseRate : baseRate * pitchNuance;
-    const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, track?.trackDecay, overrideTuning !== undefined);
+    const adaptedTrackDecay = computeAlfaiaHighBpmDecayNorm(instrumentId, track?.trackDecay, storeState.bpm);
+    const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, adaptedTrackDecay, overrideTuning !== undefined);
     const isStudioCalibrated = Boolean(config.calibratedStudioBank);
     const rimStroke = resolvedStroke.compositeRimSymbol ? config.strokes.find((s) => s.symbol === resolvedStroke.compositeRimSymbol) : undefined;
     const rimIndices = rimStroke && hasSquadRR ? deps.roundRobin.selectSquadFileIndices(instrumentId, rimStroke, time, synthCount, trackId) : null;
@@ -105,16 +104,21 @@ export class EngineExecuteStroke {
       if (!entryK?.loaded) continue;
       const pSpec = spatial.isNeutralSolo ? undefined : spatial.players[k];
       const jitter = !pSpec || resolvedStroke.isBarulho ? 0 : computeDeterministicStrokeJitterSec(Number(trackId) || 0, k, stepSeed, synthCount, instrumentId);
-      const barSpread = pSpec && resolvedStroke.isBarulho ? computeBarulhoPartnerEntrySpreadSec(k, synthCount) : 0;
-      const timeK = Math.max(effectiveTime, effectiveTime + (pSpec ? pSpec.baseDelaySec + jitter + barSpread : 0));
+      const barSpread = pSpec && resolvedStroke.isBarulho
+        ? computeBarulhoPartnerEntrySpreadSec(k, synthCount)
+        : (!pSpec && resolvedStroke.isBarulho && effectiveSymbol === 'B' && temp.rank > 0 ? computeBarulhoPartnerEntrySpreadSec(temp.rank, temp.rank + 1) : 0);
+      const timeK = Math.max(effectiveTime, effectiveTime + (pSpec ? pSpec.baseDelaySec + jitter + barSpread : barSpread));
       const pitchMul = pSpec ? pSpec.pitchMul : 1.0;
+      const velK = overrideTuning !== undefined || resolvedStroke.isBarulho
+        ? finalVelocity
+        : computeLivePlayerVelocityBreathing(finalVelocity, stepSeed, Number(trackId) || 0, k, stepSeed);
       const vKey = k > 0 ? `${voiceGuardKey}__p${k}` : voiceGuardKey;
 
       deps.voiceGuard.chokeTrackVoice(vKey, effectiveSymbol, timeK, instrumentId);
       EngineStrokePlayback.play(
         deps.playbackCtx, trackId, instrumentId, resolvedStroke,
-        entryK.get() as AudioBuffer, calculatedPitch * pitchMul, timeK, finalVelocity, effectiveDecayNorm, isLiveHold,
-        { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec, playerIdx: k, playerSpec: pSpec }
+        entryK.get() as AudioBuffer, calculatedPitch * pitchMul, timeK, velK, effectiveDecayNorm, isLiveHold,
+        { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec, playerIdx: k, partnerRank: temp.rank, playerSpec: pSpec }
       );
 
       if (rimStroke) {
@@ -122,11 +126,14 @@ export class EngineExecuteStroke {
         if (rimEntry?.loaded) {
           EngineStrokePlayback.play(
             deps.playbackCtx, trackId, instrumentId, rimStroke,
-            rimEntry.get() as AudioBuffer, baseRate * pitchMul, timeK, finalVelocity * COMPOSITE_RIM_LAYER_VELOCITY_SCALE,
+            rimEntry.get() as AudioBuffer, baseRate * pitchMul, timeK, velK * COMPOSITE_RIM_LAYER_VELOCITY_SCALE,
             effectiveDecayNorm, false, { isStudioCalibrated, strokeSymbol: rimStroke.symbol, playerIdx: k, playerSpec: pSpec }
           );
         }
       }
+    }
+    if (overrideTuning === undefined) {
+      triggerWebAudioSnareSympathyIfEligible(deps, trackId, instrumentId, effectiveSymbol, finalVelocity, effectiveTime, stepSeed, allTracks);
     }
 
     if (instrumentId === 'apito' && effectiveSymbol !== '/' && effectiveSymbol !== '.') {

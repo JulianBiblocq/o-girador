@@ -36,8 +36,9 @@ function projectAndPushHorizon(ctx: HorizonPusherContext, minRebuildFrame: numbe
   const engine = ctx.engine;
   if (!engine || !engine.workletReady) return;
   const tracks = ctx.tracksRef.current;
-  engine.syncTracksToWorklet(tracks);
   const seqState = useSequencerStore.getState(), sampleRate = engine.getSampleRate();
+  const activeBpm = ctx.speedTrainerCurrentBpmRef?.current || ctx.measureBpmsRef.current?.[activeMeasureIdx] || ctx.defaultBpm || seqState.bpm || 100;
+  engine.syncTracksToWorklet(tracks, activeBpm);
   const currentFrame = Math.floor(engine.getCurrentTime() * sampleRate);
 
   const projected = projectHorizonMeasures({

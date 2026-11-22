@@ -54,10 +54,11 @@ export function renderWorkletVoiceInBlock(
   let rampLeft = bar.rampFramesLeft[v], rampDelta = bar.rampDelta[v], rampPending = bar.rampDeltaPending[v];
   const rampTarget = bar.rampTargetGain[v], autoFree = bar.autoFreeAfterRamp[v];
 
-  const isLp = phys.lpActive[v] === 1, lpStart = phys.lpStartInBlock[v];
+  const isLp = phys.lpActive[v] === 1, lpStart = phys.lpStartInBlock[v], vAlpha = phys.velLpAlpha[v];
   let lpMixLeft = phys.lpMixFramesLeft[v], lpMix = phys.lpMix[v];
   const lpMixDelta = phys.lpMixDelta[v];
   let lpL1 = phys.lpStateL1[v], lpL2 = phys.lpStateL2[v], lpR1 = phys.lpStateR1[v], lpR2 = phys.lpStateR2[v];
+  let vLpL = phys.velLpL[v], vLpR = phys.velLpR[v];
 
   for (let i = startFrame; i < blockFrames; i++) {
     if (bMode !== BARULHO_MODE_NONE || (state === VOICE_STATE_CHOKING && loopWrap > 0 && loopSpan > 0)) {
@@ -93,6 +94,7 @@ export function renderWorkletVoiceInBlock(
 
     const effGain = gain * duck, idx = readPos | 0, frac = readPos - idx;
     let s0 = ch0[idx] + frac * (ch0[idx + 1] - ch0[idx]);
+    if (vAlpha > 0) { vLpL += vAlpha * (s0 - vLpL); s0 = vLpL; }
     if (isLp) {
       lpL1 += lpAlpha * (s0 - lpL1); lpL2 += lpAlpha * (lpL1 - lpL2);
       if (i >= lpStart) {
@@ -104,6 +106,7 @@ export function renderWorkletVoiceInBlock(
 
     if (ch1 !== null) {
       let s1 = ch1[idx] + frac * (ch1[idx + 1] - ch1[idx]);
+      if (vAlpha > 0) { vLpR += vAlpha * (s1 - vLpR); s1 = vLpR; }
       if (isLp) {
         lpR1 += lpAlpha * (s1 - lpR1); lpR2 += lpAlpha * (lpR1 - lpR2);
         if (i >= lpStart) s1 += lpMix * (lpR2 - s1);
@@ -119,6 +122,7 @@ export function renderWorkletVoiceInBlock(
   pool.voiceState[v] = state; pool.voiceReadPos[v] = readPos; pool.voiceCurrentGain[v] = gain; pool.voiceElapsedFrames[v] = elapsed;
   pool.voiceChokeStartInBlock[v] = 0; pool.voiceChokeFramesLeft[v] = chokeLeft; pool.voiceChokeDelta[v] = chokeDelta;
   phys.duckGain[v] = duck; phys.duckStartInBlock[v] = 0; phys.duckFramesLeft[v] = duckLeft;
+  if (vAlpha > 0) { phys.velLpL[v] = vLpL; phys.velLpR[v] = vLpR; }
   if (isLp) {
     phys.lpStartInBlock[v] = 0; phys.lpMixFramesLeft[v] = lpMixLeft; phys.lpMix[v] = lpMix;
     phys.lpStateL1[v] = lpL1; phys.lpStateL2[v] = lpL2; phys.lpStateR1[v] = lpR1; phys.lpStateR2[v] = lpR2;

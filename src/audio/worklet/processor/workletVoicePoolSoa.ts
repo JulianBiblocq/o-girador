@@ -2,6 +2,7 @@
  * O Girador - Pool SOA 256 Voix Pré-alloué pour AudioWorklet (0 GC) (< 142 lignes)
  */
 
+import { computeVelocityToneAlpha } from '../../groove/strokeHumanizationDsp';
 import {
   MAX_WORKLET_VOICES, VOICE_STATE_FREE, VOICE_STATE_ACTIVE, VOICE_STATE_CHOKING, WorkletSampleEntry,
 } from '../percussionWorkletTypes';
@@ -9,7 +10,7 @@ import {
   WorkletVoiceEnvelopeParams, computeWorkletPeakGain, computeWorkletEffectiveDecay, fillWorkletVoiceEnvelope,
 } from './workletEnvelopeMath';
 import {
-  BARULHO_OP_ATTACK_B, BARULHO_OP_MASK, BARULHO_OP_SHIFT, BARULHO_OP_SOFT_B,
+  BARULHO_OP_ATTACK_B, BARULHO_OP_MASK, BARULHO_OP_PARTNER_B, BARULHO_OP_SHIFT, BARULHO_OP_SOFT_B,
   FLAG_ABAFADO_FALLBACK_80MS, FLAG_STUDIO_CALIBRATED, PLAYER_IDX_MASK, PLAYER_IDX_SHIFT,
   VOICE_CLASS_MASK, VOICE_CLASS_SHIFT, WORKLET_SEQ_MASK, WORKLET_SEQ_SHIFT, WorkletSkinPhysicsSoa,
 } from './workletSkinPhysics';
@@ -81,14 +82,14 @@ export class WorkletVoicePoolSoa {
     const barulhoOp = (flags >>> BARULHO_OP_SHIFT) & BARULHO_OP_MASK;
     const playerIdx = (flags >>> PLAYER_IDX_SHIFT) & PLAYER_IDX_MASK;
     const seqId = (flags >>> WORKLET_SEQ_SHIFT) & WORKLET_SEQ_MASK;
-    if (barulhoOp === BARULHO_OP_ATTACK_B || barulhoOp === BARULHO_OP_SOFT_B) {
+    if (barulhoOp === BARULHO_OP_ATTACK_B || barulhoOp === BARULHO_OP_PARTNER_B || barulhoOp === BARULHO_OP_SOFT_B) {
       const prep = this.barulho.prepareSpawnOrLegato(
         barulhoOp, seqId, trackId, playerIdx, startInBlock, peakGain, stepDecayNorm, sr, sample,
         this.voiceState, this.voiceTrackId, this.voicePlayerIdx, this.voiceChokeStartInBlock, this.voiceChokeFramesLeft, this.voiceChokeDelta
       );
       if (prep.handledLegato) return;
       const v = this.allocateVoiceSlot();
-      this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, playerIdx, slot, sampleId, sample, eventPitchNuance, sr, flags, prep.initialReadPos, prep.initialGain, peakGain);
+      this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, playerIdx, slot, sampleId, sample, eventPitchNuance, sr, flags, prep.initialReadPos, prep.initialGain, peakGain, 0);
       this.barulho.initSpawnedVoice(v, seqId, startInBlock, sample, prep);
       return;
     }
@@ -98,7 +99,8 @@ export class WorkletVoicePoolSoa {
     const safeSr = sample.sampleRate > 0 ? sample.sampleRate : sr;
     const effPitch = Math.max(0.1, eventPitchNuance * (trackPitchRatio > 0 ? trackPitchRatio : 1.0) * (playerPitchMul > 0 ? playerPitchMul : 1.0));
     fillWorkletVoiceEnvelope(sample.length / (safeSr * effPitch), computeWorkletEffectiveDecay(stepDecayNorm, trackDecayNorm), peakGain, sr, this.envScratch, (flags & FLAG_ABAFADO_FALLBACK_80MS) !== 0);
-    this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, playerIdx, slot, sampleId, sample, eventPitchNuance, sr, flags, 0, this.envScratch.safePeakGain, this.envScratch.safePeakGain);
+    const vToneAlpha = computeVelocityToneAlpha(velocity, sr);
+    this.initCommonVoiceFields(v, triggerFrame, startInBlock, trackId, playerIdx, slot, sampleId, sample, eventPitchNuance, sr, flags, 0, this.envScratch.safePeakGain, this.envScratch.safePeakGain, vToneAlpha);
     this.voiceMidGain[v] = this.envScratch.midGain; this.voiceHoldFrames[v] = this.envScratch.holdFrames;
     this.voiceMidRelFrames[v] = this.envScratch.midRelFrames; this.voiceRelEndFrames[v] = this.envScratch.relEndFrames;
     this.voiceEndFrames[v] = this.envScratch.endFrames; this.voiceIsFullBuffer[v] = this.envScratch.isFullBuffer;
@@ -107,7 +109,7 @@ export class WorkletVoicePoolSoa {
 
   private initCommonVoiceFields(
     v: number, triggerFrame: number, startInBlock: number, trackId: number, playerIdx: number, slot: number, sampleId: number,
-    sample: WorkletSampleEntry, pitchNuance: number, sr: number, flags: number, readPos: number, curGain: number, peakGain: number
+    sample: WorkletSampleEntry, pitchNuance: number, sr: number, flags: number, readPos: number, curGain: number, peakGain: number, vToneAlpha = 0
   ): void {
     const safeSr = sample.sampleRate > 0 ? sample.sampleRate : sr;
     this.voiceState[v] = VOICE_STATE_ACTIVE; this.voiceTrackId[v] = trackId; this.voicePlayerIdx[v] = playerIdx;
@@ -116,7 +118,7 @@ export class WorkletVoicePoolSoa {
     this.voiceSampleRateRatio[v] = safeSr / sr; this.voiceEventPitchNuance[v] = pitchNuance > 0 ? pitchNuance : 1.0;
     this.voiceCurrentGain[v] = curGain; this.voicePeakGain[v] = peakGain; this.voiceElapsedFrames[v] = 0;
     this.voiceChokeStartInBlock[v] = 0; this.voiceChokeFramesLeft[v] = 0; this.voiceChokeDelta[v] = 0;
-    this.skinPhysics.initVoice(v, (flags >>> VOICE_CLASS_SHIFT) & VOICE_CLASS_MASK);
+    this.skinPhysics.initVoice(v, (flags >>> VOICE_CLASS_SHIFT) & VOICE_CLASS_MASK, vToneAlpha);
   }
 
   public applyEventPhysics(trackId: number, flags: number, evtFrame: number, startInBlock: number, contextSampleRate: number): void {

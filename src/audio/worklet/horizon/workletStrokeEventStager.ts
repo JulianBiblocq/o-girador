@@ -7,11 +7,12 @@ import {
 } from '../../barulho/barulhoRampPlanner';
 import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../../engine/engineTypes';
 import { EngineVirtualStrokes } from '../../engine/engineVirtualStrokes';
+import { computeLivePlayerVelocityBreathing } from '../../groove/strokeHumanizationDsp';
 import { computeBarulhoPartnerEntrySpreadSec, selectSquadPlayerFile } from '../../spatial/sectionBarulhoPhaseHelper';
 import { computeDeterministicStrokeJitterSec } from '../../spatial/sectionSpatialAcoustics';
 import { PendingStudioInstrumentId, STUDIO_BANK_ENABLED } from '../../../universes/maracatu/instruments/studioBankRegistry';
 import {
-  BARULHO_OP_ATTACK_B, BARULHO_OP_NONE, BARULHO_OP_SOFT_B,
+  BARULHO_OP_ATTACK_B, BARULHO_OP_NONE, BARULHO_OP_PARTNER_B, BARULHO_OP_SOFT_B,
   packWorkletEventFlags, resolveBarulhoOpForSymbol, resolveTrackPhysicsSpec,
 } from '../processor/workletSkinPhysics';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
@@ -19,7 +20,7 @@ import { stageCompositeRimLayerIfAny } from './workletCompositeStrokeHelper';
 
 export interface StageStrokeEventArgs {
   seqId: number; measureIdx: number; trackId: number; instId: string; strokeSymbol: string;
-  circleStepIdx: number; isSecondStroke: boolean; velocity: number; decayPct: number;
+  circleStepIdx: number; isSecondStroke: boolean; isBeatHead?: boolean; velocity: number; decayPct: number;
   triggerFrame: number; swungTimeSec: number; sampleRate: number;
   engineDeps: HorizonPackerEngineDeps; lookaheadPoints?: readonly BarulhoLookaheadPoint[];
   stagedEvents: number[];
@@ -102,28 +103,34 @@ export function stageMeasureStrokeEvent(a: StageStrokeEventArgs): 'ok' | 'skip' 
   const prevLen = stagedEvents.length;
   const stepSeed = measureIdx * 64 + circleStepIdx * 2 + (isSecondStroke ? 1 : 0);
 
+  const partnerRank = engineDeps.getTrackPartnerRank?.(trackId) ?? 0;
   for (let k = 0; k < synthCount; k++) {
     const pathK = squadIndices ? (stroke.files[squadIndices[k] ?? squadIndices[0]] || firstPath) : (baseIdx >= 0 ? selectSquadPlayerFile(stroke.files, baseIdx, k) : firstPath);
     const sampleId = k === 0 ? firstSampleId : engineDeps.getSampleId(pathK, Boolean(stroke.isBarulho));
     if (sampleId < 0) { stagedEvents.length = prevLen; return 'uncovered'; }
 
+    const isSoloPartnerB = barOp === BARULHO_OP_ATTACK_B && k === 0 && synthCount === 1 && partnerRank > 0;
+    const effBarOp = isSoloPartnerB ? BARULHO_OP_PARTNER_B : barOp;
     let trigFrameK = triggerFrame;
     if (spatial && !spatial.isNeutralSolo) {
       const pSpec = spatial.players[k] || spatial.players[0];
       const jitter = barOp !== BARULHO_OP_NONE ? 0 : computeDeterministicStrokeJitterSec(trackId, k, stepSeed, synthCount, instId);
       const barSpread = barOp !== BARULHO_OP_NONE ? computeBarulhoPartnerEntrySpreadSec(k, synthCount) : 0;
       trigFrameK = Math.max(triggerFrame, Math.round((swungTimeSec + pSpec.baseDelaySec + jitter + barSpread) * sampleRate));
+    } else if (isSoloPartnerB) {
+      trigFrameK = Math.max(triggerFrame, Math.round((swungTimeSec + computeBarulhoPartnerEntrySpreadSec(partnerRank, partnerRank + 1)) * sampleRate));
     }
 
+    const velK = barOp !== BARULHO_OP_NONE ? finalVel : computeLivePlayerVelocityBreathing(finalVel, seqId, trackId, k, stepSeed, Boolean(a.isBeatHead));
     stagedEvents.push(
-      trigFrameK, trackId, slot, sampleId, finalVel, stroke.baseGain ?? 1.0,
-      metaOrDecay, pitchNuance, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms, barOp, k)
+      trigFrameK, trackId, slot, sampleId, velK, stroke.baseGain ?? 1.0,
+      metaOrDecay, pitchNuance, packWorkletEventFlags(seqId, chokeMode, voiceClass, isCalibrated, isFallback80ms, effBarOp, k)
     );
 
     if (stroke.compositeRimSymbol) {
       const rimRes = stageCompositeRimLayerIfAny({
         seqId, trackId, slot, instId, primaryStroke: stroke, triggerFrame: trigFrameK, trigTimeSec,
-        finalVel, metaOrDecay, isCalibrated, engineDeps, stagedEvents, playerIdx: k, rimBaseIdx, rimIndices,
+        finalVel: velK, metaOrDecay, isCalibrated, engineDeps, stagedEvents, playerIdx: k, rimBaseIdx, rimIndices,
       });
       if (rimRes === 'uncovered') { stagedEvents.length = prevLen; return 'uncovered'; }
     }

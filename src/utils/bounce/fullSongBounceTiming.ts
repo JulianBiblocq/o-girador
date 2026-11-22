@@ -82,6 +82,7 @@ export function buildFullSongUnrolledTimeline(
     timing: {
       totalMeasures: expanded.length, bpm: unrolledBpms[0] || baseBpm, sampleRate: sr,
       totalDurationSec, exactTotalSamples: totalSamples, measureStartsSec, measureDurationsSec, measureTicks,
+      measureTimeSigs: unrolledTimeSigs, measureBpms: unrolledBpms,
     },
   };
 }

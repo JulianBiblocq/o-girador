@@ -8,6 +8,7 @@ import { applyWebAudioTrackSkinPhysics } from '../audio/engine/alfaiaTrackVoiceP
 import { computeEffectiveDecayNorm } from '../audio/engine/engineExecuteStroke';
 import { computeEnginePeakGain, computeProgressiveDecayEnvelope } from '../audio/engine/engineStrokePlayback';
 import type { ActiveVoice } from '../audio/engine/engineTypes';
+import { computeAlfaiaHighBpmDecayNorm, computeVelocityToneCutoffHz } from '../audio/groove/strokeHumanizationDsp';
 import type { SectionPlayerAcousticSpec } from '../audio/spatial/sectionSpatialAcoustics';
 import { createSpatialPlayerRouting } from '../audio/spatial/webAudioPlayerPanner';
 import { getEffectiveRodaBreathingAmount, getEffectiveVolume, useSequencerStore } from '../stores/useSequencerStore';
@@ -85,7 +86,7 @@ export function buildOfflineTrackGraph(
 export function scheduleOfflineStrokeHit(
   ctx: OfflineAudioContext, graph: OfflineTrackGraph, track: any, instId: string, strokeSymbol: string,
   buffer: AudioBuffer, pitchRate: number, triggerTimeSec: number, velocity: number, stepDecayNorm: number, maxEndSec: number,
-  opts: { isStudioCalibrated?: boolean; forceShort80ms?: boolean; strokeBaseGain?: number; playerIdx?: number; playerSpec?: SectionPlayerAcousticSpec } = {}
+  opts: { isStudioCalibrated?: boolean; forceShort80ms?: boolean; strokeBaseGain?: number; playerIdx?: number; measureBpm?: number; skipVoiceGuard?: boolean; playerSpec?: SectionPlayerAcousticSpec } = {}
 ): void {
   const trackInput = graph.trackInputs.get(track.id);
   if (!trackInput || triggerTimeSec >= maxEndSec - 0.001) return;
@@ -94,10 +95,9 @@ export function scheduleOfflineStrokeHit(
   if (!voices) { voices = []; graph.activeVoicesByTrack.set(vKey, voices); }
   const time = Math.max(0, triggerTimeSec);
 
-  applyWebAudioTrackSkinPhysics(voices, instId, strokeSymbol, time);
+  if (!opts.skipVoiceGuard) applyWebAudioTrackSkinPhysics(voices, instId, strokeSymbol, time);
 
-  const isLeftHandRufada = strokeSymbol === 'r';
-  const adjVel = (velocity > 3.0 ? velocity / 100 : velocity) * (isLeftHandRufada ? 0.88 : 1.0);
+  const adjVel = velocity > 3.0 ? velocity / 100 : velocity;
   const basePeak = computeEnginePeakGain(adjVel, opts.strokeBaseGain ?? 1.0, Boolean(opts.isStudioCalibrated), false);
   if (basePeak <= 0.0001) return;
 
@@ -105,17 +105,21 @@ export function scheduleOfflineStrokeHit(
   const peakGain = basePeak * spatialRoute.gainCompensation;
   if (peakGain <= 0.0001) return;
 
-  const effectiveRate = Math.max(0.25, pitchRate * (isLeftHandRufada ? 0.985 : 1.0));
+  const effectiveRate = Math.max(0.25, pitchRate);
   const realWorldDur = buffer.duration / effectiveRate;
-  const env = computeProgressiveDecayEnvelope(realWorldDur, computeEffectiveDecayNorm(stepDecayNorm, track.trackDecay, false), Boolean(opts.forceShort80ms));
+  const adaptedTrackDecay = computeAlfaiaHighBpmDecayNorm(instId, track.trackDecay, opts.measureBpm);
+  const env = computeProgressiveDecayEnvelope(realWorldDur, computeEffectiveDecayNorm(stepDecayNorm, adaptedTrackDecay, false), Boolean(opts.forceShort80ms));
   const holdEnd = time + env.holdSec, releaseEnd = env.isFullBuffer ? time + realWorldDur : holdEnd + env.releaseSec;
   const expectedEnd = Math.min(maxEndSec, env.isFullBuffer ? releaseEnd : releaseEnd + 0.01);
 
   const src = ctx.createBufferSource(), gainNode = ctx.createGain();
   src.buffer = buffer; src.playbackRate.value = effectiveRate;
+  const toneCutoffHz = computeVelocityToneCutoffHz(adjVel);
+  const needsTimbalLp = instId === 'timbal' && (strokeSymbol === 'G' || strokeSymbol === 'g');
   let lpFilter: BiquadFilterNode | null = null;
-  if (instId === 'timbal' && (strokeSymbol === 'G' || strokeSymbol === 'g')) {
-    lpFilter = ctx.createBiquadFilter(); lpFilter.type = 'lowpass'; lpFilter.frequency.value = 20000; lpFilter.Q.value = Math.SQRT1_2;
+  if (needsTimbalLp || toneCutoffHz > 0) {
+    lpFilter = ctx.createBiquadFilter();
+    lpFilter.type = 'lowpass'; lpFilter.frequency.value = toneCutoffHz > 0 ? toneCutoffHz : 20000; lpFilter.Q.value = needsTimbalLp ? Math.SQRT1_2 : 0.5;
     src.connect(lpFilter); lpFilter.connect(gainNode);
   } else {
     src.connect(gainNode);
@@ -130,8 +134,10 @@ export function scheduleOfflineStrokeHit(
   }
   gainNode.gain.linearRampToValueAtTime(0, expectedEnd);
   src.start(time); src.stop(expectedEnd);
-  voices.push({
-    source: src, gainNode, time, holdEnd, releaseEnd, expectedEnd,
-    velocity: peakGain, isFullBuffer: env.isFullBuffer, instrumentId: instId, strokeSymbol, isDucked: false, lpFilter,
-  });
+  if (!opts.skipVoiceGuard) {
+    voices.push({
+      source: src, gainNode, time, holdEnd, releaseEnd, expectedEnd,
+      velocity: peakGain, isFullBuffer: env.isFullBuffer, instrumentId: instId, strokeSymbol, isDucked: false, lpFilter,
+    });
+  }
 }

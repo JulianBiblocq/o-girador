@@ -73,8 +73,9 @@ function lowPassChokeVoice(v: ActiveVoice, time: number, cutoffHz: number, filte
   v.isLowPassChoked = true;
   if (v.lpFilter) {
     try {
+      const startHz = Math.max(cutoffHz + 10, Math.min(20000, v.lpFilter.frequency.value || 20000));
       v.lpFilter.frequency.cancelScheduledValues(time);
-      v.lpFilter.frequency.setValueAtTime(20000, time);
+      v.lpFilter.frequency.setValueAtTime(startHz, time);
       v.lpFilter.frequency.exponentialRampToValueAtTime(cutoffHz, time + filterRampSec);
     } catch (_) {}
   }

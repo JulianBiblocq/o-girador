@@ -18,13 +18,13 @@ export class EngineTuning {
     allTracks?: readonly TrackGroup[] | null,
     chorusAmount = 0.75
   ): number {
-    if (!TUNEABLE_INSTRUMENTS.has(instrumentId) || NON_CHORUS_INSTRUMENTS.has(instrumentId)) {
+    if (!TUNEABLE_INSTRUMENTS.has(instrumentId)) {
       return 0;
     }
     const macroPitch = config.macroPitch !== undefined && config.macroPitch > 0 ? config.macroPitch : 1.0;
     const macroSemitones = 12 * Math.log2(macroPitch);
     const userTuning = overrideTuning !== undefined ? overrideTuning : (track?.tuning ?? 0);
-    const chorusCents = allTracks
+    const chorusCents = allTracks && !NON_CHORUS_INSTRUMENTS.has(instrumentId)
       ? computeTrackSkinChorusCents(instrumentId, track, allTracks, userTuning, chorusAmount)
       : 0;
     const total = macroSemitones + userTuning + chorusCents / 100;

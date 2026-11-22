@@ -46,10 +46,10 @@ export const DEFAULT_SOLO_PLAYER_PLACEMENT: Readonly<SectionPlayerPlacement> = {
 
 const DETUNE_SPREAD_BY_COUNT: Readonly<Record<number, readonly number[]>> = {
   1: [0],
-  2: [-1.5, 1.5],
-  3: [-2.0, 0, 2.0],
-  4: [-2.5, -0.8, 0.8, 2.5],
-  5: [-2.5, -1.2, 0, 1.2, 2.5],
+  2: [-1.7, 1.1],
+  3: [-2.1, -0.3, 1.6],
+  4: [-2.3, -0.6, 0.9, 2.1],
+  5: [-2.4, -0.9, 0.2, 1.1, 2.3],
 };
 
 export function getMaxSectionPlayers(

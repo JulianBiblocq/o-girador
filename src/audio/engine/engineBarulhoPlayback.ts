@@ -21,7 +21,8 @@ export function playBarulhoStroke(
   strokeSymbol = 'B',
   maxPreviewDurSec?: number,
   playerIdx = 0,
-  extraCleanup?: () => void
+  extraCleanup?: () => void,
+  partnerRank = 0
 ): void {
   const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer, instrumentId);
   source.buffer = baked.buffer;
@@ -33,8 +34,9 @@ export function playBarulhoStroke(
   const isSoftB = strokeSymbol === 'b' || (instrumentId === 'apito' && strokeSymbol === 'l');
   const sr = baked.buffer.sampleRate;
   const hasLoop = baked.region.loopWrapFrame > baked.region.loopResumeFrame;
-  const entrySec = playerIdx > 0 && hasLoop
-    ? computeBarulhoDecorrelatedReadFrame(playerIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr) / sr
+  const decorrelIdx = playerIdx > 0 ? playerIdx : partnerRank;
+  const entrySec = decorrelIdx > 0 && hasLoop
+    ? computeBarulhoDecorrelatedReadFrame(decorrelIdx, baked.region.loopResumeFrame, baked.region.loopWrapFrame, sr) / sr
     : (isSoftB
         ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / sr
         : 0);
@@ -42,7 +44,7 @@ export function playBarulhoStroke(
 
   if (isLiveHold) {
     gainNode.gain.cancelScheduledValues(time);
-    if (isSoftB || playerIdx > 0) {
+    if (isSoftB || decorrelIdx > 0) {
       const ramp = isSoftB ? DEFAULT_BARULHO_FADEIN_SEC : BARULHO_PARTNER_ATTACK_RAMP_SEC;
       gainNode.gain.setValueAtTime(0, time);
       gainNode.gain.linearRampToValueAtTime(velocity, time + ramp);
@@ -65,7 +67,7 @@ export function playBarulhoStroke(
     ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
 
     gainNode.gain.cancelScheduledValues(time);
-    if (isSoftB || playerIdx > 0) {
+    if (isSoftB || decorrelIdx > 0) {
       const baseRamp = isSoftB ? DEFAULT_BARULHO_FADEIN_SEC : BARULHO_PARTNER_ATTACK_RAMP_SEC;
       const fadeInSec = hasCustomStepDur ? Math.min(baseRamp, holdDurSec * 0.45) : baseRamp;
       gainNode.gain.setValueAtTime(0, time);

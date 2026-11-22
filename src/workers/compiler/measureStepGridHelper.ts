@@ -11,6 +11,7 @@ import {
 export interface MeasureStepGrid {
   stepTickMap: number[];
   stepIsTupletMap: boolean[];
+  stepIsBeatHeadMap: boolean[];
   effectiveStepCount: number;
   stepOffset: number;
   maxTicks: number;
@@ -27,6 +28,7 @@ export function buildMeasureStepGrid(
   let stepTickAccum = 0;
   const stepTickMap: number[] = [];
   const stepIsTupletMap: boolean[] = [];
+  const stepIsBeatHeadMap: boolean[] = [];
 
   for (let b = 0; b < beatsCount; b++) {
     const res = Math.max(1, resArray[b] || geom.defaultSubdivisions);
@@ -34,11 +36,12 @@ export function buildMeasureStepGrid(
     for (let r = 0; r < res; r++) {
       stepTickMap.push(Math.round(stepTickAccum + r * ticksPerStep));
       stepIsTupletMap.push(res === 3 || res === 6);
+      stepIsBeatHeadMap.push(r === 0);
     }
     stepTickAccum += ticksPerBeat;
   }
 
   const effectiveStepCount = stepTickMap.length;
   const stepOffset = computeMeasurePatternStepOffset(activePattern, effectiveStepCount, measureIdx);
-  return { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset, maxTicks };
+  return { stepTickMap, stepIsTupletMap, stepIsBeatHeadMap, effectiveStepCount, stepOffset, maxTicks };
 }

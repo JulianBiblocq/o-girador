@@ -4,14 +4,18 @@
  * - Filtre anti-doublon invariant par `(trackIdx, circleStepIdx, isSecondStroke)` lors du morphing de Balanço.
  */
 import { instrumentsConfig } from '../../../data';
-import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../../../hooks/audio-sync/percussionSwingHelper';
+import { computePercussionNoteSwing, resolveActivePatternForMeasure, resolveStepBeatInfo } from '../../../hooks/audio-sync/percussionSwingHelper';
+import { getEffectiveRodaBreathingAmount, useSequencerStore } from '../../../stores/useSequencerStore';
 import { GlobalSwing, Pattern, PatternVariation, Track } from '../../../types';
+import { isTrackMutedByPracticeMode } from '../../../utils/practiceAudioMuteGuard';
 import { getRodaStepDurationTicks } from '../../../utils/rodaTimeSigGeometry';
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
+import { resolveAudibleSympathySnareTrack } from '../../groove/snareSympathyPlanner';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
 import { MeasureTimingTable } from './percussionHorizonTiming';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
 import { stageMeasureStrokeEvent } from './workletStrokeEventStager';
+import { stageWorkletSnareSympathyIfEligible } from './workletSympathyHelper';
 import { resolveTrackFromPackedData } from '../../../workers/compiler/compiledTrackIdResolver';
 
 export type { HorizonPackerEngineDeps };
@@ -40,6 +44,14 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     if (t) trackOrderById.set(t.id, i);
     if (t && inst && !t.isBusFolder && !t.isLinkFolder && engineDeps.isTrackRoutedToWorklet(t.id, inst.id)) coveredTrackIds.add(t.id);
   }
+  const seqState = useSequencerStore.getState();
+  const breathingAmount = getEffectiveRodaBreathingAmount(seqState);
+  const familyCache = new Set<string>();
+  const rawSnareCand = resolveAudibleSympathySnareTrack(tracks as any, breathingAmount, soloPatternPlayId, (tId) =>
+    isTrackMutedByPracticeMode(tId, tracks as any, seqState, familyCache)
+  );
+  const snareCandidate = rawSnareCand && coveredTrackIds.has(rawSnareCand.track.id) ? rawSnareCand : null;
+  const lastBuzzTimeSecRef = { value: -10 };
 
   const processNoteTuple = (absTick: number, packedData: number, velocity: number, microPct: number, sourceSchedule: object | null, skipSet?: Set<number>) => {
     const tickInMeasure = absTick - measureStartTick;
@@ -80,13 +92,22 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     } else if (rawFrame < currentFrame - Math.round(0.015 * sampleRate)) return;
     else if (rawFrame < currentFrame) triggerFrame = currentFrame;
 
+    const isBeatHead = !isSecondStroke && resolveStepBeatInfo(circleStepIdx, activePattern, timing.timeSig).posInBeat === 0;
     const res = stageMeasureStrokeEvent({
       seqId, measureIdx: timing.measureIdx, trackId: liveTrack.id, instId: inst.id, strokeSymbol,
-      circleStepIdx, isSecondStroke, velocity, decayPct, triggerFrame, swungTimeSec, sampleRate,
+      circleStepIdx, isSecondStroke, isBeatHead, velocity, decayPct, triggerFrame, swungTimeSec, sampleRate,
       engineDeps, lookaheadPoints, stagedEvents,
     });
     if (res === 'uncovered') { uncoveredTrackIds.add(liveTrack.id); return; }
-    if (res === 'ok') emittedNoteFrames.set(noteUid, triggerFrame);
+    if (res === 'ok') {
+      emittedNoteFrames.set(noteUid, triggerFrame);
+      stageWorkletSnareSympathyIfEligible({
+        seqId, alfaiaTrackId: liveTrack.id, alfaiaInstId: inst.id, strokeSymbol, velocity,
+        stepSeed: timing.measureIdx * 64 + circleStepIdx * 2 + (isSecondStroke ? 1 : 0),
+        swungTimeSec, triggerFrame, sampleRate, breathingAmount, snareCandidate,
+        lastBuzzTimeSecRef, lookaheadPoints, engineDeps, stagedEvents,
+      });
+    }
   };
 
   const endTick = measureStartTick + timing.maxTicks;

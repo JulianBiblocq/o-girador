@@ -62,9 +62,6 @@ export function computePercussionNoteSwing(p: NoteSwingParams): number {
   const { posInGroup, posInBeat, isTernary } = resolveStepBeatInfo(circleStepIdx, activePattern, timeSig);
   if ((isTernary || isTuplet) && posInBeat === 0) return 0;
 
-  const effectiveJitter = circleStepIdx === 0 ? 0 : swingJitter * morphScale;
-  if (isTuplet || isTernary) return effectiveJitter;
-
   const patternPresetId = activePattern?.balancoPresetId;
   const trackPresetId = liveTrack.balancoPresetId;
   const effectivePresetId = patternPresetId || trackPresetId || (globalMode === 'maracatu' ? 'maracatu-trad' : undefined);
@@ -74,17 +71,21 @@ export function computePercussionNoteSwing(p: NoteSwingParams): number {
   const patternBalancoAmount = activePattern?.balancoAmount ?? activePattern?.swingIntensity ?? 100;
   const totalBalancoMultiplier = (trackBalancoAmount / 100) * (patternBalancoAmount / 100);
   const globalIntensity = (globalSwing.swingIntensity ?? 100) / 100;
-  const adherence = p.balancoAdherence ?? 1.0;
+  const effectiveStrength = totalBalancoMultiplier * globalIntensity * morphScale;
+  if (effectiveStrength <= 0.0001) return 0;
 
-  let baseSwingOffset = 0;
-  if (globalMode === 'custom' && !patternPresetId && !trackPresetId) {
-    const customOffsetPct = globalSwing.customOffsets[posInGroup] || 0;
-    baseSwingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
-  } else {
-    const offsets = resolvedPreset.offsets;
-    const offsetPct = offsets[posInGroup % offsets.length] || 0;
-    baseSwingOffset = (offsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
+  const useCustom = globalMode === 'custom' && !patternPresetId && !trackPresetId;
+  const activeOffsets = useCustom ? globalSwing.customOffsets : resolvedPreset.offsets;
+  if (effectivePresetId === 'straight' || !activeOffsets || activeOffsets.every((v) => !v)) {
+    return 0;
   }
+
+  const effectiveJitter = circleStepIdx === 0 ? 0 : swingJitter * Math.min(1, effectiveStrength);
+  if (isTuplet || isTernary) return effectiveJitter;
+
+  const adherence = p.balancoAdherence ?? 1.0;
+  const offsetPct = useCustom ? (activeOffsets[posInGroup] || 0) : (activeOffsets[posInGroup % activeOffsets.length] || 0);
+  const baseSwingOffset = (offsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
   return (baseSwingOffset * totalBalancoMultiplier * adherence * morphScale) + effectiveJitter;
 }
 

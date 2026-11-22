@@ -67,7 +67,7 @@ export function buildFlatSongSchedule(
         effectiveBeatRes = sculpt.beatResolutions;
       }
 
-      const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset } = buildMeasureStepGrid(
+      const { stepTickMap, stepIsTupletMap, stepIsBeatHeadMap, effectiveStepCount, stepOffset } = buildMeasureStepGrid(
         timeSig, { ...activePattern, beatResolutions: effectiveBeatRes }, measureIdx
       );
 
@@ -86,7 +86,7 @@ export function buildFlatSongSchedule(
           const targetKey = normalizeStrokeKey(inst, statesToProcess[strokeIndex]);
           if (!targetKey) continue;
 
-          const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, nextRandom, step);
+          const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, nextRandom, step, stepIsBeatHeadMap[step]);
           const stepDecayMultiplier = computeStepDecay(effectiveDecays?.[actualStep], strokeIndex);
           const microtimingPct = computeStepMicrotiming(effectiveMicrotimings?.[actualStep], strokeIndex);
           const isTuplet = stepIsTupletMap[step] || false;

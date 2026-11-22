@@ -73,7 +73,8 @@ export function computeDeterministicStrokeJitterSec(
   if (synthesizedCount <= 1 || playerIdx <= 0) return 0;
   let h = (Math.imul((trackId | 0) + 17, 374761393) ^ Math.imul(playerIdx + 1, 668265263) ^ Math.imul((stepSeed | 0) + 3, 2147483647)) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  const maxJitter = instrumentId && SNARE_DRUMS.has(instrumentId) ? 0.00006 : 0.00008;
+  const norm = (instrumentId || '').trim().toLowerCase();
+  const maxJitter = SEMENTES_INSTRUMENTS.has(norm) ? 0.0012 : (SNARE_DRUMS.has(norm) ? 0.00006 : 0.00008);
   return ((((h ^ (h >>> 16)) >>> 0) / 4294967295) * 2 - 1) * maxJitter;
 }
 

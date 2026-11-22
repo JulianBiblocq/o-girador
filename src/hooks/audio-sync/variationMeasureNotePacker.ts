@@ -38,7 +38,7 @@ export function buildMeasureVariationNotes(params: {
       beatResolutions: effectiveBeatRes,
     } = getVariationSculptArrays(activePattern, variation);
 
-    const { stepTickMap, stepIsTupletMap, effectiveStepCount, stepOffset, maxTicks } = buildMeasureStepGrid(
+    const { stepTickMap, stepIsTupletMap, stepIsBeatHeadMap, effectiveStepCount, stepOffset, maxTicks } = buildMeasureStepGrid(
       timeSig || '4/4',
       { ...activePattern, beatResolutions: effectiveBeatRes },
       measureIdx
@@ -58,7 +58,7 @@ export function buildMeasureVariationNotes(params: {
         const targetKey = normalizeStrokeKey(inst, statesToProcess[strokeIndex]);
         if (!targetKey) continue;
 
-        const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, Math.random, step);
+        const stepVolMultiplier = computeStepVolume(effectiveVolumes?.[actualStep], strokeIndex, Math.random, step, stepIsBeatHeadMap[step]);
         const stepDecayMultiplier = computeStepDecay(effectiveDecays?.[actualStep], strokeIndex);
         const microtimingPct = computeStepMicrotiming(effectiveMicrotimings?.[actualStep], strokeIndex);
 

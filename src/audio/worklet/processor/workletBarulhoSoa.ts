@@ -4,7 +4,7 @@
  */
 import { MAX_WORKLET_VOICES, VOICE_STATE_ACTIVE, VOICE_STATE_CHOKING, WorkletSampleEntry } from '../percussionWorkletTypes';
 import { BARULHO_PARTNER_ATTACK_RAMP_SEC, computeBarulhoDecorrelatedReadFrame } from '../../spatial/sectionBarulhoPhaseHelper';
-import { BARULHO_OP_ATTACK_B, BARULHO_OP_FADEOUT_SLASH, BARULHO_OP_STOP_DOT, computeBarulhoSoftEntryFrame } from './workletEventFlags';
+import { BARULHO_OP_ATTACK_B, BARULHO_OP_FADEOUT_SLASH, BARULHO_OP_PARTNER_B, BARULHO_OP_STOP_DOT, computeBarulhoSoftEntryFrame } from './workletEventFlags';
 
 export const BARULHO_MODE_NONE = 0;
 export const BARULHO_MODE_ROLLING = 1;
@@ -84,10 +84,11 @@ export class WorkletBarulhoSoa {
     const out = this.prepScratch, vAct = this.findActiveVoice(trackId, playerIdx, voiceState, voiceTrackId, voicePlayerIdx);
     const sampleSr = sample.sampleRate > 0 ? sample.sampleRate : sr;
     const hasLoop = sample.loopWrapFrame > sample.loopResumeFrame;
-    if (barulhoOp === BARULHO_OP_ATTACK_B) {
+    if (barulhoOp === BARULHO_OP_ATTACK_B || barulhoOp === BARULHO_OP_PARTNER_B) {
       const coord = Math.round(metaVal);
-      if (vAct >= 0 && this.mode[vAct] === BARULHO_MODE_ROLLING && coord > 0 && this.originCoord[vAct] === coord && this.originSeqId[vAct] !== seqId) {
-        this.originSeqId[vAct] = seqId; this.autoFreeAfterRamp[vAct] = 0;
+      const prevCoord = vAct >= 0 ? this.originCoord[vAct] : 0;
+      if (vAct >= 0 && this.mode[vAct] === BARULHO_MODE_ROLLING && coord > 0 && prevCoord > 0 && ((prevCoord - 1) & 0x7F) === ((coord - 1) & 0x7F) && this.originSeqId[vAct] !== seqId) {
+        this.originCoord[vAct] = coord; this.originSeqId[vAct] = seqId; this.autoFreeAfterRamp[vAct] = 0;
         this.scheduleRamp(vAct, startInBlock, Math.round(0.060 * sr), peakGain, 0);
         out.handledLegato = true; return out;
       }
@@ -96,8 +97,9 @@ export class WorkletBarulhoSoa {
         voiceChokeStart[vAct] = startInBlock; voiceChokeLeft[vAct] = Math.max(1, Math.ceil(0.020 * sr)); voiceChokeDelta[vAct] = 0;
       }
       out.handledLegato = false; out.originCoord = coord; out.targetGain = peakGain;
-      if (playerIdx > 0 && hasLoop) {
-        out.initialReadPos = computeBarulhoDecorrelatedReadFrame(playerIdx, sample.loopResumeFrame, sample.loopWrapFrame, sampleSr);
+      const decorrelIdx = playerIdx > 0 ? playerIdx : (barulhoOp === BARULHO_OP_PARTNER_B ? ((Math.max(0, trackId | 0) % 4) + 1) : 0);
+      if (decorrelIdx > 0 && hasLoop) {
+        out.initialReadPos = computeBarulhoDecorrelatedReadFrame(decorrelIdx, sample.loopResumeFrame, sample.loopWrapFrame, sampleSr);
         out.initialGain = 0; out.rampFrames = Math.max(1, Math.round(BARULHO_PARTNER_ATTACK_RAMP_SEC * sr));
       } else {
         out.initialReadPos = 0; out.initialGain = peakGain; out.rampFrames = 0;

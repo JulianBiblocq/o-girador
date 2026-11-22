@@ -18,6 +18,7 @@ export const BARULHO_OP_ATTACK_B = 1;
 export const BARULHO_OP_SOFT_B = 2;
 export const BARULHO_OP_FADEOUT_SLASH = 3;
 export const BARULHO_OP_STOP_DOT = 4;
+export const BARULHO_OP_PARTNER_B = 5;
 export const BARULHO_OP_SHIFT = 11;
 export const BARULHO_OP_MASK = 0x7;
 

@@ -9,6 +9,7 @@ import { EngineTuning } from '../audio/engine/engineTuning';
 import { ALFAIA_INSTRUMENTS, TUNEABLE_INSTRUMENTS } from '../audio/engine/engineTypes';
 import { EngineVirtualStrokes } from '../audio/engine/engineVirtualStrokes';
 import { fetchAndDecodeAudioSample, normalizeCanonicalSampleKey } from '../audio/engine/sampleFetchUtils';
+import { computeLivePlayerVelocityBreathing } from '../audio/groove/strokeHumanizationDsp';
 import { computeBarulhoPartnerEntrySpreadSec } from '../audio/spatial/sectionBarulhoPhaseHelper';
 import { computeDeterministicStrokeJitterSec, resolveTrackSectionSpatialProfile } from '../audio/spatial/sectionSpatialAcoustics';
 import { COMPOSITE_RIM_LAYER_VELOCITY_SCALE } from '../audio/worklet/horizon/workletCompositeStrokeHelper';
@@ -44,6 +45,7 @@ export interface ScheduleOfflineBounceStrokeArgs {
   sampleCache: Map<string, AudioBuffer>; offlineRR: EngineRoundRobin; barulhoTracker: OfflineBarulhoPhraseTracker;
   packed: number; strokeSymbol: string; mIdx: number; circleStepIdx: number;
   triggerSec: number; stepVol: number; totalDurationSec: number;
+  isBeatHead?: boolean; partnerRank?: number; measureBpm?: number;
 }
 
 export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStrokeArgs): Promise<void> {
@@ -84,12 +86,16 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
   const isSecondStroke = (packed & 1) === 1;
   const stepSeed = mIdx * 64 + circleStepIdx * 2 + (isSecondStroke ? 1 : 0);
 
+  const partnerRank = a.partnerRank ?? 0;
   if (stroke.isBarulho) {
     const coord = packBarulhoOriginCoord(mIdx, circleStepIdx, isSecondStroke);
     const softSym = strokeSymbol === 'b' || (instId === 'apito' && strokeSymbol === 'l') ? 'b' : 'B';
     for (let k = 0; k < synthCount; k++) {
       const pSpec = spatial.isNeutralSolo ? undefined : spatial.players[k];
-      const trigK = Math.max(0, triggerSec + (pSpec ? pSpec.baseDelaySec + computeBarulhoPartnerEntrySpreadSec(k, synthCount) : 0));
+      const barSpread = pSpec
+        ? pSpec.baseDelaySec + computeBarulhoPartnerEntrySpreadSec(k, synthCount)
+        : (softSym === 'B' && partnerRank > 0 ? computeBarulhoPartnerEntrySpreadSec(partnerRank, partnerRank + 1) : 0);
+      const trigK = Math.max(0, triggerSec + barSpread);
       const vKey = k > 0 ? `${track.id}__p${k}` : track.id;
       if (instId === 'apito' && strokeSymbol !== 'l') {
         applyWebAudioTrackSkinPhysics(graph.activeVoicesByTrack.get(vKey), instId, strokeSymbol, trigK);
@@ -97,7 +103,7 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
       barulhoTracker.spawnOrUpdateBarulho(offlineCtx, graph, track.id, softSym, firstBuf, trigK, stepVol, coord, totalDurationSec, {
         isStudioCalibrated: isCalibrated, strokeBaseGain: stroke.baseGain ?? 1.0, instId,
         pitchRate: TUNEABLE_INSTRUMENTS.has(instId) ? basePitch * (pSpec?.pitchMul ?? 1.0) : 1.0,
-        rawSymbol: strokeSymbol, playerIdx: k, playerSpec: pSpec,
+        rawSymbol: strokeSymbol, playerIdx: k, partnerRank: softSym === 'B' ? partnerRank : 0, playerSpec: pSpec,
       });
     }
     return;
@@ -117,17 +123,18 @@ export async function scheduleOfflineBounceStroke(a: ScheduleOfflineBounceStroke
     const jitter = pSpec ? computeDeterministicStrokeJitterSec(track.id, k, stepSeed, synthCount, instId) : 0;
     const trigK = Math.max(0, triggerSec + (pSpec ? pSpec.baseDelaySec + jitter : 0));
     const pitchMul = pSpec?.pitchMul ?? 1.0;
+    const velK = computeLivePlayerVelocityBreathing(finalStepVol, mIdx + 1, track.id, k, stepSeed, Boolean(a.isBeatHead));
 
     barulhoTracker.chokeOnFrankStroke(track.id, instId, strokeSymbol, trigK, totalDurationSec, k);
-    scheduleOfflineStrokeHit(offlineCtx, graph, track, instId, strokeSymbol, bufK, basePitch * headNuance * pitchMul, trigK, finalStepVol, decayNorm, totalDurationSec, {
-      isStudioCalibrated: isCalibrated, forceShort80ms, strokeBaseGain: stroke.baseGain ?? 1.0, playerIdx: k, playerSpec: pSpec,
+    scheduleOfflineStrokeHit(offlineCtx, graph, track, instId, strokeSymbol, bufK, basePitch * headNuance * pitchMul, trigK, velK, decayNorm, totalDurationSec, {
+      isStudioCalibrated: isCalibrated, forceShort80ms, strokeBaseGain: stroke.baseGain ?? 1.0, playerIdx: k, measureBpm: a.measureBpm, playerSpec: pSpec,
     });
 
     if (rimStroke && rimIndices) {
       const rimBuf = await decodeSampleForOffline(offlineCtx, rimStroke.files[rimIndices[k] ?? rimIndices[0]] || rimStroke.files[0], sampleCache);
       if (rimBuf) {
-        scheduleOfflineStrokeHit(offlineCtx, graph, track, instId, rimStroke.symbol, rimBuf, basePitch * pitchMul, trigK, finalStepVol * COMPOSITE_RIM_LAYER_VELOCITY_SCALE, decayNorm, totalDurationSec, {
-          isStudioCalibrated: isCalibrated, strokeBaseGain: rimStroke.baseGain ?? 1.0, playerIdx: k, playerSpec: pSpec,
+        scheduleOfflineStrokeHit(offlineCtx, graph, track, instId, rimStroke.symbol, rimBuf, basePitch * pitchMul, trigK, velK * COMPOSITE_RIM_LAYER_VELOCITY_SCALE, decayNorm, totalDurationSec, {
+          isStudioCalibrated: isCalibrated, strokeBaseGain: rimStroke.baseGain ?? 1.0, playerIdx: k, measureBpm: a.measureBpm, playerSpec: pSpec,
         });
       }
     }

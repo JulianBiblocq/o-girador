@@ -94,11 +94,12 @@ export class AudioEngine implements HorizonEngineLike {
   public getIsPlaying(): boolean { return this.clock.isPlaying; } public getCurrentTime(): number { return this.audioContext.currentTime; }
   public getSampleRate(): number { return this.audioContext.sampleRate; } public getAudioContext(): AudioContext { return this.audioContext; }
   public waitForWorkletReady(): Promise<boolean> { return this.workletManager.init(this.audioContext, this.configMap, useSequencerStore.getState().tracks, this.sampleLoader.bufferPool); }
-  public syncTracksToWorklet(tracks: TrackGroup[]): void { this.workletManager.syncTracks(tracks); }
+  public syncTracksToWorklet(tracks: TrackGroup[], liveBpm?: number): void { this.workletManager.syncTracks(tracks, liveBpm); }
   public isTrackRoutedToWorklet(trackId: number | string, _instId: string): boolean { return this.workletManager.isReady && this.workletManager.hasWorkletSlot(trackId); }
   public getTrackSlot(trackId: number | string): number { return this.workletManager.slotRouter.getTrackSlot(trackId); }
   public getTrackUnisonDelaySec(trackId: number | string): number { return this.workletManager.trackSync.getTrackUnisonDelaySec(trackId); }
   public getTrackBalancoAdherence(trackId: number | string): number { return this.workletManager.trackSync.getTrackBalancoAdherence(trackId); }
+  public getTrackPartnerRank(trackId: number | string): number { return this.workletManager.trackSync.getTrackPartnerRank(trackId); }
   public getTrackPitchRatio(trackId: number | string): number { return this.workletManager.trackSync.getTrackPitchRatio(trackId); } public getTrackSpatialProfile(trackId: number | string) { return this.workletManager.trackSync.getTrackSpatialProfile(trackId); }
   public selectRoundRobinFile(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): string { return this.roundRobin.selectFile(instId, stroke, timeSec, trackId); } public selectRoundRobinFileIndex(instId: string, stroke: StrokeMapping, timeSec: number, trackId: number): number { return this.roundRobin.selectFileIndex(instId, stroke, timeSec, trackId); } public selectRoundRobinSquadIndices(instId: string, stroke: StrokeMapping, timeSec: number, count: number, trackId: number): number[] { return this.roundRobin.selectSquadFileIndices(instId, stroke, timeSec, count, trackId); }
   public getSampleId(filePath: string, isLoop = false): number { return this.workletManager.sampleBridge.getSampleId(filePath, isLoop); }

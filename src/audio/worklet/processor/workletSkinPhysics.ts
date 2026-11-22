@@ -34,19 +34,23 @@ export class WorkletSkinPhysicsSoa {
   public readonly lpStateL2 = new Float32Array(MAX_WORKLET_VOICES);
   public readonly lpStateR1 = new Float32Array(MAX_WORKLET_VOICES);
   public readonly lpStateR2 = new Float32Array(MAX_WORKLET_VOICES);
+  public readonly velLpAlpha = new Float32Array(MAX_WORKLET_VOICES);
+  public readonly velLpL = new Float32Array(MAX_WORKLET_VOICES);
+  public readonly velLpR = new Float32Array(MAX_WORKLET_VOICES);
 
   constructor() {
     this.duckGain.fill(1.0);
     this.duckTarget.fill(1.0);
   }
 
-  public initVoice(v: number, vClass: number): void {
+  public initVoice(v: number, vClass: number, vToneAlpha = 0): void {
     this.voiceClass[v] = vClass & VOICE_CLASS_MASK;
     this.duckGain[v] = 1.0; this.duckTarget[v] = 1.0;
     this.duckStartInBlock[v] = 0; this.duckFramesLeft[v] = 0; this.duckDelta[v] = 0;
     this.lpActive[v] = 0; this.lpStartInBlock[v] = 0; this.lpMixFramesLeft[v] = 0;
     this.lpMix[v] = 0; this.lpMixDelta[v] = 0;
     this.lpStateL1[v] = 0; this.lpStateL2[v] = 0; this.lpStateR1[v] = 0; this.lpStateR2[v] = 0;
+    this.velLpAlpha[v] = vToneAlpha > 0 ? vToneAlpha : 0; this.velLpL[v] = 0; this.velLpR[v] = 0;
   }
 
   public chokeSlot(

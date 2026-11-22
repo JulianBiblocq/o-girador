@@ -12,6 +12,7 @@ import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { isTrackMutedByPracticeMode } from '../../utils/practiceAudioMuteGuard';
 import { EngineTuning } from '../engine/engineTuning';
 import { computeSectionTemperamentMap, NEUTRAL_SECTION_TEMPERAMENT } from '../groove/sectionTemperament';
+import { computeAlfaiaHighBpmDecayNorm } from '../groove/strokeHumanizationDsp';
 import { resolveTrackSectionSpatialProfile, SectionSpatialProfile } from '../spatial/sectionSpatialAcoustics';
 import { MAX_WORKLET_OUTPUTS, MAX_WORKLET_PLAYERS_PER_SLOT, UpdateTrackSlotMessage } from './percussionWorkletTypes';
 import { WorkletMessagePortLike } from './percussionWorkletSampleBridge';
@@ -25,6 +26,7 @@ export class PercussionWorkletTrackSync {
   private readonly lastSpatialHash: string[] = new Array(MAX_WORKLET_OUTPUTS).fill('');
   private readonly trackUnisonDelaySec = new Map<number, number>();
   private readonly trackBalancoAdherence = new Map<number, number>();
+  private readonly trackPartnerRank = new Map<number, number>();
   private readonly trackPitchRatio = new Map<number, number>();
   private readonly trackInstrumentId = new Map<number, string>();
   private readonly trackSpatialProfile = new Map<number, SectionSpatialProfile>();
@@ -45,10 +47,11 @@ export class PercussionWorkletTrackSync {
 
   public syncTracks(
     port: WorkletMessagePortLike | null, tracks: TrackGroup[],
-    slotRouter: PercussionWorkletSlotRouter, configMap: Map<string, InstrumentAudioConfig>
+    slotRouter: PercussionWorkletSlotRouter, configMap: Map<string, InstrumentAudioConfig>, liveBpm?: number
   ): void {
     const soloPatternPlayId = useTransportStore.getState().soloPatternPlayId;
     const seqState = useSequencerStore.getState();
+    const effBpm = liveBpm && liveBpm > 0 ? liveBpm : (seqState.bpm || 100);
     const chorusAmount = getEffectiveSkinChorusAmount(seqState);
     const isEco = Boolean(seqState.isEcoMode);
     const familyCache = new Set<string>();
@@ -66,6 +69,7 @@ export class PercussionWorkletTrackSync {
       const temp = temperamentMap.get(trackId) ?? NEUTRAL_SECTION_TEMPERAMENT;
       this.trackUnisonDelaySec.set(trackId, temp.attackSpreadSec);
       this.trackBalancoAdherence.set(trackId, temp.balancoAdherence);
+      this.trackPartnerRank.set(trackId, temp.rank);
 
       const hasPanAuto = !isAutomationBypassed(track, 'pan', seqState.globalAutomationBypass) && hasActiveTrackAutomation(track, 'pan');
       const spatial = resolveTrackSectionSpatialProfile(track, instrumentId, isEco, hasPanAuto ? 0 : (track.panVal ?? track.pan ?? 0));
@@ -78,8 +82,7 @@ export class PercussionWorkletTrackSync {
       const slot = slotRouter.getTrackSlot(trackId);
       if (slot <= 0 || slot >= MAX_WORKLET_OUTPUTS) continue;
 
-      const rawDecay = track.trackDecay !== undefined ? track.trackDecay : 1.0;
-      const decayNorm = rawDecay <= 0 ? 1.0 : (rawDecay > 1 ? rawDecay / 100 : rawDecay);
+      const decayNorm = computeAlfaiaHighBpmDecayNorm(instrumentId, track.trackDecay, effBpm);
       const isPracticeMuted = soloPatternPlayId !== null ? false : isTrackMutedByPracticeMode(trackId, tracks, seqState, familyCache);
       const isMuted = (soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, trackId)) || isPracticeMuted;
       const mutedFlag = isMuted ? 1 : 0;
@@ -113,20 +116,21 @@ export class PercussionWorkletTrackSync {
 
   public getTrackUnisonDelaySec(trackId: number | string): number { return this.trackUnisonDelaySec.get(Number(trackId)) ?? 0; }
   public getTrackBalancoAdherence(trackId: number | string): number { return this.trackBalancoAdherence.get(Number(trackId)) ?? 1.0; }
+  public getTrackPartnerRank(trackId: number | string): number { return this.trackPartnerRank.get(Number(trackId)) ?? 0; }
   public getTrackPitchRatio(trackId: number | string): number { return this.trackPitchRatio.get(Number(trackId)) ?? 1.0; }
   public getTrackInstrumentId(trackId: number | string): string { return this.trackInstrumentId.get(Number(trackId)) ?? ''; }
   public getTrackSpatialProfile(trackId: number | string): SectionSpatialProfile | undefined { return this.trackSpatialProfile.get(Number(trackId)); }
 
   public releaseTrack(trackId: number | string): void {
     const numId = Number(trackId);
-    this.trackUnisonDelaySec.delete(numId); this.trackBalancoAdherence.delete(numId);
+    this.trackUnisonDelaySec.delete(numId); this.trackBalancoAdherence.delete(numId); this.trackPartnerRank.delete(numId);
     this.trackPitchRatio.delete(numId); this.trackInstrumentId.delete(numId);
     this.trackSpatialProfile.delete(numId);
   }
 
   public dispose(): void {
     this.resetDiffCache();
-    this.trackUnisonDelaySec.clear(); this.trackBalancoAdherence.clear();
+    this.trackUnisonDelaySec.clear(); this.trackBalancoAdherence.clear(); this.trackPartnerRank.clear();
     this.trackPitchRatio.clear(); this.trackInstrumentId.clear();
     this.trackSpatialProfile.clear();
   }

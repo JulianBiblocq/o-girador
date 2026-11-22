@@ -16,6 +16,7 @@ const TRIGGER_HISTORY_HORIZON_SEC = 0.140;
 export class EngineRoundRobin {
   public bagStates = new Map<string, ShuffleBagState>();
   public recentPoolTriggers = new Map<string, PoolTrigger[]>();
+  public lastFileByPlayerKey = new Map<string, number>();
 
   public static getSamplePoolKey(instrumentId: string, stroke: StrokeMapping): string {
     return stroke.files.length > 0 ? stroke.files.join('|') : `${instrumentId}_${stroke.symbol}`;
@@ -62,21 +63,26 @@ export class EngineRoundRobin {
 
     const drawn: number[] = [];
     for (let k = 0; k < requested; k++) {
-      let chosenIdx: number;
-      if (forbiddenIndices.size < numFiles) {
-        chosenIdx = drawFromShuffleBag(bagState, numFiles, forbiddenIndices);
-      } else {
-        // Sur-allocation rare (total voix simultanées > M fichiers) : choisit l'indice le moins sollicité
-        let bestIdx = 0;
-        let bestCount = usageCountInWindow[0];
-        for (let f = 1; f < numFiles; f++) {
-          if (usageCountInWindow[f] < bestCount) {
-            bestCount = usageCountInWindow[f];
-            bestIdx = f;
-          }
-        }
-        chosenIdx = bestIdx;
+      const playerKey = `${trackKey}__p${k}`;
+      const prevPlayerIdx = this.lastFileByPlayerKey.get(playerKey);
+      const playerForbidden = new Set(forbiddenIndices);
+      if (prevPlayerIdx !== undefined && numFiles >= 2 && (playerForbidden.has(prevPlayerIdx) || playerForbidden.size + 1 < numFiles)) {
+        playerForbidden.add(prevPlayerIdx);
       }
+
+      let chosenIdx: number;
+      if (playerForbidden.size < numFiles) {
+        chosenIdx = drawFromShuffleBag(bagState, numFiles, playerForbidden);
+      } else {
+        let bestIdx = -1;
+        let bestCount = Infinity;
+        for (let f = 0; f < numFiles; f++) {
+          if (numFiles >= 2 && f === prevPlayerIdx) continue;
+          if (usageCountInWindow[f] < bestCount) { bestCount = usageCountInWindow[f]; bestIdx = f; }
+        }
+        chosenIdx = bestIdx >= 0 ? bestIdx : 0;
+      }
+      this.lastFileByPlayerKey.set(playerKey, chosenIdx);
       forbiddenIndices.add(chosenIdx);
       usageCountInWindow[chosenIdx]++;
       triggers.push({ time, fileIdx: chosenIdx, trackKey });
@@ -85,6 +91,7 @@ export class EngineRoundRobin {
 
     if (this.bagStates.size > 2000) this.bagStates.clear();
     if (this.recentPoolTriggers.size > 500) this.recentPoolTriggers.clear();
+    if (this.lastFileByPlayerKey.size > 4000) this.lastFileByPlayerKey.clear();
 
     return drawn;
   }
@@ -119,5 +126,6 @@ export class EngineRoundRobin {
   public clear(): void {
     this.bagStates.clear();
     this.recentPoolTriggers.clear();
+    this.lastFileByPlayerKey.clear();
   }
 }

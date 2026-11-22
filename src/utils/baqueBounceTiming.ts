@@ -7,8 +7,9 @@
 import {
   NEUTRAL_SECTION_TEMPERAMENT, resolveTrackSectionTemperament, type SectionTrackTemperament,
 } from '../audio/groove/sectionTemperament';
-import { computePercussionNoteSwing, resolveActivePatternForMeasure } from '../hooks/audio-sync/percussionSwingHelper';
+import { computePercussionNoteSwing, resolveActivePatternForMeasure, resolveStepBeatInfo } from '../hooks/audio-sync/percussionSwingHelper';
 import type { GlobalSwing } from '../types';
+import { getRodaStepDurationTicks } from './rodaTimeSigGeometry';
 
 export interface BaqueCycleTimingParams {
   totalMeasures: number;
@@ -28,6 +29,8 @@ export interface BaqueCycleTimingResult {
   measureStartsSec: number[];
   measureDurationsSec: number[];
   measureTicks: number[];
+  measureTimeSigs?: string[];
+  measureBpms?: number[];
 }
 
 export function formatBaqueBounceFilename(rhythmName: string | undefined, bpm: number): string {
@@ -41,6 +44,7 @@ export function computeBaqueCycleTiming(params: BaqueCycleTimingParams): BaqueCy
   const bpm = Math.max(20, Number(params.bpm) || 88);
   const sampleRate = Math.max(8000, Math.round(Number(params.sampleRate) || 44100));
   const measureStartsSec: number[] = [], measureDurationsSec: number[] = [], measureTicks: number[] = [];
+  const measureTimeSigs: string[] = [], measureBpms: number[] = [];
   let accumSec = 0;
 
   for (let m = 0; m < totalMeasures; m++) {
@@ -52,13 +56,15 @@ export function computeBaqueCycleTiming(params: BaqueCycleTimingParams): BaqueCy
     measureStartsSec.push(accumSec);
     measureDurationsSec.push(durSec);
     measureTicks.push(beats * (96 / unit));
+    measureTimeSigs.push(sig);
+    measureBpms.push(mBpm);
     accumSec += durSec;
   }
 
   return {
     totalMeasures, bpm, sampleRate, totalDurationSec: accumSec,
     exactTotalSamples: Math.round(accumSec * sampleRate),
-    measureStartsSec, measureDurationsSec, measureTicks,
+    measureStartsSec, measureDurationsSec, measureTicks, measureTimeSigs, measureBpms,
   };
 }
 
@@ -88,22 +94,29 @@ export function resolveBounceNoteTrigger(
   absTick: number, packed: number, microPct: number, track: any, allTracks: any[],
   _instId: string, timing: BaqueCycleTimingResult, globalSwing: GlobalSwing,
   temperamentMap?: ReadonlyMap<number, SectionTrackTemperament>
-): { mIdx: number; circleStepIdx: number; triggerSec: number } {
+): { mIdx: number; circleStepIdx: number; triggerSec: number; isBeatHead: boolean; partnerRank: number; measureBpm: number } {
   const mIdx = resolveMeasureIndexAtTick(absTick, timing);
+  let tickInMeasure = Math.max(0, absTick);
+  for (let k = 0; k < mIdx; k++) tickInMeasure -= (timing.measureTicks[k] || 96);
   const mTicks = timing.measureTicks[mIdx] || 96, tick96nSec = (timing.measureDurationsSec[mIdx] || 2) / mTicks;
+  const timeSig = timing.measureTimeSigs?.[mIdx] || '4/4';
+  const measureBpm = timing.measureBpms?.[mIdx] || timing.bpm;
   const activePattern = resolveActivePatternForMeasure(track, allTracks, mIdx, null);
-  const circleStepIdx = (packed >>> 16) & 0x3F, isTuplet = ((packed >>> 1) & 1) === 1;
+  const circleStepIdx = (packed >>> 16) & 0x3F, isTuplet = ((packed >>> 1) & 1) === 1, isSecondStroke = (packed & 1) === 1;
+  const stepDurationSec = tick96nSec * getRodaStepDurationTicks(timeSig, activePattern, circleStepIdx);
   const temp = temperamentMap
     ? (temperamentMap.get(Number(track.id)) ?? NEUTRAL_SECTION_TEMPERAMENT)
     : resolveTrackSectionTemperament(track, allTracks);
+  const swingJitter = ((((((mIdx + 1) * 31 + tickInMeasure) * 17 + Number(track.id)) & 0xFF) / 255) * 0.06 - 0.03) * stepDurationSec;
   const swingSec = computePercussionNoteSwing({
-    activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter: 0,
-    globalMode: globalSwing.mode, globalSwing, stepDurationSec: tick96nSec * 6,
-    balancoAdherence: temp.balancoAdherence,
+    activePattern, liveTrack: track, circleStepIdx, isTuplet, swingJitter,
+    globalMode: globalSwing.mode, globalSwing, stepDurationSec,
+    balancoAdherence: temp.balancoAdherence, timeSig,
   });
-  const microSec = (microPct / 100) * (tick96nSec * (mTicks / (activePattern ? activePattern.steps : 16))) * 0.5;
+  const microSec = (microPct / 100) * stepDurationSec * 0.5;
+  const isBeatHead = !isSecondStroke && resolveStepBeatInfo(circleStepIdx, activePattern, timeSig).posInBeat === 0;
   return {
-    mIdx, circleStepIdx,
+    mIdx, circleStepIdx, isBeatHead, partnerRank: temp.rank, measureBpm,
     triggerSec: tickToTimeSec(absTick, timing) + swingSec + microSec + temp.attackSpreadSec,
   };
 }

@@ -10,29 +10,29 @@ import { TrackGroup } from '../../types';
 import { getDrumNaturalBaseHz } from '../../utils/audio/drumFundamentalRegistry';
 import { DEFAULT_SIGNATURE_TUNINGS, LutherieDrumRole } from '../../utils/audio/lutherieFactoryPresets';
 
-export const NON_CHORUS_INSTRUMENTS = new Set(['agbe', 'mineiro', 'apito']);
+export const NON_CHORUS_INSTRUMENTS = new Set(['agbe', 'mineiro', 'apito', 'gongue']);
 
-/** Calibrage cible en cents à `chorusAmount = 1.0` (`100 %`) sur la base Do Majeur. */
+/** Calibrage cible en cents à `chorusAmount = 1.0` (`100 %`) sur la base Do Majeur (Gonguê verrouillé à 0 cent). */
 export const SKIN_CHORUS_MAX_CENTS_BY_ROLE: Record<LutherieDrumRole, number> = {
   marcante: 20,
   meiao: 20,
-  repique: 21,
-  caixa: 22,
-  tarol: 22,
-  timbal: 21,
-  gongue: 14,
+  repique: 19,
+  caixa: 16,
+  tarol: 16,
+  timbal: 18,
+  gongue: 0,
 };
 
-const SYMMETRIC_SLOTS_2 = [-1, 1] as const;
-const SYMMETRIC_SLOTS_3 = [-1, 0, 1] as const;
-const SYMMETRIC_SLOTS_4 = [-1, -0.35, 0.35, 1] as const;
+const ASYMMETRIC_SLOTS_2 = [-0.92, 0.71] as const;
+const ASYMMETRIC_SLOTS_3 = [-0.96, -0.11, 0.79] as const;
+const ASYMMETRIC_SLOTS_4 = [-1.0, -0.29, 0.41, 0.86] as const;
 
 export function getSymmetricSlotFactor(index: number, totalCount: number): number {
   if (totalCount <= 1 || index < 0 || index >= totalCount) return 0;
-  if (totalCount === 2) return SYMMETRIC_SLOTS_2[index];
-  if (totalCount === 3) return SYMMETRIC_SLOTS_3[index];
-  if (totalCount === 4) return SYMMETRIC_SLOTS_4[index];
-  const f = -1 + (2 * index) / (totalCount - 1);
+  if (totalCount === 2) return ASYMMETRIC_SLOTS_2[index];
+  if (totalCount === 3) return ASYMMETRIC_SLOTS_3[index];
+  if (totalCount === 4) return ASYMMETRIC_SLOTS_4[index];
+  const f = -0.95 + (1.81 * index) / (totalCount - 1);
   return Math.abs(f) < 1e-9 ? 0 : f;
 }
 

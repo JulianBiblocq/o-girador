@@ -23,8 +23,9 @@ const memStore = new Map<string, string>();
 };
 {
   const mcCfg: any = { id: 'marcante', name: 'Marcante', strokes: [], macroPitch: 1.0, calibratedStudioBank: true };
-  const singleGongue: any[] = [{ id: 10, instrumentIdx: 5, tuning: -1.0 }];
-  assert.equal(computeTrackSkinChorusCents('gongue', singleGongue[0], singleGongue as any, -1.0, 0.75), 0);
+  const multiGongues: any[] = [{ id: 10, instrumentIdx: 5, tuning: -1.0 }, { id: 20, instrumentIdx: 5, tuning: -1.0 }];
+  assert.equal(computeTrackSkinChorusCents('gongue', multiGongues[0], multiGongues as any, -1.0, 1.0), 0);
+  assert.equal(computeTrackSkinChorusCents('gongue', multiGongues[1], multiGongues as any, -1.0, 1.0), 0);
 
   const fourMarcantes: any[] = [
     { id: 40, instrumentIdx: 0, tuning: -1.5 },
@@ -35,9 +36,9 @@ const memStore = new Map<string, string>();
   const cents4 = [10, 20, 30, 40].map((id) =>
     computeTrackSkinChorusCents('marcante', fourMarcantes.find((t) => t.id === id)!, fourMarcantes as any, -1.5, 0.75)
   );
-  assert.ok(Math.abs(cents4[0] - -15) < 0.05 && Math.abs(cents4[3] - 15) < 0.05, 'Outer pair must be ±15 cents at 75%');
-  assert.ok(Math.abs(cents4[1] - -5.25) < 0.05 && Math.abs(cents4[2] - 5.25) < 0.05, 'Inner pair must be ±0.35 * 15 cents');
-  assert.ok(Math.abs(cents4.reduce((a, b) => a + b, 0)) < 1e-9, 'Algebraic center must be strictly 0.0 cents');
+  assert.ok(Math.abs(cents4[0] - -15) < 0.05 && Math.abs(cents4[3] - 12.9) < 0.05, 'Outer pair must be asymmetric [-15, +12.9] cents at 75%');
+  assert.ok(Math.abs(cents4[1] - -4.35) < 0.05 && Math.abs(cents4[2] - 6.15) < 0.05, 'Inner pair must be asymmetric [-4.35, +6.15] cents');
+  assert.ok(Math.abs(cents4[0] + cents4[3]) > 1.5, 'Asymmetric spread must avoid mirror beating');
 
   const mutedVariant = fourMarcantes.map((t, i) => ({ ...t, isMute: i < 2, isSolo: i === 2, isHidden: i === 3 }));
   for (const id of [10, 20, 30, 40]) {
