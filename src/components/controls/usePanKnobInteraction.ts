@@ -1,11 +1,16 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import { usePanAudioAndMidi } from './usePanAudioAndMidi';
-import { calculatePanFromDelta, UsePanKnobInteractionProps } from './panKnobMath';
+import {
+  calculatePanFromDelta,
+  syncPanKnobVisualDom,
+  UsePanKnobInteractionProps,
+} from './panKnobMath';
 
 export function usePanKnobInteraction({
   trackId,
   value,
   defaultValue = 0,
+  lang = 'pt',
   onChange,
   panKnobRef,
   memberTicks,
@@ -14,6 +19,8 @@ export function usePanKnobInteraction({
   onChangeRef.current = onChange;
   const memberTicksRef = useRef(memberTicks);
   memberTicksRef.current = memberTicks;
+  const langRef = useRef(lang);
+  langRef.current = lang;
 
   const isDraggingRef = useRef(false);
   const startYRef = useRef(0);
@@ -23,45 +30,41 @@ export function usePanKnobInteraction({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const arcPathRef = useRef<SVGPathElement>(null);
+  const cartoucheRef = useRef<HTMLSpanElement>(null);
   const rotationGroupRef = useRef<SVGGElement>(null);
   const tickGroupRefs = useRef<Array<SVGGElement | null>>([]);
 
-  const setRotationRef = (el: SVGGElement | null) => {
+  const setRotationRef = useCallback((el: SVGGElement | null) => {
     (rotationGroupRef as React.MutableRefObject<SVGGElement | null>).current = el;
     if (panKnobRef) {
       (panKnobRef as React.MutableRefObject<SVGGElement | null>).current = el;
     }
-  };
+  }, [panKnobRef]);
 
   const setTickGroupRef = useCallback((idx: number, el: SVGGElement | null) => {
     tickGroupRefs.current[idx] = el;
   }, []);
 
   const updateVisuals = useCallback((val: number) => {
-    if (rotationGroupRef.current) {
-      rotationGroupRef.current.style.transform = '';
-      rotationGroupRef.current.setAttribute('transform', `rotate(${val * 1.35} 16 16)`);
-    }
-    const ticks = memberTicksRef.current;
-    if (ticks && ticks.length > 0) {
-      for (let i = 0; i < ticks.length; i++) {
-        const g = tickGroupRefs.current[i];
-        if (!g) continue;
-        const clamped = Math.max(-100, Math.min(100, ticks[i].baseOffset + val));
-        g.setAttribute('transform', `rotate(${clamped * 1.35} 16 16)`);
-      }
-    }
-    if (inputRef.current) {
-      inputRef.current.value = String(val);
-      inputRef.current.title = `Pan: ${val === 0 ? 'Centro' : val > 0 ? 'D' + val : 'E' + Math.abs(val)}`;
-    }
+    syncPanKnobVisualDom(
+      val,
+      langRef.current,
+      rotationGroupRef.current,
+      arcPathRef.current,
+      cartoucheRef.current,
+      inputRef.current,
+      containerRef.current,
+      memberTicksRef.current,
+      tickGroupRefs.current
+    );
   }, []);
 
   const { updateAudio } = usePanAudioAndMidi(trackId, updateVisuals);
 
   useEffect(() => {
     if (!isDraggingRef.current) updateVisuals(value);
-  }, [value, memberTicks, updateVisuals]);
+  }, [value, lang, memberTicks, updateVisuals]);
 
   const resetToDefault = () => {
     const resetVal = defaultValue !== undefined ? defaultValue : 0;
@@ -124,7 +127,7 @@ export function usePanKnobInteraction({
   };
 
   return {
-    containerRef, inputRef, setRotationRef, setTickGroupRef,
+    containerRef, inputRef, arcPathRef, cartoucheRef, setRotationRef, setTickGroupRef,
     handlePointerDown, handlePointerMove, handlePointerUp, resetToDefault, handleInputChange,
   };
 }

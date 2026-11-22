@@ -1,6 +1,8 @@
 import { TrackGroup } from '../../../types';
+import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { interpolateAutomationValue } from '../../../utils/automationMath';
 import { faderPositionToDbString, setFaderThumbPercent } from '../../../utils/audioMath';
+import { syncMotorizedPanDomElement } from '../../controls/panKnobMath';
 
 export function applyMotorizedTick({
   t,
@@ -51,10 +53,7 @@ export function applyMotorizedTick({
     const rawEnd = t.measurePans[currentM] !== undefined ? t.measurePans[currentM] : manualPan;
     const trans = t.measurePanTransitions?.[currentM] || 'immediate';
     const interpPan = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
-    if (panKnobEl) {
-      panKnobEl.style.transform = '';
-      panKnobEl.setAttribute('transform', `rotate(${interpPan * 1.35} 16 16)`);
-    }
+    syncMotorizedPanDomElement(panKnobEl, interpPan, useSequencerStore.getState().lang);
   }
 
   if (isRevActive && t.measureReverbSends && t.measureReverbSends.length > 0) {

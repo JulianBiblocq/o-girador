@@ -86,11 +86,12 @@ export function resizeSectionPlayers(
 }
 
 export function formatPlayerAcousticReadout(
-  x: number, _y: number, trackPanVal?: number | null, playerVolVal?: number, playerPanVal?: number
+  x: number, _y: number, trackPanVal?: number | null, playerVolVal?: number, playerPanVal?: number, lang = 'pt'
 ): string {
   const pan = computePlayerCombinedPan(x, trackPanVal, playerPanVal);
   const pct = Math.round(Math.abs(pan / MAX_ACOUSTIC_PAN) * 100);
-  const panStr = pct <= 2 ? 'C' : pan < 0 ? `E${pct}` : `D${pct}`;
+  const leftPrefix = lang === 'fr' ? 'G' : 'E';
+  const panStr = pct <= 2 ? 'C' : pan < 0 ? `${leftPrefix}${pct}` : `D${pct}`;
   const db = faderPositionToDb(playerVolVal ?? 75);
   return `${panStr} • ${!Number.isFinite(db) ? '-∞' : `${db >= 0 ? '+' : ''}${db.toFixed(1)} dB`}`;
 }

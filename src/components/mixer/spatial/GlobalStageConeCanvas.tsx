@@ -1,13 +1,15 @@
 /**
- * GlobalStageConeCanvas.tsx — Cône 140° bidirectionnel « La Place » (Bulle d'Espace Vital + Arc 0 dB) (< 138 lignes).
+ * GlobalStageConeCanvas.tsx — Cône 140° bidirectionnel « La Place » (Maîtres ◆, Esclaves ↳, Fils SVG & Pan Permanent) (< 132 lignes).
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
-import { CONE_MAX_RAD, CONE_MIN_RAD } from '../../wizard/wizardStageGeometry';
+import { formatPanCartouche } from '../../controls/panKnobMath';
 import {
-  dbToStageRadiusNorm, repelDraggedPawnFromNeighbors, resolveRestVisualPositions,
-  STAGE_ZERO_DB_RADIUS_NORM, stagePointPxToMixParams,
+  repelDraggedPawnFromNeighbors,
+  resolveRestVisualPositions,
+  stagePointPxToMixParams,
 } from '../../../utils/stagePlaceBidirectionalMath';
+import { GlobalStageLinksSvg } from './GlobalStageLinksSvg';
 import type { GlobalStagePawnItem } from './globalStagePawnModel';
 
 interface GlobalStageConeCanvasProps {
@@ -19,8 +21,7 @@ interface GlobalStageConeCanvasProps {
   onUpdatePawnMix: (pawn: GlobalStagePawnItem, nextPan: number, nextFaderDb: number, nextFaderPos: number, isFinal: boolean) => void;
 }
 
-const MIN_VITAL_SEP_PX = 38;
-const DB_ARCS = [6, 0, -6, -12, -18] as const;
+const MIN_VITAL_SEP_PX = 40;
 
 export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
   pawns, widthPx: W, heightPx: H, isFr, onDragStart, onUpdatePawnMix,
@@ -28,6 +29,7 @@ export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
   const boxRef = useRef<HTMLDivElement>(null);
   const dragIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const lang = isFr ? 'fr' : 'pt';
 
   const visualPawns = useMemo(
     () => resolveRestVisualPositions(pawns, MIN_VITAL_SEP_PX, W, H),
@@ -68,7 +70,6 @@ export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
   };
 
   const activePawn = activeId ? visualPawns.find((p) => p.id === activeId) : null;
-  const coneLen = Math.max(W, H) * 1.35;
 
   return (
     <div
@@ -76,32 +77,18 @@ export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
       style={{ width: `${W}px`, height: `${H}px` }}
       className="relative bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-3 border-[var(--cordel-border-strong)] shadow-[4px_4px_0_var(--cordel-shadow-color)] overflow-hidden select-none touch-none mx-auto"
     >
-      <svg className="absolute inset-0 pointer-events-none text-[var(--cordel-text)]" width={W} height={H}>
-        <line x1={W / 2} y1={H} x2={W / 2} y2={0} stroke="currentColor" strokeWidth="1.2" strokeOpacity="0.2" strokeDasharray="4 4" />
-        <line x1={W / 2} y1={H} x2={W / 2 + coneLen * Math.cos(CONE_MAX_RAD)} y2={H - coneLen * Math.sin(CONE_MAX_RAD)} stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.34" />
-        <line x1={W / 2} y1={H} x2={W / 2 + coneLen * Math.cos(CONE_MIN_RAD)} y2={H - coneLen * Math.sin(CONE_MIN_RAD)} stroke="currentColor" strokeWidth="1.8" strokeOpacity="0.34" />
-        {DB_ARCS.map((db) => {
-          const rNorm = db === 0 ? STAGE_ZERO_DB_RADIUS_NORM : dbToStageRadiusNorm(db);
-          const r = H * rNorm, isZero = db === 0;
-          const x1 = W / 2 + r * Math.cos(CONE_MIN_RAD), y1 = H - r * Math.sin(CONE_MIN_RAD);
-          const x2 = W / 2 + r * Math.cos(CONE_MAX_RAD), y2 = H - r * Math.sin(CONE_MAX_RAD);
-          return (
-            <g key={db}>
-              <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`} fill="none" stroke={isZero ? 'var(--cordel-wood)' : 'currentColor'} strokeWidth={isZero ? '2' : '1'} strokeOpacity={isZero ? '0.65' : '0.2'} strokeDasharray={isZero ? '0' : '3 3'} />
-              <text x={W / 2 + 6} y={Math.max(12, H - r - 3)} fill={isZero ? 'var(--cordel-wood)' : 'currentColor'} fontSize="9" fontWeight="bold" opacity={isZero ? '0.9' : '0.45'}>{db > 0 ? `+${db}` : db} dB</text>
-            </g>
-          );
-        })}
-      </svg>
+      <GlobalStageLinksSvg visualPawns={visualPawns} activeId={activeId} widthPx={W} heightPx={H} lang={lang} />
 
       {activePawn && (
         <div data-testid="global-stage-readout" className="absolute top-2 left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 border-2 border-[var(--cordel-ink-dark)] bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] font-mono text-[11px] font-bold shadow-[2px_2px_0_var(--cordel-ink-dark)] pointer-events-none whitespace-nowrap">
-          {activePawn.fullLabel} • {activePawn.panVal === 0 ? 'C' : activePawn.panVal < 0 ? `E${Math.abs(activePawn.panVal)}` : `D${activePawn.panVal}`} • {activePawn.faderDb >= 0 ? `+${activePawn.faderDb.toFixed(1)}` : activePawn.faderDb.toFixed(1)} dB
+          {activePawn.fullLabel} • {formatPanCartouche(activePawn.panVal, lang)} • {activePawn.faderDb >= 0 ? `+${activePawn.faderDb.toFixed(1)}` : activePawn.faderDb.toFixed(1)} dB
         </div>
       )}
 
       {visualPawns.map((p) => {
         const isCur = activeId === p.id;
+        const isLeaderOrMaster = p.roleKind === 'master' || p.roleKind === 'squad-leader';
+        const panStr = formatPanCartouche(p.panVal, lang);
         return (
           <div
             key={p.id} data-testid={`global-stage-pawn-${p.id}`}
@@ -112,10 +99,26 @@ export const GlobalStageConeCanvas: React.FC<GlobalStageConeCanvasProps> = ({
             style={{ left: `${(p.visualX / W) * 100}%`, top: `${(p.visualY / H) * 100}%`, transform: 'translate(-50%, -50%)' }}
             className={`absolute w-11 h-11 rounded-full border-2 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none touch-none shadow-[2px_2px_0_var(--cordel-shadow-color)] ${
               p.isMuted ? 'opacity-40' : ''
-            } ${isCur ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-ink-dark)] z-25' : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-[var(--cordel-ink-dark)] z-20'}`}
+            } ${isLeaderOrMaster ? 'ring-2 ring-[var(--cordel-wood)]' : ''} ${
+              isCur ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-ink-dark)] z-25' : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-[var(--cordel-ink-dark)] z-20'
+            }`}
           >
-            <img src={p.iconUrl} alt="" className="w-4 h-4 object-contain pointer-events-none" />
-            <span className="font-mono text-[8px] font-black leading-none mt-0.5 truncate max-w-[38px]">{p.shortLabel}</span>
+            {p.roleKind === 'master' && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1 py-px bg-[var(--cordel-ink-dark)] text-[var(--cordel-parchment-bg)] font-mono text-[7px] font-black leading-none flex items-center gap-0.5 pointer-events-none">
+                <svg className="w-1.5 h-1.5" viewBox="0 0 8 8"><polygon points="4,0.4 7.6,4 4,7.6 0.4,4" fill="currentColor" /></svg>
+                <span>M</span>
+              </span>
+            )}
+            {p.roleKind === 'slave' && p.masterShortCode && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1 py-px bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border border-[var(--cordel-ink-dark)] font-mono text-[6.5px] font-black leading-none pointer-events-none">
+                {p.masterShortCode}
+              </span>
+            )}
+            <img src={p.iconUrl} alt="" className="w-3.5 h-3.5 object-contain pointer-events-none" />
+            <span className="font-mono text-[7.5px] font-black leading-none mt-0.5 truncate max-w-[38px]">{p.shortLabel}</span>
+            <span data-testid={`pawn-pan-pill-${p.id}`} className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-1 py-px bg-[var(--cordel-ink-dark)] text-[var(--cordel-parchment-bg)] font-mono text-[7px] font-black leading-none pointer-events-none whitespace-nowrap">
+              {panStr}
+            </span>
             {(p.lockVol || p.lockPan) && <Lock size={8} className="absolute -top-1 -right-1 text-[var(--cordel-wood)] bg-[var(--cordel-parchment-bg)] rounded-full" />}
           </div>
         );

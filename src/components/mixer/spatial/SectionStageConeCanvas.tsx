@@ -1,5 +1,5 @@
 /**
- * SectionStageConeCanvas.tsx — Mini-cône 120° interactif « La Place » (clamping polaire identique au Wizard) (< 125 lignes).
+ * SectionStageConeCanvas.tsx — Mini-cône 140° interactif « La Place » (Fils #1 ↔ #2..#N & G/C/D FR vs E/C/D BR) (< 125 lignes).
  */
 import React, { useRef, useState } from 'react';
 import type { SectionPlayerPlacement } from '../../../types';
@@ -19,26 +19,22 @@ const STAGE_H = 184;
 const CONE_LEN = 310;
 
 export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
-  players,
-  trackPanVal,
-  isFr,
-  onDragStart,
-  onMovePlayer,
+  players, trackPanVal, isFr, onDragStart, onMovePlayer,
 }) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const dragIdxRef = useRef<number | null>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const lang = isFr ? 'fr' : 'pt';
+  const leader = players[0];
+  const activePlayer = activeIdx !== null ? players[activeIdx] : null;
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, idx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragIdxRef.current = idx;
-    setActiveIdx(idx);
-    onDragStart();
+  const handleDown = (e: React.PointerEvent<HTMLDivElement>, idx: number) => {
+    e.preventDefault(); e.stopPropagation();
+    dragIdxRef.current = idx; setActiveIdx(idx); onDragStart();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>, idx: number) => {
+  const handleMove = (e: React.PointerEvent<HTMLDivElement>, idx: number) => {
     if (dragIdxRef.current !== idx || !stageRef.current) return;
     const rect = stageRef.current.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
@@ -46,18 +42,15 @@ export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
     onMovePlayer(idx, Math.round(clamped.x * 10) / 10, Math.round(clamped.y * 10) / 10);
   };
 
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>, idx: number) => {
+  const handleUp = (e: React.PointerEvent<HTMLDivElement>, idx: number) => {
     if (dragIdxRef.current !== idx) return;
     dragIdxRef.current = null;
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
   };
 
-  const activePlayer = activeIdx !== null ? players[activeIdx] : null;
-
   return (
     <div
-      ref={stageRef}
-      data-testid="section-stage-cone-canvas"
+      ref={stageRef} data-testid="section-stage-cone-canvas"
       style={{ width: `${STAGE_W}px`, height: `${STAGE_H}px` }}
       className="relative bg-[var(--cordel-surface)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border-strong)] rounded-xs overflow-hidden select-none touch-none shrink-0"
     >
@@ -67,22 +60,23 @@ export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
         <line x1={STAGE_W / 2} y1={STAGE_H} x2={STAGE_W / 2 + CONE_LEN * Math.cos(CONE_MIN_RAD)} y2={STAGE_H - CONE_LEN * Math.sin(CONE_MIN_RAD)} stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.32" />
         {[0.25, 0.5, 0.75, 1.0].map((ratio) => {
           const r = STAGE_H * ratio;
-          const x1 = STAGE_W / 2 + r * Math.cos(CONE_MIN_RAD);
-          const y1 = STAGE_H - r * Math.sin(CONE_MIN_RAD);
-          const x2 = STAGE_W / 2 + r * Math.cos(CONE_MAX_RAD);
-          const y2 = STAGE_H - r * Math.sin(CONE_MAX_RAD);
+          const x1 = STAGE_W / 2 + r * Math.cos(CONE_MIN_RAD), y1 = STAGE_H - r * Math.sin(CONE_MIN_RAD);
+          const x2 = STAGE_W / 2 + r * Math.cos(CONE_MAX_RAD), y2 = STAGE_H - r * Math.sin(CONE_MAX_RAD);
           return (
             <path
-              key={ratio}
-              d={`M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={ratio === 1.0 ? '1.6' : '1'}
-              strokeOpacity={ratio === 1.0 ? '0.4' : '0.18'}
-              strokeDasharray={ratio === 1.0 ? '0' : '3 3'}
+              key={ratio} d={`M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`} fill="none" stroke="currentColor"
+              strokeWidth={ratio === 1.0 ? '1.6' : '1'} strokeOpacity={ratio === 1.0 ? '0.4' : '0.18'} strokeDasharray={ratio === 1.0 ? '0' : '3 3'}
             />
           );
         })}
+        {leader && players.length > 1 && players.slice(1).map((p, idx) => (
+          <line
+            key={p.id || idx}
+            x1={(leader.x / 100) * STAGE_W} y1={(leader.y / 100) * STAGE_H}
+            x2={(p.x / 100) * STAGE_W} y2={(p.y / 100) * STAGE_H}
+            stroke="var(--cordel-wood)" strokeWidth="1.1" strokeOpacity="0.6" strokeDasharray="2.5 2.5"
+          />
+        ))}
       </svg>
 
       {activePlayer && activeIdx !== null && (
@@ -90,26 +84,23 @@ export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
           data-testid="section-player-readout-tooltip"
           className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 px-2 py-0.5 rounded-xs border border-[var(--cordel-border-strong)] bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] font-mono text-[10px] font-bold shadow-xs pointer-events-none whitespace-nowrap"
         >
-          #{activeIdx + 1} • {formatPlayerAcousticReadout(activePlayer.x, activePlayer.y, trackPanVal, activePlayer.volumeVal, activePlayer.panVal)}
+          #{activeIdx + 1} • {formatPlayerAcousticReadout(activePlayer.x, activePlayer.y, trackPanVal, activePlayer.volumeVal, activePlayer.panVal, lang)}
         </div>
       )}
 
       {players.map((p, idx) => {
-        const readout = formatPlayerAcousticReadout(p.x, p.y, trackPanVal, p.volumeVal, p.panVal);
+        const readout = formatPlayerAcousticReadout(p.x, p.y, trackPanVal, p.volumeVal, p.panVal, lang);
         const isCurrent = activeIdx === idx;
         return (
           <div
-            key={p.id || idx}
-            data-testid={`section-stage-pion-${idx + 1}`}
-            title={`#${idx + 1} (${readout})`}
-            onPointerEnter={() => setActiveIdx(idx)}
-            onPointerLeave={() => { if (dragIdxRef.current === null) setActiveIdx(null); }}
-            onPointerDown={(e) => handlePointerDown(e, idx)}
-            onPointerMove={(e) => handlePointerMove(e, idx)}
-            onPointerUp={(e) => handlePointerUp(e, idx)}
-            onPointerCancel={(e) => handlePointerUp(e, idx)}
+            key={p.id || idx} data-testid={`section-stage-pion-${idx + 1}`} title={`#${idx + 1} (${readout})`}
+            onPointerEnter={() => setActiveIdx(idx)} onPointerLeave={() => { if (dragIdxRef.current === null) setActiveIdx(null); }}
+            onPointerDown={(e) => handleDown(e, idx)} onPointerMove={(e) => handleMove(e, idx)}
+            onPointerUp={(e) => handleUp(e, idx)} onPointerCancel={(e) => handleUp(e, idx)}
             style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
             className={`absolute w-7 h-7 rounded-full border-2 flex items-center justify-center font-mono text-[11px] font-black cursor-grab active:cursor-grabbing select-none touch-none z-20 shadow-[1px_1px_0_var(--cordel-shadow-color)] ${
+              idx === 0 ? 'ring-2 ring-[var(--cordel-wood)]' : ''
+            } ${
               isCurrent
                 ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] border-[var(--cordel-border-strong)] z-25'
                 : 'bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] border-[var(--cordel-ink-dark)]'
@@ -124,7 +115,7 @@ export const SectionStageConeCanvas: React.FC<SectionStageConeCanvasProps> = ({
         style={{ left: '50%', top: '100%', transform: 'translate(-50%, -50%)' }}
         className="absolute px-2 py-0.5 pb-2.5 rounded-full border-2 border-[var(--cordel-wood)] bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] text-[8px] font-cactus font-bold uppercase tracking-wider pointer-events-none select-none z-10"
       >
-        {isFr ? 'Mestre' : 'Mestre'}
+        Mestre
       </div>
     </div>
   );

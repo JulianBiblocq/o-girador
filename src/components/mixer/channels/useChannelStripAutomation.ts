@@ -1,8 +1,10 @@
 import { useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 import { TrackGroup } from '../../../types';
+import { useSequencerStore } from '../../../stores/useSequencerStore';
 import { faderPositionToDbString, sanitizeFaderPosition, setFaderThumbPercent } from '../../../utils/audioMath';
 import { getLastAudibleTick } from '../../../audio/visualTickBuffer';
+import { syncMotorizedPanDomElement } from '../../controls/panKnobMath';
 import { applyMotorizedTick } from './motorizedTickHelper';
 
 interface UseChannelStripAutomationProps {
@@ -48,8 +50,7 @@ export function useChannelStripAutomation({
     }
     if (resetPan && panKnobRef.current) {
       const manualPan = t.panVal ?? t.pan ?? 0;
-      panKnobRef.current.style.transform = '';
-      panKnobRef.current.setAttribute('transform', `rotate(${manualPan * 1.35} 16 16)`);
+      syncMotorizedPanDomElement(panKnobRef.current, manualPan, useSequencerStore.getState().lang);
     }
     if (resetRev && reverbGaugeRef.current) {
       const manualRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;

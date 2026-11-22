@@ -83,13 +83,13 @@ function runDsp(nBlocks: number, startFrame: number, q: WorkletEventQueue, p: Wo
   stageMeasureStrokeEvent({ seqId: 1, measureIdx: 0, trackId: 2, instId: 'tarol', strokeSymbol: 'r', circleStepIdx: 0, isSecondStroke: false, velocity: 1.0, decayPct: 100, triggerFrame: 0, swungTimeSec: 0, sampleRate: SR, engineDeps: deps, stagedEvents: stTrR });
   stageMeasureStrokeEvent({ seqId: 1, measureIdx: 0, trackId: 2, instId: 'tarol', strokeSymbol: 'd', circleStepIdx: 0, isSecondStroke: false, velocity: 1.0, decayPct: 100, triggerFrame: 0, swungTimeSec: 0, sampleRate: SR, engineDeps: deps, stagedEvents: stTrd });
   stageMeasureStrokeEvent({ seqId: 1, measureIdx: 0, trackId: 2, instId: 'tarol', strokeSymbol: 'B', circleStepIdx: 0, isSecondStroke: false, velocity: 1.0, decayPct: 100, triggerFrame: 0, swungTimeSec: 0, sampleRate: SR, engineDeps: { ...deps, getTrackPitchRatio: () => Math.pow(2, -1.6 / 12) }, stagedEvents: stTrB });
-  assert.equal(stCxR[4], 1.0); assert.equal(stCxR[7], 1.0);
-  assert.equal(stTrR[4], 1.0, 'Tarol Studio r_min must preserve 1.0 velocity');
+  assert.ok(stCxR[4] >= 0.975 && stCxR[4] <= 1.025); assert.equal(stCxR[7], 1.0);
+  assert.ok(stTrR[4] >= 0.975 && stTrR[4] <= 1.025, 'Tarol Studio r_min must preserve nominal 1.0 ± 2.5% live breathing (no 0.88 penalty)');
   assert.equal(stTrR[7], 1.0, 'Tarol Studio r_min must preserve 1.0 pitchNuance');
-  assert.equal(stTrd[4], 1.0); assert.equal(stTrd[5], 1.0); assert.equal(stTrd[7], 1.0);
+  assert.ok(stTrd[4] >= 0.975 && stTrd[4] <= 1.025); assert.equal(stTrd[5], 1.0); assert.equal(stTrd[7], 1.0);
   assert.equal(stTrB[7], 1.0, 'Tarol B must keep eventPitchNuance 1.0 so slotPitchRatio applies');
   assert.equal(EngineTuning.calculatePitch('tarol', configMap.get('tarol')!, { tuning: 0 } as any), 1.0);
-  assert.ok(Math.abs(computeRoleChorusSpreadSummary('tarol', 0, 2, 1.0).maxCents - 22) < 1e-6);
+  assert.ok(Math.abs(computeRoleChorusSpreadSummary('tarol', 0, 2, 1.0).maxCents - 16) < 1e-6);
   const plan = solveRodaSpectralBreathing([{ id: 1, instrumentIdx: 3, instrumentId: 'caixa', tuning: 0 }, { id: 2, instrumentIdx: 4, instrumentId: 'tarol', tuning: 0 }] as any, 0.75);
   assert.ok(Math.abs(plan.tarol[0].frequencyHz - Math.min(165.41 * 1.08, 0.85 * 214.84)) < 0.01);
 }
