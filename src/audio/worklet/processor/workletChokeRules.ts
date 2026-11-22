@@ -86,7 +86,7 @@ export function resolveTrackPhysicsSpec(
     if (symbol === 'd' || symbol === 'e') return { chokeMode: CHOKE_ALFAIA_GHOST_DUCK_35MS, voiceClass: VOICE_CLASS_ALFAIA_SKIN };
     return { chokeMode: CHOKE_BARULHO_RELEASE_18MS, voiceClass: VOICE_CLASS_GENERIC };
   }
-  if (instrumentId === 'caixa') {
+  if (instrumentId === 'caixa' || instrumentId === 'tarol') {
     if (symbol === 'X' || symbol === 'x' || symbol === 'C' || symbol === 'c') {
       return { chokeMode: CHOKE_BARULHO_RELEASE_20MS, voiceClass: VOICE_CLASS_GENERIC };
     }

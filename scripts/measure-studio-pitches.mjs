@@ -1,7 +1,7 @@
 /**
- * measure-studio-pitches.mjs — CLI permanent d'analyse spectrale haute précision (f0) en lecture seule (< 140 lignes).
+ * measure-studio-pitches.mjs — CLI permanent d'analyse spectrale haute précision (f0 & ring) en lecture seule (< 140 lignes).
  * Usage : node scripts/measure-studio-pitches.mjs [dossierWavOuOgg] [--json]
- * - Ignore le transitoire d'impact initial (0..55 ms sur Alfaias, 0..35/45 ms sur fûts courts / cloches).
+ * - Fenêtres résonantes post-impact : 60..380 ms (Alfaias), 50..350 ms (Tarol f0 + ring secondaire), 40..280 ms (Caixa).
  * - FFT Radix-2 zero-paddée (N = 524288 -> df = 0.0915 Hz @ 48 kHz) + fenêtre Blackman-Harris 4 termes.
  */
 import fs from 'fs';
@@ -9,6 +9,7 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 
 const NOTES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
+const NOTES_PT = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
 const NOTES_INTL = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const CUBASE_FFMPEG = 'C:\\Program Files\\Steinberg\\Cubase 15\\Externals\\FFmpeg\\5.1.1\\ffmpeg.exe';
 const FFMPEG = fs.existsSync(CUBASE_FFMPEG) ? CUBASE_FFMPEG : 'ffmpeg';
@@ -17,10 +18,14 @@ const GROUP_RULES = [
   { id: 'marcante', re: /^Alfaia\s+marcante\s+(?:F\s+)?[DE]\s+\d+\.(wav|ogg)$/iu, fMin: 38, fMax: 180, w0: 60, w1: 380 },
   { id: 'meiao', re: /^Alfaia\s+meiao\s+(?:F\s+)?[DE]\s+\d+\.(wav|ogg)$/iu, fMin: 38, fMax: 180, w0: 60, w1: 380 },
   { id: 'repique', re: /^Alfaia\s+repique\s+(?:F\s+)?[DE]\s+\d+\.(wav|ogg)$/iu, fMin: 38, fMax: 180, w0: 60, w1: 380 },
-  { id: 'caixa', re: /^Caixa(?:\s+studio)?\s+(?:F(?:\s+[DE])?|[DE])\s+\d+\.(wav|ogg)$/u, fMin: 110, fMax: 320, w0: 40, w1: 280 },
-  { id: 'tarol', re: /^Tarol\s+(?:F|[DE])\s*\d+\.(wav|ogg)$/u, fMin: 130, fMax: 380, w0: 35, w1: 240 },
+  { id: 'caixa_f0', re: /^Caixa(?:\s+studio)?\s+F\s+[DE]\s+\d+\.(wav|ogg)$/u, fMin: 135, fMax: 180, w0: 40, w1: 280 },
+  { id: 'caixa_ring', re: /^Caixa(?:\s+studio)?\s+F\s+[DE]\s+\d+\.(wav|ogg)$/u, fMin: 235, fMax: 330, w0: 40, w1: 280 },
+  { id: 'tarol_f0', re: /^Tarol(?:\s+studio)?\s+F\s+[DE]\s+\d+\.(wav|ogg)$/u, fMin: 150, fMax: 260, w0: 50, w1: 350 },
+  { id: 'tarol_ring', re: /^Tarol(?:\s+studio)?\s+F\s+[DE]\s+\d+\.(wav|ogg)$/u, fMin: 260, fMax: 360, w0: 50, w1: 350 },
+  { id: 'tarol_A_f0', re: /^Tarol(?:\s+studio)?\s+A\s+\d+\.(wav|ogg)$/u, fMin: 150, fMax: 260, w0: 50, w1: 350 },
+  { id: 'tarol_A_rg', re: /^Tarol(?:\s+studio)?\s+A\s+\d+\.(wav|ogg)$/u, fMin: 260, fMax: 360, w0: 50, w1: 350 },
+  { id: 'tarol_A_oc', re: /^Tarol(?:\s+studio)?\s+A\s+\d+\.(wav|ogg)$/u, fMin: 520, fMax: 650, w0: 50, w1: 350 },
   { id: 'timbal_A', re: /^Timbal(?:\s+studio)?\s+A(?:\s+[DE])?\s+\d+\.(wav|ogg)$/u, fMin: 120, fMax: 360, w0: 45, w1: 300 },
-  { id: 'timbal_T', re: /^Timbal(?:\s+studio)?\s+T(?:\s+[DE])?\s+\d+\.(wav|ogg)$/u, fMin: 150, fMax: 900, w0: 20, w1: 200 },
   { id: 'timbal_G', re: /^Timbal(?:\s+studio)?\s+G(?:\s+[DE])?\s+\d+\.(wav|ogg)$/u, fMin: 55, fMax: 165, w0: 50, w1: 340 },
   { id: 'gongue_G', re: /^Gongue\s+G\s+\d+\.(wav|ogg)$/u, fMin: 250, fMax: 900, w0: 45, w1: 360 },
   { id: 'gongue_A', re: /^Gongue\s+A\s+\d+\.(wav|ogg)$/u, fMin: 250, fMax: 900, w0: 45, w1: 360 },
@@ -37,8 +42,7 @@ function decodeMonoSamples(filePath) {
       off += 8 + sz + (sz % 2);
     }
     if (!fmt || !dataOff) throw new Error(`Invalid WAV: ${filePath}`);
-    const bytes = fmt.bps / 8, frameSz = bytes * fmt.ch, frames = Math.floor(Math.min(dataSz, buf.length - dataOff) / frameSz);
-    const mono = new Float64Array(frames);
+    const bytes = fmt.bps / 8, frameSz = bytes * fmt.ch, frames = Math.floor(Math.min(dataSz, buf.length - dataOff) / frameSz), mono = new Float64Array(frames);
     for (let i = 0; i < frames; i++) {
       let s = 0;
       for (let c = 0; c < fmt.ch; c++) {
@@ -81,12 +85,10 @@ function radix2Fft(re, im) {
 
 function measureFileF0(filePath, rule) {
   const { samples, sr } = decodeMonoSamples(filePath);
-  let peak = 0;
+  let peak = 0, onset = 0;
   for (let i = 0; i < samples.length; i++) if (Math.abs(samples[i]) > peak) peak = Math.abs(samples[i]);
-  let onset = 0;
   for (let i = 0; i < samples.length; i++) if (Math.abs(samples[i]) >= peak * 0.12) { onset = i; break; }
-  const s0 = onset + Math.round((rule.w0 / 1000) * sr), s1 = Math.min(samples.length, onset + Math.round((rule.w1 / 1000) * sr));
-  const M = s1 - s0;
+  const s0 = onset + Math.round((rule.w0 / 1000) * sr), s1 = Math.min(samples.length, onset + Math.round((rule.w1 / 1000) * sr)), M = s1 - s0;
   if (M < Math.round(0.06 * sr)) return null;
   let mean = 0;
   for (let i = 0; i < M; i++) mean += samples[s0 + i];
@@ -104,13 +106,11 @@ function measureFileF0(filePath, rule) {
     if (m > bestMag) { bestMag = m; bestK = k; }
   }
   const a = Math.log(Math.hypot(re[bestK - 1], im[bestK - 1]) + 1e-18), b = Math.log(bestMag + 1e-18), g = Math.log(Math.hypot(re[bestK + 1], im[bestK + 1]) + 1e-18);
-  const denom = a - 2 * b + g;
-  const delta = Math.abs(denom) > 1e-12 ? (0.5 * (a - g)) / denom : 0;
+  const denom = a - 2 * b + g, delta = Math.abs(denom) > 1e-12 ? (0.5 * (a - g)) / denom : 0;
   return ((bestK + delta) * sr) / N;
 }
 
-const args = process.argv.slice(2);
-const asJson = args.includes('--json');
+const args = process.argv.slice(2), asJson = args.includes('--json');
 const targetDir = path.resolve(args.find((a) => !a.startsWith('--')) || 'public/Mixdown');
 const files = fs.readdirSync(targetDir).filter((f) => /\.(wav|ogg)$/iu.test(f)).sort();
 const summary = {};
@@ -120,17 +120,16 @@ for (const rule of GROUP_RULES) {
   if (!matched.length) continue;
   const vals = matched.map((f) => measureFileF0(path.join(targetDir, f), rule)).filter((v) => v !== null).sort((x, y) => x - y);
   if (!vals.length) continue;
-  const mid = vals.length >> 1;
-  const medHz = Math.round(((vals.length % 2 ? vals[mid] : 0.5 * (vals[mid - 1] + vals[mid]))) * 100) / 100;
+  const mid = vals.length >> 1, medHz = Math.round(((vals.length % 2 ? vals[mid] : 0.5 * (vals[mid - 1] + vals[mid]))) * 100) / 100;
   const exactMidi = 69 + 12 * Math.log2(medHz / 440), nearMidi = Math.round(exactMidi);
   const cents = Math.round((exactMidi - nearMidi) * 100), idx = ((nearMidi % 12) + 12) % 12, oct = Math.floor(nearMidi / 12) - 1;
-  summary[rule.id] = { count: vals.length, medianHz: medHz, minHz: Number(vals[0].toFixed(2)), maxHz: Number(vals[vals.length - 1].toFixed(2)), noteFr: `${NOTES_FR[idx]}${oct}`, noteIntl: `${NOTES_INTL[idx]}${oct}`, cents };
+  summary[rule.id] = { count: vals.length, medianHz: medHz, minHz: Number(vals[0].toFixed(2)), maxHz: Number(vals[vals.length - 1].toFixed(2)), noteFr: `${NOTES_FR[idx]}${oct}`, notePt: `${NOTES_PT[idx]}${oct}`, noteIntl: `${NOTES_INTL[idx]}${oct}`, cents };
 }
 
 if (asJson) console.log(JSON.stringify(summary, null, 2));
 else {
   console.log(`=== Analyse Spectrale Studio (${targetDir}) ===`);
   for (const [id, s] of Object.entries(summary)) {
-    console.log(`  ${id.padEnd(10)} (${String(s.count).padStart(2)} prises) : f0 = ${s.medianHz.toFixed(2)} Hz [${s.minHz.toFixed(2)}..${s.maxHz.toFixed(2)}] -> ${s.noteFr} (${s.noteIntl}) ${s.cents >= 0 ? `+${s.cents}` : s.cents} cents`);
+    console.log(`  ${id.padEnd(11)} (${String(s.count).padStart(2)} prises) : f = ${s.medianHz.toFixed(2)} Hz [${s.minHz.toFixed(2)}..${s.maxHz.toFixed(2)}] -> ${s.noteFr}/${s.notePt} (${s.noteIntl}) ${s.cents >= 0 ? `+${s.cents}` : s.cents} cents`);
   }
 }

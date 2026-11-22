@@ -13,6 +13,7 @@ import {
 } from './studioStrokeFactory';
 
 export { buildStudioCaixaStrokes } from './studioCaixaBankBuilder';
+export { buildStudioTarolStrokes } from './studioTarolBankBuilder';
 export { buildStudioTimbalStrokes } from './studioTimbalBankBuilder';
 
 export type PendingStudioInstrumentId =
@@ -26,7 +27,7 @@ export type PendingStudioInstrumentId =
 
 export const STUDIO_BANK_ENABLED: Record<PendingStudioInstrumentId, boolean> = {
   caixa: true,
-  tarol: false,
+  tarol: true,
   timbal: true,
   gongue: true,
   agbe: true,

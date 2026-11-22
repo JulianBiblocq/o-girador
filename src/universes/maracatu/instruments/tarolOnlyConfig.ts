@@ -3,7 +3,7 @@
  */
 
 import { InstrumentAudioConfig, StrokeMapping } from './types';
-import { buildStudioSnareStrokes, resolveStudioBankFlags, STUDIO_BANK_ENABLED } from './studioBankRegistry';
+import { buildStudioTarolStrokes, resolveStudioBankFlags, STUDIO_BANK_ENABLED } from './studioBankRegistry';
 import { buildBarulhoStrokePair, buildCompositeRimFallbackPair, buildVirtualWeakStroke } from './studioStrokeFactory';
 
 const TAROL_STRONG_LEGACY = [
@@ -21,7 +21,7 @@ const TAROL_WEAK_LEGACY = [
 const TAROL_RUFADA_LEGACY = ['Mixdown/Tarol R 1.ogg', 'Mixdown/Tarol R 2.ogg'];
 const TAROL_FLA_LEGACY = ['Mixdown/Tarol Fla 1.ogg', 'Mixdown/Tarol Fla 2.ogg'];
 
-const legacyTarolStrokes: StrokeMapping[] = [
+export const legacyTarolStrokes: StrokeMapping[] = [
   { symbol: 'D', keys: ['D'], files: TAROL_STRONG_LEGACY, caseSensitive: true, baseGain: 1.0 },
   { symbol: 'E', keys: ['E'], files: TAROL_STRONG_LEGACY, caseSensitive: true, baseGain: 1.0 },
   { symbol: 'd', keys: ['d'], files: TAROL_WEAK_LEGACY, caseSensitive: true, baseGain: 1.0 },
@@ -42,5 +42,5 @@ export const tarolConfig: InstrumentAudioConfig = {
   uiOrder: ['D', 'E', 'd', 'e', 'A', 'a', 'X', 'C', 'B', 'F', 'R', 'r'],
   leftHandedSupport: true,
   ...resolveStudioBankFlags('tarol'),
-  strokes: STUDIO_BANK_ENABLED.tarol ? buildStudioSnareStrokes('Tarol') : legacyTarolStrokes,
+  strokes: STUDIO_BANK_ENABLED.tarol ? buildStudioTarolStrokes() : legacyTarolStrokes,
 };

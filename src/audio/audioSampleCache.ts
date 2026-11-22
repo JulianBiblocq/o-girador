@@ -17,7 +17,7 @@ export interface CachedPcmSample {
   timestamp: number;
 }
 
-export const SAMPLE_CACHE_VERSION = 7;
+export const SAMPLE_CACHE_VERSION = 10;
 const DB_NAME = 'OGirador_AudioCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'audio_sample_cache';
@@ -33,9 +33,9 @@ function purgeStaleCacheEntries(db: IDBDatabase): void {
     const verStr = String(SAMPLE_CACHE_VERSION);
     if (typeof window !== 'undefined' && window.localStorage?.getItem(SW_CACHE_VER_STORAGE_KEY) !== verStr) {
       window.localStorage?.setItem(SW_CACHE_VER_STORAGE_KEY, verStr);
-      window.caches?.delete('audio-samples-cache').catch(() => {});
+      window.caches?.delete('audio-samples-cache').catch(() => { });
     }
-  } catch (_) {}
+  } catch (_) { }
   try {
     const prefix = `v${SAMPLE_CACHE_VERSION}_`;
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -44,11 +44,11 @@ function purgeStaleCacheEntries(db: IDBDatabase): void {
       const cursor = req.result;
       if (!cursor) return;
       if (!String(cursor.key || '').startsWith(prefix)) {
-        try { cursor.delete(); } catch (_) {}
+        try { cursor.delete(); } catch (_) { }
       }
       cursor.continue();
     };
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function getDB(): Promise<IDBDatabase | null> {
@@ -115,7 +115,7 @@ export async function saveCachedPcmSample(rawPath: string, audioBuffer: AudioBuf
         tx.onerror = () => resolve();
       } catch (_) { resolve(); }
     });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function reconstructAudioBuffer(audioContext: AudioContext, cached: CachedPcmSample): AudioBuffer {

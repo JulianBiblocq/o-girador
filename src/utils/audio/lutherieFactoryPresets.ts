@@ -32,7 +32,7 @@ export interface LutheriePreset {
   rodaBreathingAmount?: number;
 }
 
-/** Accordage universel à froid : Do Majeur (Do2 • Mi2 • Sol2) + Gonguê Sol4 (392 Hz, 2 octaves au-dessus du Repique). */
+/** Accordage universel à froid : Do Majeur (Do2 • Mi2 • Sol2), Tarol Studio naturel (0 st • 214.84 Hz) + Gonguê Sol4 (392 Hz). */
 export const DEFAULT_SIGNATURE_TUNINGS: Record<LutherieDrumRole, number> = {
   marcante: -1.5,
   meiao: 0.3,
@@ -90,7 +90,7 @@ export function buildFactoryLutheriePresets(
   return [
     {
       id: 'major_triad', nameFr: 'Do Majeur — Base', namePt: 'Dó Maior — Base', subtitle: 'Do2 • Mi2 • Sol2 + Sol4', isFactory: true,
-      tunings: buildHarmonicTunings({ marcanteMidi: 36, meiaoMidi: 40, repiqueMidi: 43, snareRootMidi: 52, snareFifthMidi: 55, timbalMidi: 55, gongueMidi: 67 }, studioFlagsOverride),
+      tunings: { ...buildHarmonicTunings({ marcanteMidi: 36, meiaoMidi: 40, repiqueMidi: 43, snareRootMidi: 52, snareFifthMidi: 55, timbalMidi: 55, gongueMidi: 67 }, studioFlagsOverride), tarol: 0 },
       decays: { ...FULL_DECAYS }, skinChorusAmount: 0.75, rodaBreathingAmount: 0.75,
     },
     {

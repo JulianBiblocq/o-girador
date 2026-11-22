@@ -113,20 +113,18 @@ export function computeGongueAlignedTunings(
     }
   }
 
-  let timbalSt = 0;
-  if (isDrumStudioBankActive('timbal')) {
-    const tbBaseMidi = 69 + 12 * Math.log2(getDrumNaturalBaseHz('timbal') / 440);
-    const tbPcs = [best.rootPc, (best.rootPc + 7) % 12];
-    let bestTb = Infinity;
-    for (let m = 51; m <= 59; m++) {
-      if (!tbPcs.includes(m % 12)) continue;
-      const diff = m + microShift - tbBaseMidi;
-      if (Math.abs(diff) < Math.abs(bestTb)) bestTb = diff;
-    }
-    if (Number.isFinite(bestTb)) timbalSt = roundSemitonesTenth(Math.max(-3.5, Math.min(3.5, bestTb)));
-  }
+  const alignOpt = (role: 'timbal', lo: number, hi: number, maxSt: number): number => {
+    if (!isDrumStudioBankActive(role)) return 0;
+    const baseMidi = 69 + 12 * Math.log2(getDrumNaturalBaseHz(role) / 440), pcs = [best.rootPc, (best.rootPc + 7) % 12];
+    let bestDiff = Infinity;
+    for (let m = lo; m <= hi; m++) if (pcs.includes(m % 12) && Math.abs(m + microShift - baseMidi) < Math.abs(bestDiff)) bestDiff = m + microShift - baseMidi;
+    return Number.isFinite(bestDiff) && Math.abs(bestDiff) <= maxSt + 0.04 ? roundSemitonesTenth(Math.max(-maxSt, Math.min(maxSt, bestDiff))) : 0;
+  };
 
-  const tunings: Record<LutherieDrumRole, number> = { marcante: best.m, meiao: best.me, repique: best.r, caixa: 0, tarol: 0, timbal: timbalSt, gongue: gongueSt };
+  const tunings: Record<LutherieDrumRole, number> = {
+    marcante: best.m, meiao: best.me, repique: best.r, caixa: 0,
+    tarol: 0, timbal: alignOpt('timbal', 51, 59, 3.5), gongue: gongueSt,
+  };
   if (color === 'exact' && drumsHz) {
     (Object.keys(EXACT_ROLE_MAX_ST) as LutherieDrumRole[]).forEach((role) => {
       if (typeof drumsHz[role] === 'number' && drumsHz[role]! > 20) tunings[role] = computeDrumFoldedTuning(role, drumsHz[role]!, EXACT_ROLE_MAX_ST[role]);

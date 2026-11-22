@@ -23,7 +23,7 @@ export function resolveFrankStrokeBarulhoChokeSec(instId: string, sym: string): 
   if (ALFAIA_INSTRUMENTS.has(instId)) {
     return sym === 'A' || sym === 'a' ? 0.025 : (sym === 'D' || sym === 'E' ? 0.022 : 0.018);
   }
-  if (instId === 'caixa') return 0.020;
+  if (instId === 'caixa' || instId === 'tarol') return 0.020;
   if (instId === 'agbe' && (sym === 'D' || sym === 'E' || sym === 'S' || sym === 's')) return 0.025;
   if (instId === 'mineiro' && (sym === 'P' || sym === 'T')) return 0.025;
   if (instId === 'gongue' && (sym === 'X' || sym === 'x' || sym === 'G' || sym === 'A')) return 0.020;
@@ -41,7 +41,7 @@ export interface ChokeVoiceOps {
 export function applyNonAlfaiaSelectiveChoke(
   voices: ActiveVoice[], instId: string, strokeSymbol: string, time: number, ops: ChokeVoiceOps
 ): void {
-  if (instId === 'caixa') {
+  if (instId === 'caixa' || instId === 'tarol') {
     if (strokeSymbol === 'X' || strokeSymbol === 'x' || strokeSymbol === 'C' || strokeSymbol === 'c') return;
     const isGhost = strokeSymbol === 'd' || strokeSymbol === 'e';
     if (!isGhost && !CAIXA_OPEN_RING.has(strokeSymbol)) return;

@@ -45,8 +45,9 @@ export const DRUM_FUNDAMENTAL_SPECS: Record<string, DrumFundamentalSpec> = {
     presetRangeSt: [-2.0, 2.0],
   },
   tarol: {
-    studioHz: 203.03,
+    studioHz: 214.84,
     legacyHz: 203.03,
+    studioSecondaryHz: 292.36,
     presetRangeSt: [-2.0, 2.0],
   },
   timbal: {
