@@ -15,7 +15,7 @@ interface UseDeepLinkLoaderOptions {
     setActivePresetName?: (name: string) => void;
   };
   sequencer: {
-    handleInsertCloudSection?: (sectionData: any, insertAtMeasure: number) => void;
+    handleInsertCloudSection?: (sectionData: any, insertAtMeasure: number, options?: any) => void;
   };
   authLoading: boolean;
 }

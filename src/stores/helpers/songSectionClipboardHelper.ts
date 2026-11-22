@@ -1,4 +1,6 @@
-import { TrackGroup, SongSection } from '../../types';
+import { extractSectionData } from '../../components/sections/sectionDataExtractor';
+import { SavedSectionData, SongSection, TrackGroup } from '../../types';
+import { applySectionImportToState } from '../../utils/sections/sectionImportEngine';
 
 export interface CopiedSectionData {
   length: number;
@@ -8,103 +10,100 @@ export interface CopiedSectionData {
   level?: number;
   assignments: { [trackId: number]: (number | null)[] };
   childSections?: any[];
+  sectionPayload?: SavedSectionData;
 }
 
 export const copySongSectionData = (
   tracks: TrackGroup[],
   songSections: SongSection[],
-  section: SongSection
+  section: SongSection,
+  fullState?: Record<string, any>
 ): CopiedSectionData => {
   const length = section.endMeasure - section.startMeasure + 1;
   const assignments: { [trackId: number]: (number | null)[] } = {};
 
-  tracks.forEach(t => {
+  tracks.forEach((t) => {
     const arr: (number | null)[] = [];
     for (let m = section.startMeasure; m <= section.endMeasure; m++) {
-      const assignedPattern = t.patterns.find(p => p.measureAssignments[m]);
+      const assignedPattern = t.patterns.find((p) => p.measureAssignments?.[m]);
       arr.push(assignedPattern ? assignedPattern.id : null);
     }
     assignments[t.id] = arr;
   });
 
-  const childSections = songSections.filter(s => 
-    s.id !== section.id && 
-    s.startMeasure >= section.startMeasure && 
-    s.endMeasure <= section.endMeasure
-  ).map(s => ({
-    ...s,
-    relativeStart: s.startMeasure - section.startMeasure,
-    relativeEnd: s.endMeasure - section.startMeasure
-  }));
+  const sectionPayload = extractSectionData(section, {
+    tracks,
+    songSections,
+    timeSig: fullState?.timeSig || '4/4',
+    bpm: fullState?.bpm || 100,
+    measureTimeSigs: fullState?.measureTimeSigs || [],
+    measureBpms: fullState?.measureBpms || [],
+    measureBpmTransitions: fullState?.measureBpmTransitions || [],
+    measureVols: fullState?.measureVols || [],
+    measureVolTransitions: fullState?.measureVolTransitions || [],
+    measureSignals: fullState?.measureSignals || [],
+  });
 
   return {
     length,
     name: section.name,
-    color: section.color || '#27ae60',
+    color: section.color || '#f19066',
     repeatCount: section.repeatCount || 1,
     level: section.level,
     assignments,
-    childSections
+    childSections: sectionPayload.childSections,
+    sectionPayload,
   };
 };
 
 export const pasteSongSectionState = (
-  tracks: TrackGroup[],
+  stateOrTracks: TrackGroup[] | Record<string, any>,
   songSections: SongSection[],
   totalMeasures: number,
   copied: CopiedSectionData,
   destStartMeasure: number,
   hasFullPlaybackAccess: boolean,
   maxMeasuresAllowed: number | null
-): { tracks: TrackGroup[]; songSections?: SongSection[]; totalMeasures?: number; error?: string } => {
-  const len = copied.length;
-  const end = destStartMeasure + len - 1;
+): { patch?: Record<string, any>; tracks: TrackGroup[]; songSections?: SongSection[]; totalMeasures?: number; error?: string } => {
+  const baseState: Record<string, any> = Array.isArray(stateOrTracks)
+    ? { tracks: stateOrTracks, songSections, totalMeasures, hasFullPlaybackAccess, maxMeasuresAllowed }
+    : { ...stateOrTracks, hasFullPlaybackAccess, maxMeasuresAllowed };
 
-  let newTotalMeasures: number | undefined = undefined;
-  if (end >= totalMeasures) {
-    const proposedTotal = end + 1;
-    if (maxMeasuresAllowed !== null && proposedTotal > maxMeasuresAllowed) {
-      return { tracks, error: `Limite de ${maxMeasuresAllowed} mesures atteinte en version gratuite.` };
+  if (copied.sectionPayload) {
+    const res = applySectionImportToState(baseState, copied.sectionPayload, destStartMeasure, {
+      mode: 'overwrite',
+      createMissingTracks: false,
+      sectionName: copied.name,
+      sectionColor: copied.color,
+      repeatCount: copied.repeatCount,
+      level: copied.level ?? 0,
+    });
+    if (res.blockedByLimit || !res.patch) {
+      return { tracks: baseState.tracks, error: `Limite de ${maxMeasuresAllowed} mesures atteinte en version gratuite.` };
     }
-    newTotalMeasures = proposedTotal;
+    return {
+      patch: res.patch,
+      tracks: res.patch.tracks,
+      songSections: res.patch.songSections,
+      totalMeasures: res.patch.totalMeasures,
+    };
   }
 
-  const nextTracks = tracks.map(t => {
-    const copiedArr = copied.assignments[t.id];
-    if (!copiedArr) return t;
-
-    const nextPatterns = t.patterns.map(p => {
-      const assign = [...p.measureAssignments];
-      while (assign.length <= end) assign.push(false);
-      
-      for (let i = 0; i < len; i++) {
-        const mIdx = destStartMeasure + i;
-        assign[mIdx] = p.id === copiedArr[i];
-      }
-      return { ...p, measureAssignments: assign };
-    });
-    return { ...t, patterns: nextPatterns };
+  const end = destStartMeasure + copied.length - 1;
+  if (!hasFullPlaybackAccess && maxMeasuresAllowed !== null && end + 1 > maxMeasuresAllowed) {
+    return { tracks: baseState.tracks, error: `Limite de ${maxMeasuresAllowed} mesures atteinte en version gratuite.` };
+  }
+  const nextTracks = (baseState.tracks as TrackGroup[]).map((t) => {
+    const copiedArr = copied.assignments?.[t.id];
+    return {
+      ...t,
+      patterns: t.patterns.map((p) => {
+        const assign = [...(p.measureAssignments || [])];
+        while (assign.length <= end) assign.push(false);
+        for (let i = 0; i < copied.length; i++) assign[destStartMeasure + i] = copiedArr ? p.id === copiedArr[i] : false;
+        return { ...p, measureAssignments: assign };
+      }),
+    };
   });
-
-  let nextSections: SongSection[] | undefined = undefined;
-  if (copied.childSections && copied.childSections.length > 0) {
-    nextSections = songSections ? [...songSections] : [];
-    copied.childSections.forEach((child: any) => {
-      nextSections!.push({
-        id: Date.now() + Math.random().toString(36).substr(2, 9),
-        name: child.name,
-        startMeasure: destStartMeasure + child.relativeStart,
-        endMeasure: destStartMeasure + child.relativeEnd,
-        color: child.color,
-        repeatCount: child.repeatCount,
-        level: child.level
-      });
-    });
-  }
-
-  return {
-    tracks: nextTracks,
-    songSections: nextSections,
-    totalMeasures: newTotalMeasures
-  };
+  return { tracks: nextTracks, totalMeasures: end >= totalMeasures ? end + 1 : undefined };
 };

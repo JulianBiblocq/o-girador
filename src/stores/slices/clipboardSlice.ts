@@ -62,22 +62,27 @@ export const createClipboardSlice: StateCreator<SequencerStore, [], [], Clipboar
   },
 
   handleCopySongSection: (section) => {
-    const data = copySongSectionData(get().tracks, get().songSections, section);
+    const state = get();
+    const data = copySongSectionData(state.tracks, state.songSections, section, state);
     set({ copiedSection: data, timelineClipboard: null });
   },
 
   handlePasteSongSection: (destStartMeasure) => {
     const state = get();
     if (!state.copiedSection) return;
-    state.pushUndoState();
     const copied = state.copiedSection;
     const res = pasteSongSectionState(
-      state.tracks, state.songSections, state.totalMeasures, copied, destStartMeasure,
+      state, state.songSections, state.totalMeasures, copied, destStartMeasure,
       state.hasFullPlaybackAccess, state.maxMeasuresAllowed
     );
     if (res.error) {
       state.openSubscriptionModal(state.isUserTrialExpired ? 'trial_expired' : 'measures_limit');
       notifyToast(res.error, 'error');
+      return;
+    }
+    state.pushUndoState();
+    if (res.patch) {
+      set(res.patch as any);
       return;
     }
     set({

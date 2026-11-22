@@ -49,6 +49,18 @@ export function resolveActivePatternForCell(
     return { activePattern: null, ownerTrack: pux || coro || targetTrack };
   }
 
+  if (patternId === null && targetTrack.patternOverrides?.[measureIdx] !== undefined) {
+    const ov = targetTrack.patternOverrides[measureIdx];
+    if (ov === null) return { activePattern: null, ownerTrack: targetTrack };
+    const ownOv = targetTrack.patterns?.find((p: Pattern) => String(p.id) === String(ov));
+    if (ownOv) return { activePattern: ownOv, ownerTrack: targetTrack };
+    for (const tr of tracks) {
+      const extOv = tr?.patterns?.find((p: Pattern) => String(p.id) === String(ov));
+      if (extOv) return { activePattern: extOv, ownerTrack: tr };
+    }
+    return { activePattern: null, ownerTrack: targetTrack };
+  }
+
   if (isSlaveTrack(targetTrack, tracks)) {
     const master = resolveMasterTrack(targetTrack.id, tracks);
     const parentBus = targetTrack.linkedToTrackId ? tracks.find((t) => String(t.id) === String(targetTrack.linkedToTrackId) && t.isLinkFolder) : null;
@@ -99,19 +111,17 @@ export function cloneAndIsolatePatternOnMeasure(
 
   let updatedTracks = allTracks.map((t) => {
     if (t.id === effMaster.id) {
-      const nextPatterns = t.patterns.map((p: Pattern) => {
+      const nextAssignmentsList = t.patterns.map((p: Pattern) => {
         const nextAssignments = [...(p.measureAssignments || [])];
         while (nextAssignments.length <= measureIdx) nextAssignments.push(false);
         nextAssignments[measureIdx] = false;
         return { ...p, measureAssignments: nextAssignments };
       });
-      return { ...t, patternOverrides: undefined, patterns: [...nextPatterns, clonedPattern], selectedPatternId: newPatternId };
+      return { ...t, patternOverrides: undefined, patterns: [...nextAssignmentsList, clonedPattern], selectedPatternId: newPatternId };
     }
     return t;
   });
 
-  if (effMaster.isLinkMaster) {
-    updatedTracks = syncMasterPatternsToLinkedFamily(updatedTracks, effMaster.id).tracks;
-  }
+  if (effMaster.isLinkMaster) updatedTracks = syncMasterPatternsToLinkedFamily(updatedTracks, effMaster.id).tracks;
   return { updatedTracks, newPatternId };
 }

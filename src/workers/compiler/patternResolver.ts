@@ -1,8 +1,24 @@
+import { findConcretePatternOwnerTrack } from '../../utils/soloVariationMatcher';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
-import { findConcretePatternOwnerTrack, isSpecificSoloVariationId, resolveTargetedSoloVariation } from '../../utils/soloVariationMatcher';
+
+export { resolvePatternVariation } from './patternVariationResolver';
 
 const hasActiveStrokes = (ptn: any): boolean =>
-  Boolean(ptn?.activeSteps?.some((s: any) => Array.isArray(s) ? s.some((x: any) => x && x !== '0') : (s && s !== '0' && s !== 0)));
+  Boolean(ptn?.activeSteps?.some((s: any) => (Array.isArray(s) ? s.some((x: any) => x && x !== '0') : s && s !== '0' && s !== 0)));
+
+function findPatternByOverrideId(track: any, tracks: any[], overrideId: number): any | null {
+  const pid = String(overrideId);
+  const own = track.patterns?.find((p: any) => String(p.id) === pid);
+  if (own) return own;
+  const master = isSlaveTrack(track, tracks) ? resolveMasterTrack(track.id, tracks) : null;
+  const fromMaster = master?.patterns?.find((p: any) => String(p.id) === pid);
+  if (fromMaster) return fromMaster;
+  for (let i = 0; i < (tracks?.length || 0); i++) {
+    const found = tracks[i]?.patterns?.find((p: any) => String(p.id) === pid);
+    if (found) return found;
+  }
+  return null;
+}
 
 export function resolveActivePattern(
   track: any,
@@ -11,6 +27,7 @@ export function resolveActivePattern(
   isSoloPlayActive: boolean,
   soloPatternPlayId: number | null
 ): any | null {
+  if (!track) return null;
   const isSlave = isSlaveTrack(track, tracks);
 
   if (isSoloPlayActive) {
@@ -49,6 +66,10 @@ export function resolveActivePattern(
     return null;
   }
 
+  const overrideVal = track.patternOverrides?.[measureIdx];
+  if (overrideVal === null) return null;
+  if (typeof overrideVal === 'number') return findPatternByOverrideId(track, tracks, overrideVal);
+
   const assigned = track.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
   if (assigned) return assigned;
 
@@ -59,73 +80,24 @@ export function resolveActivePattern(
       if (track.patterns && track.patterns.length > 0) {
         const matchById = track.patterns.find((p: any) => String(p.id) === String(masterPtn.id));
         if (matchById) return matchById;
-        const matchByName = track.patterns.find((p: any) => p.name === masterPtn.name);
+        const normMasterName = masterPtn.name?.trim().toLowerCase();
+        const matchByName = normMasterName
+          ? track.patterns.find((p: any) => p.name?.trim().toLowerCase() === normMasterName)
+          : undefined;
         if (matchByName) return matchByName;
-        const mIdx = master?.patterns?.findIndex((p: any) => p.id === masterPtn.id);
-        if (mIdx !== undefined && mIdx >= 0 && track.patterns[mIdx]) return track.patterns[mIdx];
+        if (master?.patterns && track.patterns.length === master.patterns.length) {
+          const mIdx = master.patterns.findIndex((p: any) => p.id === masterPtn.id);
+          const cand = mIdx >= 0 ? track.patterns[mIdx] : undefined;
+          const isOverrideTarget =
+            cand && Object.values(track.patternOverrides || {}).some((ov) => ov !== null && String(ov) === String(cand.id));
+          if (cand && !isOverrideTarget) return cand;
+        }
       }
       return masterPtn;
     }
-
     const linkFolder = tracks.find((t: any) => t.isLinkFolder && String(t.id) === String(track.linkedToTrackId));
     const folderPtn = linkFolder?.patterns?.find((p: any) => p.measureAssignments?.[measureIdx]);
-    if (folderPtn) {
-      const matchByName = track.patterns?.find((p: any) => p.name === folderPtn.name);
-      return matchByName || folderPtn;
-    }
-  }
-
-  return null;
-}
-
-export function resolvePatternVariation(
-  activePattern: any,
-  isSoloPlayActive: boolean,
-  soloPatternPlayId: number | null,
-  soloPatternVariationId: string | null,
-  currentPlayCount: number,
-  measureIdx: number,
-  isolateBaseOnly: boolean,
-  nextRand: () => number,
-  tracks?: any[]
-): any | null {
-  if (isSoloPlayActive && isSpecificSoloVariationId(soloPatternVariationId)) {
-    return resolveTargetedSoloVariation(activePattern, tracks, soloPatternPlayId, soloPatternVariationId);
-  }
-  if (isSoloPlayActive && soloPatternVariationId === 'base') return null;
-  if (!activePattern.variations || activePattern.variations.length === 0) return null;
-
-  if (isSoloPlayActive) {
-    const regular = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
-    const pool = regular.length > 0 ? regular : activePattern.variations;
-    const rand = nextRand() * 100;
-    let sum = 0;
-    for (const variation of pool) {
-      if (rand >= sum && rand < sum + variation.probability) return variation;
-      sum += variation.probability;
-    }
-    return null;
-  }
-
-  const isFirstTime = currentPlayCount === 0;
-  if (isFirstTime) {
-    const firstTimeVariations = activePattern.variations.filter((v: any) => v.playFirstTimeOnly);
-    if (firstTimeVariations.length > 0) return firstTimeVariations[0];
-  }
-
-  if (!isolateBaseOnly) {
-    const allowImprov = activePattern.measureAllowVariations ? activePattern.measureAllowVariations[measureIdx] !== false : true;
-    if (allowImprov) {
-      const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
-      if (validVariations.length > 0) {
-        const rand = nextRand() * 100;
-        let sum = 0;
-        for (const variation of validVariations) {
-          if (rand >= sum && rand < sum + variation.probability) return variation;
-          sum += variation.probability;
-        }
-      }
-    }
+    if (folderPtn) return track.patterns?.find((p: any) => p.name === folderPtn.name) || folderPtn;
   }
 
   return null;

@@ -1,4 +1,4 @@
-import { TrackGroup, Pattern, SongSection, SavedSectionData, Language } from '../../types';
+import { TrackGroup, Pattern, SongSection, SavedSectionData, SectionImportOptions, Language } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { canTransferPatterns, resolveTrackInstrumentId } from '../../utils/instrumentCompatibility';
 import { normalizePatternStepsForTarget } from '../../utils/patternPasteNormalizer';
@@ -83,7 +83,8 @@ export function createClipboardHandlers(ctx: ClipboardContext) {
 
   const handleCopySongSection = (section: SongSection) => handleCopySongSectionHelper(section, ctx);
   const handlePasteSongSection = (destStartMeasure: number) => handlePasteSongSectionHelper(destStartMeasure, ctx);
-  const handleInsertCloudSection = (sectionData: SavedSectionData, insertAtMeasure: number) => executeInsertCloudSection(sectionData, insertAtMeasure, ctx);
+  const handleInsertCloudSection = (sectionData: SavedSectionData, insertAtMeasure: number, options?: Partial<SectionImportOptions>) =>
+    executeInsertCloudSection(sectionData, insertAtMeasure, ctx, options);
 
   return { handleCopyPattern, handlePastePattern, handleLoadLibraryPattern, handleCopySongSection, handlePasteSongSection, handleInsertCloudSection };
 }

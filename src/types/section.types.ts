@@ -1,4 +1,3 @@
-
 import type { Pattern, CatalogVisibility } from './pattern.types';
 import type { TimeSignature, AlfaiaEquipmentMetadata } from './common.types';
 
@@ -24,9 +23,22 @@ export interface SongMarker {
   color?: string;
 }
 
+export interface SavedSectionChildMeta {
+  name: string;
+  relativeStart: number;
+  relativeEnd: number;
+  color?: string;
+  repeatCount?: number;
+  level?: number;
+}
+
 export interface SavedSectionTrack {
   id?: number;
+  instrumentId?: string;
+  occurrenceIndex?: number;
   instrumentIdx: number;
+  customName?: string;
+  tuning?: number;
   isMute: boolean;
   isSolo: boolean;
   volumeVal: number;
@@ -40,17 +52,37 @@ export interface SavedSectionTrack {
     reverb: number;
     distortion: number;
   };
+  explicitSilenceMeasures?: boolean[];
   patterns: Pattern[];
 }
 
 export interface SavedSectionData {
+  schemaVersion?: 2;
   numMeasures: number;
   timeSigs: TimeSignature[];
+  bpms?: number[];
+  bpmTransitions?: ('immediate' | 'ramp' | 'bezier')[];
   vols: number[];
   volTransitions: ('immediate' | 'ramp' | 'bezier')[];
   signals: (string | null)[];
   tracks: SavedSectionTrack[];
   alfaiaEquipment?: AlfaiaEquipmentMetadata | null;
+  sectionName?: string;
+  sectionColor?: string;
+  repeatCount?: number;
+  level?: number;
+  childSections?: SavedSectionChildMeta[];
+}
+
+export type SectionImportMode = 'insert' | 'overwrite';
+
+export interface SectionImportOptions {
+  mode: SectionImportMode;
+  createMissingTracks: boolean;
+  sectionName?: string;
+  sectionColor?: string;
+  repeatCount?: number;
+  level?: number;
 }
 
 export interface CloudSection {

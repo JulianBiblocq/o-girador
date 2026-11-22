@@ -1,58 +1,12 @@
-import type { Pattern, TimeSignature } from '../types';
+import { FULL_CIRCLE, START_ANGLE_12H, getRodaMeasureGeometry } from './rodaTimeSigCore';
 
-export interface RodaMeasureGeometry {
-  timeSig: TimeSignature; beatsCount: number; defaultSubdivisions: number; defaultSteps: number;
-  maxTicks: number; ticksPerBeat: number; isCompound: boolean; beatAngles: number[];
-}
-
-const START_ANGLE_12H = -Math.PI / 2;
-const FULL_CIRCLE = Math.PI * 2;
-
-export function normalizeTimeSig(raw?: string | null): TimeSignature {
-  if (raw === '2/4' || raw === '3/4' || raw === '4/4' || raw === '6/8' || raw === '9/8' || raw === '12/8') return raw;
-  return '4/4';
-}
-
-export function getRodaMeasureGeometry(rawSig?: string | null): RodaMeasureGeometry {
-  const timeSig = normalizeTimeSig(rawSig);
-  const isCompound = timeSig === '6/8' || timeSig === '9/8' || timeSig === '12/8';
-  let beatsCount = 4;
-  if (timeSig === '2/4' || timeSig === '6/8') beatsCount = 2;
-  else if (timeSig === '3/4' || timeSig === '9/8') beatsCount = 3;
-
-  const defaultSubdivisions = isCompound ? 3 : 4;
-  const ticksPerBeat = isCompound ? 36 : 24;
-  const maxTicks = beatsCount * ticksPerBeat;
-  const defaultSteps = beatsCount * defaultSubdivisions;
-  const anglePerBeat = FULL_CIRCLE / beatsCount;
-  const beatAngles = Array.from({ length: beatsCount }, (_, b) => START_ANGLE_12H + b * anglePerBeat);
-
-  return { timeSig, beatsCount, defaultSubdivisions, defaultSteps, maxTicks, ticksPerBeat, isCompound, beatAngles };
-}
-
-export function resolveActiveBeatResolutions(
-  rawSig?: string | null,
-  pattern?: (Pick<Pattern, 'steps' | 'beatResolutions'> & { timeSignature?: string }) | null
-): number[] {
-  const geom = getRodaMeasureGeometry(rawSig);
-  const { beatsCount, defaultSubdivisions, isCompound } = geom;
-  const rawRes = pattern?.beatResolutions;
-
-  if (Array.isArray(rawRes) && rawRes.length > 0) {
-    const isUnadapted44OnCompound =
-      isCompound && rawRes.length === 4 && rawRes.every((r) => r === 4) && pattern?.timeSignature !== geom.timeSig;
-    if (!isUnadapted44OnCompound) {
-      return Array.from({ length: beatsCount }, (_, b) => {
-        const val = rawRes[b];
-        return typeof val === 'number' && val > 0 ? val : defaultSubdivisions;
-      });
-    }
-  }
-
-  const steps = pattern?.steps || 0;
-  if (steps === beatsCount * 6) return Array(beatsCount).fill(6);
-  return Array(beatsCount).fill(defaultSubdivisions);
-}
+export type { RodaMeasureGeometry } from './rodaTimeSigCore';
+export { getRodaMeasureGeometry, normalizeTimeSig, resolveActiveBeatResolutions } from './rodaTimeSigCore';
+export {
+  computeMeasurePatternStepOffset,
+  getNominalPatternBarSteps,
+  getRodaStepDurationTicks,
+} from './multiMeasureStepOffsetHelper';
 
 export function computeRodaStepAngles(
   rawSig?: string | null,
@@ -95,45 +49,4 @@ export function findStepIndexAtNormalizedP(stepAngles: readonly number[], p: num
     if (diff < tol || Math.abs(diff - 1) < tol) return i;
   }
   return -1;
-}
-
-export function computeMeasurePatternStepOffset(
-  pattern: (Pick<Pattern, 'steps' | 'measureAssignments'> & { beatResolutions?: number[]; timeSignature?: string }) | null | undefined,
-  activeMeasureStepCount: number,
-  measureIdx: number
-): number {
-  if (!pattern || activeMeasureStepCount <= 0) return 0;
-  const patSteps = pattern.steps || activeMeasureStepCount;
-  const patGeom = getRodaMeasureGeometry(pattern.timeSignature || '4/4');
-  const rawRes = pattern.beatResolutions;
-  let nominalBarSteps = patGeom.defaultSteps;
-  if (Array.isArray(rawRes) && rawRes.length > 0) {
-    let sum = 0;
-    for (let b = 0; b < patGeom.beatsCount; b++) sum += typeof rawRes[b] === 'number' && rawRes[b] > 0 ? rawRes[b] : patGeom.defaultSubdivisions;
-    nominalBarSteps = Math.max(1, sum);
-  } else if (patSteps === patGeom.beatsCount * 6) {
-    nominalBarSteps = patSteps;
-  }
-  if (patSteps < nominalBarSteps * 2) return 0;
-  const spanMeasures = Math.max(1, Math.round(patSteps / nominalBarSteps));
-  if (spanMeasures <= 1) return 0;
-  let startM = measureIdx;
-  while (startM > 0 && pattern.measureAssignments?.[startM - 1] === true) startM--;
-  return ((measureIdx - startM) % spanMeasures) * nominalBarSteps;
-}
-
-export function getRodaStepDurationTicks(
-  rawSig: string | null | undefined,
-  pattern: (Pick<Pattern, 'steps' | 'beatResolutions'> & { timeSignature?: string }) | null | undefined,
-  circleStepIdx: number
-): number {
-  const geom = getRodaMeasureGeometry(rawSig);
-  const beatRes = resolveActiveBeatResolutions(rawSig, pattern);
-  let cursor = 0;
-  for (let b = 0; b < beatRes.length; b++) {
-    const res = Math.max(1, beatRes[b]);
-    if (circleStepIdx < cursor + res) return geom.ticksPerBeat / res;
-    cursor += res;
-  }
-  return geom.ticksPerBeat / Math.max(1, geom.defaultSubdivisions);
 }
