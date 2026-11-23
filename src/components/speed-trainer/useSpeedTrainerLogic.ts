@@ -35,7 +35,7 @@ export const useSpeedTrainerLogic = (changeViewMode?: (mode: any) => void) => {
   const setIsolateBaseOnly = useSequencerStore((state) => state.setIsolateBaseOnly);
   const setActiveAoVivoTrackId = useSequencerStore((state) => state.setActiveAoVivoTrackId);
   const mobileViewMode = useSequencerStore((state) => state.mobileViewMode);
-  const isMobile = mobileViewMode !== 'complet' || (typeof window !== 'undefined' && window.innerWidth < 768);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768 && mobileViewMode !== 'complet';
 
   const [activeTab, setActiveTab] = useState<SpeedTrainerTab>('speedTrainer');
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);

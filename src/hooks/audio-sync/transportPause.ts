@@ -7,6 +7,7 @@ import { useTransportStore } from '../../stores/useTransportStore';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
 import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { getPhysicalStepFromRatio } from '../../components/circle-sequencer/measurePatternHelpers';
+import { deactivateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
 import { releaseWakeLock } from './wakeLockHelper';
 import { tickSubscribers } from './audioSyncTypes';
 import { AudioEngine } from '../../AudioEngine';
@@ -71,6 +72,7 @@ export function executeTransportPause(ctx: TransportPauseContext): void {
   ctx.activeSequencerVocalsRef.current.clear();
   ctx.anticipatedMeasuresRef.current.clear();
   ctx.lastElapsedSecRef.current = 0;
+  deactivateMultimediaAudioSession();
   releaseWakeLock();
 
   const totalM = Math.max(1, ctx.totalMeasuresRef.current || 1);

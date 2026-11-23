@@ -1,5 +1,5 @@
 
-import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useSequencerStore, computeEffectiveMuteStatePro } from '../../stores/useSequencerStore';
 import { TrainingProgram } from '../../types/trainings';
 import { TrackGroup } from '../../types';
 import { instrumentsConfig } from '../../data';
@@ -89,10 +89,13 @@ export function executeArmTrainingSession({
     }
     if (targetTrack) {
       const isMobilePerc = store.mobileViewMode === 'percussion' && typeof window !== 'undefined' && window.innerWidth < 768;
+      const hasOtherAudibleTrack = currentTracks.some(
+        (t) => t && !t.isBusFolder && !t.isLinkFolder && t.id !== targetTrack!.id && !computeEffectiveMuteStatePro(currentTracks, t.id)
+      );
       store.setIsPracticeMode(true);
       store.activateFocusOnTrack(targetTrack.id);
       store.setTocarJuntoTrack(targetTrack.id, false);
-      store.setTocarJuntoIsMuted(isMobilePerc && !pendingRole);
+      store.setTocarJuntoIsMuted(isMobilePerc && !pendingRole && hasOtherAudibleTrack);
       store.setIsolateBaseOnly(false);
       store.setActiveAoVivoTrackId(targetTrack.id);
 

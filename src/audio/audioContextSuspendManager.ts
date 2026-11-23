@@ -6,6 +6,7 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useTransportStore } from '../stores/useTransportStore';
+import { activateMultimediaAudioSession, deactivateMultimediaAudioSession } from './iosAudioSessionUnlock';
 
 const PREVIEW_IDLE_SUSPEND_MS = 15000;
 let autoSuspendTimer: ReturnType<typeof setTimeout> | null = null;
@@ -37,6 +38,7 @@ export function scheduleAudioContextAutoSuspend(delayMs = 500): void {
   autoSuspendTimer = setTimeout(() => {
     autoSuspendTimer = null;
     if (isTransportOrRecordingActive()) return;
+    deactivateMultimediaAudioSession();
     const rawCtx = getRawAudioContext();
     if (rawCtx && rawCtx.state === 'running') {
       rawCtx.suspend().catch(() => {});
@@ -52,6 +54,7 @@ export function wakeAudioContextForNotePreview(
   ctx?: AudioContext | null,
   idleSuspendDelayMs = PREVIEW_IDLE_SUSPEND_MS
 ): boolean {
+  activateMultimediaAudioSession();
   cancelAudioContextAutoSuspend();
   const rawCtx = ctx || getRawAudioContext();
   const wasNotRunning = Boolean(rawCtx && rawCtx.state !== 'running');
@@ -77,23 +80,33 @@ export function wakeAudioContextForNotePreview(
 }
 
 export async function safeResumeAudioContext(): Promise<void> {
+  activateMultimediaAudioSession();
   cancelAudioContextAutoSuspend();
+  const pending: Promise<unknown>[] = [];
   const rawCtx = getRawAudioContext();
   if (rawCtx && rawCtx.state !== 'running') {
     try {
-      await rawCtx.resume();
+      const p = rawCtx.resume?.();
+      if (p && typeof p.then === 'function') pending.push(p.catch(() => {}));
     } catch (_) {}
   }
   if (Tone.context && Tone.context.state !== 'running') {
     try {
-      await Tone.context.resume();
+      const p = (Tone.context as any).resume?.();
+      if (p && typeof p.then === 'function') pending.push(p.catch(() => {}));
+    } catch (_) {}
+    try {
+      const pStart = (Tone as any).start?.();
+      if (pStart && typeof pStart.then === 'function') pending.push(pStart.catch(() => {}));
     } catch (_) {}
   }
+  if (pending.length > 0) await Promise.allSettled(pending);
 }
 
 export async function safeSuspendAudioContext(): Promise<void> {
   cancelAudioContextAutoSuspend();
   if (isTransportOrRecordingActive()) return;
+  deactivateMultimediaAudioSession();
   const rawCtx = getRawAudioContext();
   if (rawCtx && rawCtx.state === 'running') {
     try {

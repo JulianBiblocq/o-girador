@@ -47,6 +47,7 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
     if (isMobile) return;
     const st = useSequencerStore.getState();
     if (st.tocarJuntoIsMuted) st.setTocarJuntoIsMuted(false);
+    if (st.isRestOfEnsembleMuted) st.setIsRestOfEnsembleMuted(false);
     setFocusBalancoDrawerOpen(isFocusActive);
   }, [isFocusActive, focusTrackId, isMobile]);
 

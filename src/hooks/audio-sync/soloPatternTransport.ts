@@ -10,6 +10,7 @@ import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
 import { buildFlatSongSchedule } from '../../workers/compiler/flatScheduleBuilder';
 import { instrumentsConfig } from '../../data';
+import { activateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
 import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 import { restoreStoreChannelGains } from './realtimeFaderAudioUpdater';
 import { clearFreeze } from './frozenPlaybackState';
@@ -47,10 +48,10 @@ export interface SoloTransportContext {
 }
 
 export async function handleStartSoloPattern(patternId: number, variationId: string | undefined, ctx: SoloTransportContext): Promise<void> {
+  activateMultimediaAudioSession();
   if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
   cancelAudioContextAutoSuspend();
   await safeResumeAudioContext();
-  if (Tone.start) { try { await Tone.start(); } catch (_) {} }
 
   const activeEngine = ctx.audioEngine || getAudioEngine();
   const currentTracks = ctx.tracksRef.current;

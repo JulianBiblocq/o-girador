@@ -2,6 +2,8 @@ import * as Tone from 'tone';
 import { SpeedTrainerConfig } from '../../types';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { activateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
+import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 import { playCountInBeep } from '../../audio/nativeSynths';
 import { AudioEngine } from '../../AudioEngine';
 import { getBeatsCount, getBeatDurationSec } from '../../utils/meterTiming';
@@ -31,17 +33,11 @@ export function stopSpeedTrainerAudio(ctx: SpeedTrainerContext): void {
 
 export async function launchSpeedTrainer(config: SpeedTrainerConfig, ctx: SpeedTrainerContext): Promise<void> {
   ctx.handleStop();
-
-  if (!useAudioStore.getState().isAudioUnlocked) {
-    useAudioStore.getState().unlockAudio();
-  }
+  activateMultimediaAudioSession();
+  if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
+  cancelAudioContextAutoSuspend();
+  await safeResumeAudioContext();
   const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
-  if (rawCtx && rawCtx.state !== 'running') {
-    try { await rawCtx.resume(); } catch (_) {}
-  }
-  if (Tone.start) {
-    try { await Tone.start(); } catch (_) {}
-  }
 
   const startMeasureSig = ctx.measureTimeSigsRef.current?.[config.startMeasure] || '4/4';
   const beatsCount = getBeatsCount(startMeasureSig);

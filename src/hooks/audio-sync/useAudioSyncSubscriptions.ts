@@ -11,6 +11,7 @@ import { rebuildWorkletHorizonFromNow } from '../../audio/worklet/horizon/percus
 import { isBalancoMorphCycleActive, resetLiveBalancoMorphToUnity } from '../../audio/groove/liveBalancoMorph';
 import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
 import { SATELLITE_VISIBILITY_EVENT } from '../../utils/satelliteWindowWatcher';
+import { deactivateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
 import {
   busChannels, channels, distortionSends, getAudioEngine, masterVolumeNode, meters, reverbSends, trackInputs,
 } from './audioEngineNodes';
@@ -92,7 +93,9 @@ export function useAudioSyncSubscriptions({
 
   useEffect(() => {
     const handleVis = () => {
+      if (typeof document !== 'undefined' && document.hidden) deactivateMultimediaAudioSession();
       if (areAllStudioWindowsHidden()) {
+        deactivateMultimediaAudioSession();
         if (refs.isPlayingRef.current) onStop();
       } else if (!document.hidden) {
         purgeVisualTickBuffer();

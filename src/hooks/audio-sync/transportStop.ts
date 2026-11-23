@@ -6,6 +6,7 @@ import { flushVisualBuffers, getLastAudibleTick, purgeVisualTickBuffer, resetVis
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { getExpandedMeasures } from '../../utils/measureHelpers';
+import { deactivateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
 import { releaseWakeLock } from './wakeLockHelper';
 import { resetLiveVariationLookahead } from './liveVariationLookaheadEngine';
 import { clearFreeze, frozenPlaybackState } from './frozenPlaybackState';
@@ -93,6 +94,7 @@ export function executeTransportStop(ctx: TransportStopContext, opts?: { resetTo
   ctx.activeSequencerVocalsRef.current.forEach((v) => { try { v.stop(); } catch (_) {} });
   ctx.activeSequencerVocalsRef.current.clear(); ctx.anticipatedMeasuresRef.current.clear();
   ctx.lastElapsedSecRef.current = 0; ctx.isPlayingRef.current = false; ctx.setIsPlaying(false);
+  deactivateMultimediaAudioSession();
   releaseWakeLock();
 
   ctx.anchoredMeasureStartSecRef.current = 0; ctx.anchoredMeasureIdxRef.current = -1;

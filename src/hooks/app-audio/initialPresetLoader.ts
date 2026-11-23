@@ -5,6 +5,7 @@ import { vocalEngineService } from '../../audio/vocalEngineService';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { resolveEffectiveStartupGroupId } from '../../services/cloud-common/cloudTenantAuthGuard';
 import { setUnsavedSessionRestored } from './autosavePayloadBuilder';
+import { sanitizeRestoredAutosave } from './autosaveRestoreSanitizer';
 
 let coldVisitorFallbackActive = false;
 export function wasColdVisitorFallbackLoaded(): boolean { return coldVisitorFallbackActive; }
@@ -63,11 +64,9 @@ export async function loadInitialPresetPipeline(
   let savedState: any = null;
   try {
     const { getAutosave, clearAutosave } = await import('../../db');
-    savedState = await getAutosave();
-    if (savedState && (!Array.isArray(savedState.tracks) || savedState.tracks.length === 0)) {
-      await clearAutosave().catch(() => {});
-      savedState = null;
-    }
+    const rawSaved = await getAutosave();
+    savedState = sanitizeRestoredAutosave(rawSaved);
+    if (rawSaved && !savedState) await clearAutosave().catch(() => {});
   } catch (_) {}
 
   let restored = await tryLoadInitialPresetFromUrlOrHash(audio, sequencer, savedState);
