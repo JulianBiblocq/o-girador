@@ -1,7 +1,8 @@
 /**
- * usePanSquadTicks.ts — Calcul des repères radiaux de pupitre & Maître/Esclaves sur la couronne d'un `PanKnob` (< 130 lignes).
+ * usePanSquadTicks.ts — Calcul uniforme des repères radiaux de sources stéréo sur la couronne d'un `PanKnob` (< 125 lignes).
  * - Sélecteur Zustand 100 % primitif (`string`) pour `useSyncExternalStore` (React 19) : 0 allocation en `getSnapshot`.
  * - Sépare les membres d'escouade relatifs (`isFixedWorld: false`) des pistes liées/enfants absolues (`isFixedWorld: true`).
+ * - Lecture acoustique uniforme : aucune différenciation visuelle piste pilote vs pistes liées, insensible à `isHidden` (Roda).
  */
 import { useCallback, useMemo } from 'react';
 import { isSectionEnsembleEligible } from '../../constants/sectionEnsembleLimits';
@@ -14,7 +15,6 @@ export type PanCrownTickKind = 'squad' | 'linked-slave' | 'linked-master' | 'bus
 
 export interface PanCrownTickSpec {
   baseOffset: number;
-  isLeader: boolean;
   kind?: PanCrownTickKind;
   isFixedWorld?: boolean;
 }
@@ -27,17 +27,13 @@ function resolvePlayerBasePan(x: number, panVal?: number): number {
   return typeof panVal === 'number' && Number.isFinite(panVal) ? clampPan(panVal) : clampPan((x - 50) * 2);
 }
 
-function collectTrackWorldVoicePans(track: TrackGroup, allTracks: readonly TrackGroup[]): Array<{ pan: number; isMaster: boolean }> {
+function collectTrackWorldVoicePans(track: TrackGroup): number[] {
   const inst = instrumentsConfig[track.instrumentIdx];
   const trackPan = track.panVal ?? track.pan ?? 0;
-  const isMaster = !isSlaveTrack(track, allTracks as TrackGroup[]) && Boolean(track.isLinkMaster);
   if (track.sectionPlayers && track.sectionPlayers.length > 1 && isSectionEnsembleEligible(inst?.id, inst?.type)) {
-    return track.sectionPlayers.map((p, idx) => ({
-      pan: clampPan(resolvePlayerBasePan(p.x, p.panVal) + trackPan),
-      isMaster: idx === 0 && isMaster,
-    }));
+    return track.sectionPlayers.map((p) => clampPan(resolvePlayerBasePan(p.x, p.panVal) + trackPan));
   }
-  return [{ pan: clampPan(trackPan), isMaster }];
+  return [clampPan(trackPan)];
 }
 
 export function resolvePanCrownTicksForTrack(
@@ -53,15 +49,11 @@ export function resolvePanCrownTicksForTrack(
   if (track.isBusFolder || track.isLinkFolder) {
     const pid = String(track.id);
     const children = tracks.filter(
-      (c) => !c.isBusFolder && !c.isLinkFolder && !c.isHidden && (String(c.busId) === pid || String(c.linkedToTrackId) === pid)
+      (c) => !c.isBusFolder && !c.isLinkFolder && (String(c.busId) === pid || String(c.linkedToTrackId) === pid)
     );
-    const voices = children.flatMap((c) => collectTrackWorldVoicePans(c, tracks));
-    if (voices.length === 0) return [];
-    const hasExplicitMaster = voices.some((v) => v.isMaster);
-    return voices.map((v, idx) => {
-      const isLead = hasExplicitMaster ? v.isMaster : idx === 0;
-      return { baseOffset: v.pan, isLeader: isLead, kind: isLead ? 'linked-master' : 'bus-child', isFixedWorld: true };
-    });
+    return children
+      .flatMap((c) => collectTrackWorldVoicePans(c))
+      .map((pan) => ({ baseOffset: pan, kind: 'bus-child' as const, isFixedWorld: true }));
   }
 
   const out: PanCrownTickSpec[] = [];
@@ -71,25 +63,25 @@ export function resolvePanCrownTicksForTrack(
   if (track.sectionPlayers && track.sectionPlayers.length > 1 && isSectionEnsembleEligible(inst?.id, inst?.type)) {
     for (let idx = 0; idx < track.sectionPlayers.length; idx++) {
       const p = track.sectionPlayers[idx];
-      out.push({ baseOffset: resolvePlayerBasePan(p.x, p.panVal), isLeader: idx === 0, kind: 'squad', isFixedWorld: false });
+      out.push({ baseOffset: resolvePlayerBasePan(p.x, p.panVal), kind: 'squad', isFixedWorld: false });
     }
   }
 
-  // 3. Relation Maître <-> Esclaves liés (coordonnées absolues fixes `isFixedWorld: true` : 0 saut au relâchement)
+  // 3. Relation piste pilote <-> pistes liées (coordonnées absolues fixes `isFixedWorld: true` : 0 saut au relâchement)
   if (isSlaveTrack(track, mutTracks)) {
     const master = resolveMasterTrack(track.id, mutTracks);
-    if (master && master.id !== track.id && !master.isHidden) {
+    if (master && master.id !== track.id) {
       const masterPan = clampPan(master.panVal ?? master.pan ?? 0);
-      out.push({ baseOffset: masterPan, isLeader: true, kind: 'linked-master', isFixedWorld: true });
+      out.push({ baseOffset: masterPan, kind: 'linked-master', isFixedWorld: true });
     }
     return out;
   }
 
-  const groupMembers = getLinkedGroupMembers(track, mutTracks).filter((m) => m.id !== track.id && !m.isHidden);
+  const groupMembers = getLinkedGroupMembers(track, mutTracks).filter((m) => m.id !== track.id);
   if (groupMembers.length > 0 && (track.isLinkMaster || groupMembers.some((m) => isSlaveTrack(m, mutTracks)))) {
     for (const sl of groupMembers) {
-      for (const v of collectTrackWorldVoicePans(sl, tracks)) {
-        out.push({ baseOffset: v.pan, isLeader: false, kind: 'linked-slave', isFixedWorld: true });
+      for (const pan of collectTrackWorldVoicePans(sl)) {
+        out.push({ baseOffset: pan, kind: 'linked-slave', isFixedWorld: true });
       }
     }
   }
@@ -114,7 +106,7 @@ export function serializePanCrownTicks(tracks: readonly TrackGroup[], trackId?: 
   const ticks = resolvePanCrownTicksForTrack(tracks, trackId);
   if (ticks.length === 0) return '';
   return ticks
-    .map((t) => `${t.baseOffset}:${t.isLeader ? 1 : 0}:${KIND_TO_CODE[t.kind || 'squad']}:${t.isFixedWorld ? 1 : 0}`)
+    .map((t) => `${t.baseOffset}:${KIND_TO_CODE[t.kind || 'squad']}:${t.isFixedWorld ? 1 : 0}`)
     .join('|');
 }
 
@@ -122,10 +114,9 @@ export function parsePanCrownTicksKey(ticksKey: string): readonly PanCrownTickSp
   if (!ticksKey) return EMPTY_SQUAD_TICKS;
   return Object.freeze(
     ticksKey.split('|').map((part) => {
-      const [offStr, leadStr, kindCode, fixedStr] = part.split(':');
+      const [offStr, kindCode, fixedStr] = part.split(':');
       return {
         baseOffset: Number(offStr) || 0,
-        isLeader: leadStr === '1',
         kind: CODE_TO_KIND[kindCode] || 'squad',
         isFixedWorld: fixedStr === '1',
       };

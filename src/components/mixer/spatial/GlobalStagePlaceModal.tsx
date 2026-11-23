@@ -43,7 +43,7 @@ export const GlobalStagePlaceModal: React.FC<GlobalStagePlaceModalProps> = ({ on
     () => buildGlobalStagePawns(tracks, globalBypass, stageW, stageH, resolveLabel),
     [tracks, globalBypass, stageW, stageH, resolveLabel]
   );
-  const hasApito = useMemo(() => tracks.some((t) => Boolean(t && !t.isHidden && isApitoTrack(t))), [tracks]);
+  const hasApito = useMemo(() => tracks.some((t) => Boolean(t && isApitoTrack(t))), [tracks]);
 
   const handleUpdatePawnMix = (
     pawn: GlobalStagePawnItem, nextPan: number, nextFaderDb: number, nextFaderPos: number, isFinal: boolean

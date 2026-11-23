@@ -38,7 +38,7 @@ describe('La Place (140°) & Assistant du Mestre — Exclusion du pion flottant 
     expect(pawns.map((p) => p.trackId)).toEqual([101, 110]);
 
     const radarKey = serializeMasterRadarTicks(tracks);
-    expect(radarKey).toContain('101:-25:');
+    expect(radarKey).toContain('101:-25');
     expect(radarKey).not.toContain('109:');
     expect(radarKey).not.toContain('109_');
   });

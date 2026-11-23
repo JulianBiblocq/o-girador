@@ -48,8 +48,6 @@ export const PanKnobSvg: React.FC<PanKnobSvgProps> = ({
             ? Math.max(-100, Math.min(100, tick.baseOffset))
             : Math.max(-100, Math.min(100, tick.baseOffset + value));
           const angle = effPan * 1.35;
-          const isMasterStud = tick.kind === 'linked-master';
-          const isLinkedStud = isMasterStud || tick.kind === 'linked-slave' || tick.kind === 'bus-child';
           return (
             <g
               key={idx}
@@ -57,25 +55,16 @@ export const PanKnobSvg: React.FC<PanKnobSvgProps> = ({
               ref={setTickGroupRef ? (el) => setTickGroupRef(idx, el) : undefined}
               transform={`rotate(${angle} 16 16)`}
             >
-              {isLinkedStud ? (
-                <polygon
-                  points={isMasterStud ? '16,-1.6 17.8,0.2 16,2.0 14.2,0.2' : '16,-1.1 17.4,0.3 16,1.7 14.6,0.3'}
-                  fill={isMasterStud || tick.isLeader ? 'var(--cordel-wood)' : 'var(--cordel-parchment-bg)'}
-                  stroke="var(--cordel-ink-dark)"
-                  strokeWidth="0.75"
-                />
-              ) : (
-                <line
-                  x1="16"
-                  y1={tick.isLeader ? '-1.4' : '-0.8'}
-                  x2="16"
-                  y2={tick.isLeader ? '2.2' : '1.9'}
-                  stroke={tick.isLeader ? 'var(--cordel-wood)' : 'var(--cordel-text)'}
-                  strokeWidth={tick.isLeader ? '2.0' : '1.4'}
-                  strokeLinecap="round"
-                  opacity={tick.isLeader ? '0.95' : '0.78'}
-                />
-              )}
+              <line
+                x1="16"
+                y1="-1.0"
+                x2="16"
+                y2="2.0"
+                stroke="var(--cordel-text)"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                opacity="0.9"
+              />
             </g>
           );
         })}

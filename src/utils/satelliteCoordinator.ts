@@ -21,7 +21,7 @@ export function ensureEditableTrackSelected(): number | null {
     return seq.editingTrackId;
   }
   const first =
-    seq.tracks.find((tr) => !tr.isHidden && !isToadaChild(tr, seq.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) ||
+    seq.tracks.find((tr) => !isToadaChild(tr, seq.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) ||
     seq.tracks[0];
   if (!first) return null;
   seq.setEditingTrackId(first.id);

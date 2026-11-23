@@ -1,5 +1,5 @@
 /**
- * MasterPanRadarStrip.tsx — Radar panoramique Master (`h-5`, Maîtres ◆, Esclaves liés & G/C/D FR vs E/C/D BR) (< 138 lignes).
+ * MasterPanRadarStrip.tsx — Radar panoramique Master (`h-5`, repères stéréo uniformes & G/C/D FR vs E/C/D BR) (< 115 lignes).
  * Sélecteur Zustand 100 % primitif (`string`) : zéro allocation d'objet/tableau dans `getSnapshot`.
  */
 import React, { useMemo, useState } from 'react';
@@ -20,26 +20,21 @@ export function serializeMasterRadarTicks(tracks: TrackGroup[]): string {
   const parts: string[] = [];
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i];
-    if (!t || t.isBusFolder || t.isLinkFolder || t.isHidden || t.id === 999901) continue;
+    if (!t || t.isBusFolder || t.isLinkFolder || t.id === 999901) continue;
     if (getEffectiveMuteState(tracks, t.id)) continue;
     const inst = instrumentsConfig[t.instrumentIdx];
     if (!inst || (inst.id || '').toLowerCase() === 'apito') continue;
     const trackPan = Math.max(-100, Math.min(100, Math.round(t.panVal ?? t.pan ?? 0)));
-    const hasLinkedSlaves = Boolean(t.isLinkMaster) || tracks.some((s) => s && !s.isHidden && (instrumentsConfig[s.instrumentIdx]?.id || '').toLowerCase() !== 'apito' && String(s.linkedToTrackId || '') === String(t.id));
-    const masterTrack = t.linkedToTrackId ? tracks.find((m) => String(m.id) === String(t.linkedToTrackId)) : undefined;
-    const anchorPan = masterTrack ? Math.max(-100, Math.min(100, Math.round(masterTrack.panVal ?? masterTrack.pan ?? 0))) : trackPan;
 
     if (t.sectionPlayers && t.sectionPlayers.length > 1 && isSectionEnsembleEligible(inst?.id, inst?.type)) {
       for (let idx = 0; idx < t.sectionPlayers.length; idx++) {
         const p = t.sectionPlayers[idx];
         const own = typeof p.panVal === 'number' && Number.isFinite(p.panVal) ? p.panVal : Math.round((p.x - 50) * 2);
         const eff = Math.max(-100, Math.min(100, own + trackPan));
-        const role = idx === 0 ? (hasLinkedSlaves ? 'L' : masterTrack ? 'S' : 'M') : 'P';
-        parts.push(`${t.id}_${idx}:${eff}:${role}:${idx === 0 ? anchorPan : eff}`);
+        parts.push(`${t.id}_${idx}:${eff}`);
       }
     } else {
-      const role = hasLinkedSlaves ? 'L' : masterTrack ? 'S' : 'M';
-      parts.push(`${t.id}:${trackPan}:${role}:${anchorPan}`);
+      parts.push(`${t.id}:${trackPan}`);
     }
   }
   return parts.join('|');
@@ -56,9 +51,8 @@ export const MasterPanRadarStrip: React.FC<MasterPanRadarStripProps> = ({ lang, 
   const radarTicks = useMemo(() => {
     if (!radarKey) return [];
     return radarKey.split('|').map((entry) => {
-      const [key, panStr, role = 'M', anchorStr] = entry.split(':');
-      const panPct = Number(panStr) || 0;
-      return { key, panPct, role, anchorPct: anchorStr !== undefined ? Number(anchorStr) || 0 : panPct };
+      const [key, panStr] = entry.split(':');
+      return { key, panPct: Number(panStr) || 0 };
     });
   }, [radarKey]);
 
@@ -83,32 +77,12 @@ export const MasterPanRadarStrip: React.FC<MasterPanRadarStripProps> = ({ lang, 
           <div className="absolute left-3/4 top-0 bottom-0 w-px bg-[var(--cordel-border)]/20" />
           {radarTicks.map((tk) => {
             const leftPct = 50 + tk.panPct * 0.47;
-            const ancPct = 50 + tk.anchorPct * 0.47;
-            const spanLeft = Math.min(leftPct, ancPct);
-            const spanW = Math.abs(leftPct - ancPct);
             return (
-              <React.Fragment key={tk.key}>
-                {tk.role === 'S' && spanW > 1 && (
-                  <div
-                    style={{ left: `${spanLeft}%`, width: `${spanW}%` }}
-                    className="absolute top-1/2 -translate-y-1/2 h-px border-t border-dashed border-[var(--cordel-wood)]/70 pointer-events-none"
-                  />
-                )}
-                <div
-                  style={{ left: `${leftPct}%`, transform: 'translateX(-50%)' }}
-                  className={`absolute ${
-                    tk.role === 'L'
-                      ? 'top-0.5 bottom-0.5 w-[2.5px] bg-[var(--cordel-wood)]'
-                      : tk.role === 'M'
-                        ? 'top-1 bottom-1 w-[2px] bg-[var(--cordel-wood)] opacity-90'
-                        : tk.role === 'S'
-                          ? 'top-1.5 bottom-1 w-[2px] bg-[var(--cordel-text)] opacity-85'
-                          : 'top-1.5 bottom-1.5 w-px bg-[var(--cordel-text)] opacity-55'
-                  }`}
-                >
-                  {tk.role === 'L' && <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rotate-45 bg-[var(--cordel-wood)]" />}
-                </div>
-              </React.Fragment>
+              <div
+                key={tk.key}
+                style={{ left: `${leftPct}%`, transform: 'translateX(-50%)' }}
+                className="absolute top-1 bottom-1 w-[1.5px] bg-[var(--cordel-text)] opacity-85 pointer-events-none"
+              />
             );
           })}
         </div>

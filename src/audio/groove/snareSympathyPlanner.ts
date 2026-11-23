@@ -47,7 +47,7 @@ export function resolveAudibleSympathySnareTrack(
 
   for (let i = 0; i < tracks.length; i++) {
     const t = tracks[i];
-    if (!t || t.isBusFolder || t.isLinkFolder || t.isHidden) continue;
+    if (!t || t.isBusFolder || t.isLinkFolder) continue;
     const inst = instrumentsConfig[t.instrumentIdx];
     const id = inst?.id;
     if (id !== 'caixa' && id !== 'tarol') continue;

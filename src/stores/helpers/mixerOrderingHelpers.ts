@@ -18,24 +18,6 @@ function isParentBusFolded(track: TrackMeta, allTracks: TrackMeta[]): boolean {
   return false;
 }
 
-function hasParentBus(track: TrackMeta, allTracks: TrackMeta[]): boolean {
-  let currentId = track.busId || track.linkedToTrackId;
-  const visited = new Set<string>();
-
-  while (currentId) {
-    const idStr = String(currentId);
-    if (visited.has(idStr)) break;
-    visited.add(idStr);
-
-    const parent = allTracks.find((p) => String(p.id) === idStr);
-    if (!parent) break;
-    if (parent.isBusFolder || parent.isLinkFolder || parent.isLinkMaster) return true;
-    currentId = parent.busId || parent.linkedToTrackId;
-  }
-
-  return false;
-}
-
 const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => {
   const visited = new Set<number>();
   const ordered: TrackMeta[] = [];
@@ -90,21 +72,7 @@ const sortMixerTracksHierarchically = (tracksList: TrackMeta[]): TrackMeta[] => 
 };
 
 export const getDisplayedMixerTracks = (tracksMeta: TrackMeta[]): TrackMeta[] => {
-  const filtered = tracksMeta.filter(t => {
-    if (t.isBusFolder || t.isLinkFolder) {
-      if (isParentBusFolded(t, tracksMeta)) return false;
-      return true;
-    }
-
-    if (hasParentBus(t, tracksMeta)) {
-      if (isParentBusFolded(t, tracksMeta)) return false;
-      return true;
-    }
-
-    if (t.isHidden) return false;
-    return true;
-  });
-
+  const filtered = tracksMeta.filter(t => !isParentBusFolded(t, tracksMeta));
   return sortMixerTracksHierarchically(filtered);
 };
 

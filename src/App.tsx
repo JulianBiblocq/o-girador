@@ -103,14 +103,14 @@ export default function App() {
     const ws = useDesktopWorkspaceStore.getState();
     const s = useSequencerStore.getState();
     if (ws.isSatelliteOpen) {
-      const t = s.tracks.find(tr => !tr.isHidden && !isToadaChild(tr, s.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || s.tracks[0];
+      const t = s.tracks.find(tr => !isToadaChild(tr, s.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || s.tracks[0];
       if (t && s.editingTrackId === null) s.setEditingTrackId(t.id);
       ws.setSatelliteState({ satelliteMode: 'editor' });
       detachedWindowManager.focusWindow('satellite');
       return;
     }
     if (s.editingTrackId !== null) { s.setEditingTrackId(null); return; }
-    const t = s.tracks.find(tr => !tr.isHidden && !isToadaChild(tr, s.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || s.tracks[0];
+    const t = s.tracks.find(tr => !isToadaChild(tr, s.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || s.tracks[0];
     if (t) s.setEditingTrackId(t.id);
   }, []);
 

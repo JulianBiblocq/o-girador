@@ -1,6 +1,6 @@
 /**
- * useTrackLinkRoleBadge.ts — Sélecteur Zustand 100 % primitif (`string`) du rôle Maître / Esclave lié (< 70 lignes).
- * - Retourne `''` | `'M'` | `'S:<AbbrMaître>'` : 0 allocation d'objet/tableau dans `getSnapshot` (React 19).
+ * useTrackLinkRoleBadge.ts — Sélecteur Zustand 100 % primitif (`string`) du rôle piste pilote / piste liée (< 70 lignes).
+ * - Retourne `''` | `'M'` | `'S:<AbbrPilote>'` : 0 allocation d'objet/tableau dans `getSnapshot` (React 19).
  */
 import { useCallback } from 'react';
 import { instrumentsConfig } from '../../../data';
@@ -45,7 +45,7 @@ export function serializeTrackLinkRoleBadge(tracks: readonly TrackGroup[], track
     return '';
   }
 
-  const members = getLinkedGroupMembers(track, mutTracks).filter((m) => m.id !== track.id && !m.isHidden);
+  const members = getLinkedGroupMembers(track, mutTracks).filter((m) => m.id !== track.id);
   if (members.length > 0 && (track.isLinkMaster || members.some((m) => isSlaveTrack(m, mutTracks)))) {
     return 'M';
   }

@@ -33,7 +33,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
   const inst = instrumentsConfig[track.instrumentIdx] || (isToada ? instrumentsConfig.find((i) => i.id === 'puxador' || i.type === 'voice') : null);
   const isFocusEligible = !track.isBusFolder && !track.isLinkFolder && !isToada && !!inst && inst.id !== 'apito' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.type !== 'voice';
   const isCurrentFocus = isFocusActive && focusTrackId === track.id;
-  const isCardDimmed = isFocusActive && Boolean(track.isHidden) && !isCurrentFocus;
+  const isCardDimmed = !isPistasOpen && isFocusActive && Boolean(track.isHidden) && !isCurrentFocus;
 
   const displayName = useMemo(() => isToada ? 'Toada' : (!inst ? 'Instrument' : useNomenclatureStore.getState().getInstrumentLabel(track)), [isToada, inst, track]);
   const groupVisual = useMemo(() => getTrackGroupVisual(track, tracks), [track, tracks]);

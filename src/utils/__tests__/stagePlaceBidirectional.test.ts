@@ -26,7 +26,7 @@ import {
   stagePointPxToMixParams,
 } from '../stagePlaceBidirectionalMath';
 
-describe('Lot C & Lot 2 — Miroir Bidirectionnel 140°, G/C/D (FR) vs E/C/D (BR) & Couronnes Maître/Esclaves', () => {
+describe('Lot C & Lot 2 — Miroir Bidirectionnel 140°, G/C/D (FR) vs E/C/D (BR) & Couronnes piste pilote / pistes liées', () => {
   it('assure la bijection exacte Pan [-100..+100] <-> 140° [20°..160°] et Fader [-18..+6 dB] avec verrouillage d’automation', () => {
     expect(panValToStageThetaRad(100)).toBeCloseTo(CONE_MIN_RAD, 6);
     expect(panValToStageThetaRad(0)).toBeCloseTo(Math.PI * 0.5, 6);
@@ -92,7 +92,7 @@ describe('Lot C & Lot 2 — Miroir Bidirectionnel 140°, G/C/D (FR) vs E/C/D (BR
     expect(formatPlayerAcousticReadout(25, 70, 0, 75, -40, 'pt')).toContain('E40');
   });
 
-  it('garantit Object.is strict (React 19 getSnapshot), losanges fixes Maître/Esclaves (plié & déplié) et liens La Place', () => {
+  it('garantit Object.is strict (React 19 getSnapshot), traits uniformes piste pilote / pistes liées (plié & déplié) et liens La Place', () => {
     const tracks: any[] = [
       { id: 100, instrumentIdx: 3, isBusFolder: true, isFolded: false, panVal: 0 },
       {
@@ -111,13 +111,13 @@ describe('Lot C & Lot 2 — Miroir Bidirectionnel 140°, G/C/D (FR) vs E/C/D (BR
     const masterKey2 = serializePanCrownTicks(tracks, 101);
     expect(Object.is(masterKey1, masterKey2)).toBe(true);
     expect(parsePanCrownTicksKey(masterKey1)).toEqual([
-      { baseOffset: -40, isLeader: true, kind: 'squad', isFixedWorld: false },
-      { baseOffset: 40, isLeader: false, kind: 'squad', isFixedWorld: false },
-      { baseOffset: 55, isLeader: false, kind: 'linked-slave', isFixedWorld: true },
+      { baseOffset: -40, kind: 'squad', isFixedWorld: false },
+      { baseOffset: 40, kind: 'squad', isFixedWorld: false },
+      { baseOffset: 55, kind: 'linked-slave', isFixedWorld: true },
     ]);
 
     const slaveTicks = resolvePanCrownTicksForTrack(tracks, 102);
-    expect(slaveTicks).toEqual([{ baseOffset: -20, isLeader: true, kind: 'linked-master', isFixedWorld: true }]);
+    expect(slaveTicks).toEqual([{ baseOffset: -20, kind: 'linked-master', isFixedWorld: true }]);
 
     const unfoldedBusTicks = resolvePanCrownTicksForTrack(tracks, 100);
     expect(unfoldedBusTicks.map((t) => t.baseOffset)).toEqual([-60, 20, 55]);

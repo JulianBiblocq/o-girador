@@ -1,5 +1,5 @@
 /**
- * globalStagePawnModel.ts — Modèle de pions bidirectionnels (Maîtres ◆, Esclaves ↳ & Escouades) pour « La Place » 140° (< 125 lignes).
+ * globalStagePawnModel.ts — Modèle de pions bidirectionnels (pistes pilotes ◆, pistes liées ↳ & escouades) pour « La Place » 140° (< 125 lignes).
  */
 import { isSectionEnsembleEligible } from '../../../constants/sectionEnsembleLimits';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../../../data';
@@ -58,7 +58,7 @@ export function buildGlobalStagePawns(
   const pawns: GlobalStagePawnItem[] = [];
 
   for (const t of tracks) {
-    if (!t || t.isBusFolder || t.isLinkFolder || t.isHidden || t.id === 999901) continue;
+    if (!t || t.isBusFolder || t.isLinkFolder || t.id === 999901) continue;
     const inst = instrumentsConfig[t.instrumentIdx];
     if (!inst || (inst.id || '').toLowerCase() === 'apito') continue;
 
@@ -72,8 +72,8 @@ export function buildGlobalStagePawns(
 
     const slave = isSlaveTrack(t, mutTracks);
     const masterTrack = slave ? resolveMasterTrack(t.id, mutTracks) : undefined;
-    const hasLinkedSlaves = !slave && getLinkedGroupMembers(t, mutTracks).some((m) => m.id !== t.id && !m.isHidden && !isApitoTrack(m) && isSlaveTrack(m, mutTracks));
-    const masterAnchorId = slave && masterTrack && masterTrack.id !== t.id && !masterTrack.isHidden && !isApitoTrack(masterTrack)
+    const hasLinkedSlaves = !slave && getLinkedGroupMembers(t, mutTracks).some((m) => m.id !== t.id && !isApitoTrack(m) && isSlaveTrack(m, mutTracks));
+    const masterAnchorId = slave && masterTrack && masterTrack.id !== t.id && !isApitoTrack(masterTrack)
       ? resolvePrimaryPawnIdForTrack(masterTrack)
       : null;
     const masterShortCode = slave && masterTrack && masterTrack.id !== t.id ? buildShortTrackMasterAbbr(masterTrack) : null;

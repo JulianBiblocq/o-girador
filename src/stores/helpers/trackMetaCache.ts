@@ -11,7 +11,6 @@ export interface TrackMeta {
   linkedToTrackId?: string | number;
   isMute: boolean;
   isSolo: boolean;
-  isHidden?: boolean;
   isFolded?: boolean;
   isSequencerFolded?: boolean;
   patternOverrides?: Record<number, number | null>;
@@ -31,7 +30,6 @@ export const getCachedTrackMeta = (
   linkedToTrackId: string | number | undefined,
   isMute: boolean,
   isSolo: boolean,
-  isHidden: boolean | undefined,
   isFolded: boolean | undefined,
   patternOverrides?: Record<number, number | null>,
   automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean },
@@ -40,7 +38,7 @@ export const getCachedTrackMeta = (
 ): TrackMeta => {
   const overridesKey = patternOverrides ? Object.entries(patternOverrides).map(([k, v]) => `${k}:${v}`).join(',') : '';
   const bypassKey = automationBypass ? `${!!automationBypass.volume}_${!!automationBypass.pan}_${!!automationBypass.reverb}` : '';
-  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isHidden}_${!!isFolded}_${!!isSequencerFolded}_${overridesKey}_${bypassKey}_sp${sectionCount}`;
+  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isFolded}_${!!isSequencerFolded}_${overridesKey}_${bypassKey}_sp${sectionCount}`;
   let item = trackMetaCache.get(key);
   if (!item) {
     item = {
@@ -54,7 +52,6 @@ export const getCachedTrackMeta = (
       linkedToTrackId,
       isMute,
       isSolo,
-      isHidden,
       isFolded,
       isSequencerFolded,
       patternOverrides,
@@ -90,7 +87,6 @@ export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] =
       t.linkedToTrackId,
       t.isMute,
       t.isSolo,
-      t.isHidden,
       t.isFolded,
       t.patternOverrides,
       t.automationBypass,
@@ -125,7 +121,7 @@ export const selectTracksHierarchyMeta = (state: { tracks: TrackGroup[] }): Trac
     const t = currentTracks[i];
     const meta = getCachedTrackMeta(
       t.id, t.instrumentIdx, t.customName, t.isBusFolder, t.isLinkFolder,
-      t.isLinkMaster, t.busId, t.linkedToTrackId, false, false, t.isHidden, t.isFolded
+      t.isLinkMaster, t.busId, t.linkedToTrackId, false, false, t.isFolded
     );
     nextList.push(meta);
     if (!hasChanged && prevHierarchyMetaList[i] !== meta) hasChanged = true;

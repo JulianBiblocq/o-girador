@@ -41,8 +41,7 @@ export function getDefaultSelectedRodaTrackIds(
     const matching = eligible.filter((e) => focusSet.has(e.track.id)).map((e) => e.track.id);
     if (matching.length > 0) return matching;
   }
-  const visible = eligible.filter((e) => !e.track.isHidden).map((e) => e.track.id);
-  return visible.length > 0 ? visible : eligible.map((e) => e.track.id);
+  return eligible.map((e) => e.track.id);
 }
 
 function resolveEffectivePatternAtMeasure(track: TrackGroup, allTracks: TrackGroup[], m: number): Pattern | null {

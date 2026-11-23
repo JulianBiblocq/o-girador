@@ -21,7 +21,7 @@ function ensureEditorOpenForTour(cb?: TourPrepareCallbacks) {
   useSequencerSettingsStore.getState().setIsSettingsOpen(false);
   const seq = useSequencerStore.getState();
   if (seq.editingTrackId === null) {
-    const first = seq.tracks.find((tr) => !tr.isHidden && !isToadaChild(tr, seq.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || seq.tracks[0];
+    const first = seq.tracks.find((tr) => !isToadaChild(tr, seq.tracks) && (!tr.isBusFolder || tr.isLinkFolder)) || seq.tracks[0];
     if (first) {
       seq.setEditingTrackId(first.id);
       cb?.markEditorOpened();
