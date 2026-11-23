@@ -2,7 +2,7 @@ import { MasterFX } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { convertLegacyReverbDbToPercent } from './acousticNormalizer';
 import { DEFAULT_STUDIO_MASTER_BUS_CONFIG } from '../../audio/effects/studioFxPresets';
-import { faderPositionToDb } from '../../utils/audioMath';
+import { CURRENT_AUDIO_SCALE_VERSION, sanitizeMasterVolumeDb } from '../../utils/audioMath';
 
 export function restoreMasterFxFromPreset(
   p: any,
@@ -12,7 +12,7 @@ export function restoreMasterFxFromPreset(
   setMasterReverbVol: (vol: number) => void,
   setReverbDecay: (decay: number) => void
 ): void {
-  const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
+  const isValidNum = (v: any): v is number => typeof v === 'number' && Number.isFinite(v);
 
   setMasterEQ({
     low: isValidNum(p.masterEQ?.low) ? p.masterEQ.low : 0,
@@ -25,10 +25,8 @@ export function restoreMasterFxFromPreset(
     ratio: isValidNum(p.masterCompressor?.ratio) ? p.masterCompressor.ratio : 2,
   });
 
-  const safeMasterVol = isValidNum(p.masterVol)
-    ? (p.masterVol <= 12 ? p.masterVol : faderPositionToDb(p.masterVol))
-    : 0;
-  setMasterVol(safeMasterVol);
+  const isAudioV2 = p?.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
+  setMasterVol(sanitizeMasterVolumeDb(p.masterVol, isAudioV2));
 
   const rawMasterFX = p.masterFX;
 

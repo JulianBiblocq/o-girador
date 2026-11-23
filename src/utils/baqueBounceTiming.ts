@@ -117,6 +117,6 @@ export function resolveBounceNoteTrigger(
   const isBeatHead = !isSecondStroke && resolveStepBeatInfo(circleStepIdx, activePattern, timeSig).posInBeat === 0;
   return {
     mIdx, circleStepIdx, isBeatHead, partnerRank: temp.rank, measureBpm,
-    triggerSec: tickToTimeSec(absTick, timing) + swingSec + microSec + temp.attackSpreadSec,
+    triggerSec: Math.max(0, tickToTimeSec(absTick, timing) + swingSec + microSec + temp.attackSpreadSec),
   };
 }

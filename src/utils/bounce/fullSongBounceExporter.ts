@@ -4,7 +4,11 @@
 import { processOfflineStereoArraysThroughMasterBus } from '../../audio/worklet/master-bus/masterBusProcessor';
 import { instrumentsConfig } from '../../data';
 import type { PresetTimingCalculation } from '../../hooks/cloud-bounce/cloudPresetTimingCalculator';
-import { getEffectiveMuteState, getEffectiveSkinChorusAmount, useSequencerStore } from '../../stores/useSequencerStore';
+import {
+  DEFAULT_RODA_BREATHING_AMOUNT, DEFAULT_SKIN_CHORUS_AMOUNT,
+  getEffectiveMuteState, getEffectiveRodaBreathingAmount, getEffectiveSkinChorusAmount,
+  sanitizeEnsembleAmount, useSequencerStore,
+} from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { audioBufferToWav } from '../audio-buffer/audioBufferWavConverter';
 import { calibrateBounceLoudnessInPlace } from '../bounceLoudnessCalibrator';
@@ -62,9 +66,17 @@ export async function renderFullSongBounceOffline(opts: FullSongBounceOptions = 
     return Boolean(inst && inst.type !== 'voice' && inst.id !== 'puxador' && inst.id !== 'coro' && !getEffectiveMuteState(rawTracks, t.id));
   });
 
+  const hasCustomPreset = Boolean(opts.presetData);
+  const effChorus = hasCustomPreset
+    ? (store.isEnsembleAcousticsBypassed ? 0 : sanitizeEnsembleAmount(src.skinChorusAmount ?? src.metadata?.skinChorusAmount, DEFAULT_SKIN_CHORUS_AMOUNT))
+    : getEffectiveSkinChorusAmount(store);
+  const effBreathing = hasCustomPreset
+    ? (store.isEnsembleAcousticsBypassed ? 0 : sanitizeEnsembleAmount(src.rodaBreathingAmount ?? src.metadata?.rodaBreathingAmount, DEFAULT_RODA_BREATHING_AMOUNT))
+    : getEffectiveRodaBreathingAmount(store);
+
   const baquePass = await renderOfflineBaquePass({
     OfflineCtx, rawTracks, unrolledTracks, baqueTracks, timeline, globalSwing,
-    chorusAmount: getEffectiveSkinChorusAmount(store), isEcoMode: disableFx,
+    chorusAmount: effChorus, breathingAmount: effBreathing, isEcoMode: disableFx,
     disableEq, disableFx, globalBypass: store.globalAutomationBypass, onProgress: opts.onProgress,
   });
 

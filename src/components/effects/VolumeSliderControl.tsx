@@ -4,7 +4,7 @@ import { StudioRangeSlider } from '../ui/StudioRangeSlider';
 
 interface VolumeSliderControlProps {
   currVol: number;
-  onChange: (val: number) => void;
+  onChange: (val: number, isFirstChange?: boolean) => void;
 }
 
 export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
@@ -26,7 +26,7 @@ export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
           max={100}
           onChange={(val) => {
             setDragPreviewVal(null);
-            onChange(val);
+            onChange(val, true);
           }}
         />
       </div>
@@ -38,10 +38,10 @@ export const VolumeSliderControl: React.FC<VolumeSliderControlProps> = ({
         accentVar="var(--cordel-param-volume)"
         ariaLabel="Volume"
         onVisualChange={setDragPreviewVal}
-        onScrub={(val) => onChange(val)}
+        onScrub={(val, isFirstChange) => onChange(val, isFirstChange)}
         onReset={(resetVal) => {
           setDragPreviewVal(null);
-          onChange(resetVal);
+          onChange(resetVal, true);
         }}
       />
     </div>

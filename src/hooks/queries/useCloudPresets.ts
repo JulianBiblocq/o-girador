@@ -25,48 +25,22 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
   return useQuery<CloudPreset[]>({
     queryKey: ['cloudPresets', 'v4', userUid, normalizedGroupId, effectiveMestreId, effectiveRole, canWriteSequenciador],
     queryFn: async () => {
-      const { fetchCloudPresets, fetchStoragePresetsJSON } = await import('../../cloudLibrary');
-      const firestorePresetsPromise = fetchCloudPresets(userUid, effectiveRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador);
-      const storagePresetsPromise = normalizedGroupId ? fetchStoragePresetsJSON(normalizedGroupId) : Promise.resolve([]);
-      
-      const results = await Promise.allSettled([firestorePresetsPromise, storagePresetsPromise]);
-      const firestorePresets = results[0].status === 'fulfilled' ? results[0].value : [];
-      const storagePresets = results[1].status === 'fulfilled' ? results[1].value : [];
+      const { fetchCloudPresets } = await import('../../cloudLibrary');
+      let firestorePresets: CloudPreset[] = [];
+      try {
+        firestorePresets = await fetchCloudPresets(userUid, effectiveRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador);
+      } catch (reason) {
+        console.warn('[useCloudPresets] Firestore presets query failed:', reason);
+      }
 
-      if (results[0].status === 'rejected') {
-        console.warn('[useCloudPresets] Firestore presets query failed:', results[0].reason);
-      }
-      if (results[1].status === 'rejected') {
-        console.warn('[useCloudPresets] Storage presets query failed:', results[1].reason);
-      }
-      
-      // Fusion avec priorité absolue à Firestore et déduplication canonique par ID et par nom normalisé
       const seenIds = new Set<string>();
       const seenNormalizedNames = new Set<string>();
       const merged: CloudPreset[] = [];
 
-      // 1. Priorité absolue aux documents Cloud Firestore (source de vérité officielle)
       for (const p of firestorePresets) {
         const normName = normalizePresetName(p.name);
         const normId = normalizePresetName(p.id);
         if (!seenIds.has(p.id)) {
-          seenIds.add(p.id);
-          if (normId) seenIds.add(normId);
-          if (normName) seenNormalizedNames.add(normName);
-          merged.push(p);
-        }
-      }
-
-      // 2. Ajout des fichiers Firebase Storage uniquement si aucun équivalent Firestore n'existe
-      for (const p of storagePresets) {
-        const normName = normalizePresetName(p.name);
-        const normId = normalizePresetName(p.id);
-        const alreadySeen =
-          seenIds.has(p.id) ||
-          (Boolean(normId) && seenIds.has(normId)) ||
-          (Boolean(normName) && seenNormalizedNames.has(normName));
-
-        if (!alreadySeen) {
           seenIds.add(p.id);
           if (normId) seenIds.add(normId);
           if (normName) seenNormalizedNames.add(normName);

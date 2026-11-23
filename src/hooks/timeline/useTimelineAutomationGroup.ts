@@ -56,7 +56,6 @@ export function useTimelineAutomationGroup({
       val: localValuesRef.current[idx] ?? fallbackDefault,
       snapshot: [...localValuesRef.current],
     };
-    useSequencerStore.getState().pushUndoState();
   }, [mappedType, trackId, selectAutomationMeasure, isPointInGroup, localValuesRef, type]);
 
   const onPointerMove = useCallback((draggedIdx: number, rawVal: number) => {
@@ -94,6 +93,7 @@ export function useTimelineAutomationGroup({
     hasMovedRef.current = false;
 
     if (wasGroup && selectedAutomationRange) {
+      useSequencerStore.getState().pushUndoState();
       const start = Math.min(selectedAutomationRange.start, selectedAutomationRange.end);
       const end = Math.max(selectedAutomationRange.start, selectedAutomationRange.end);
       commitGroupedAutomationValues(type, trackId ?? null, totalMeasures, start, end, localValuesRef.current);

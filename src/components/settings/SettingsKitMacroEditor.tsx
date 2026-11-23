@@ -8,6 +8,7 @@ import { TrackGroup } from '../../types';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { resolveActivePatternIdForTrack } from '../oficina/LutherieTrackLinksRow';
+import { StudioRangeSlider } from '../ui/StudioRangeSlider';
 
 interface SettingsKitMacroEditorProps {
   track: TrackGroup;
@@ -20,8 +21,8 @@ interface SettingsKitMacroEditorProps {
   lang: string;
   onToggleForcedState: () => void;
   onClose: () => void;
-  onVolumeChange: (val: number, delta: number) => void;
-  onDecayChange: (val: number, delta: number) => void;
+  onVolumeChange: (val: number, delta: number, isFirstChange: boolean) => void;
+  onDecayChange: (val: number, delta: number, isFirstChange: boolean) => void;
 }
 
 export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
@@ -29,7 +30,7 @@ export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
   onToggleForcedState, onClose, onVolumeChange, onDecayChange,
 }) => {
   const isFr = lang === 'fr';
-  const safeAvgVol = avgVolume ?? 80;
+  const safeAvgVol = avgVolume ?? 70;
   const safeAvgDecay = avgDecay ?? 100;
 
   const handleEditStrokeInGrid = () => {
@@ -74,35 +75,35 @@ export const SettingsKitMacroEditor: React.FC<SettingsKitMacroEditorProps> = ({
         </button>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <div className="flex justify-between text-[10px] font-cactus font-bold uppercase">
-          <span>{isFr ? 'Volume Global :' : 'Volume Geral :'}</span>
-          <span className="font-mono text-[var(--cordel-accent-readable)]">{safeAvgVol}%</span>
-        </div>
-        <input
-          type="range" min={0} max={100} value={safeAvgVol}
-          onChange={(e) => {
-            const val = parseInt(e.target.value, 10);
-            onVolumeChange(val, val - safeAvgVol);
-          }}
-          className="w-full accent-[var(--cordel-status-success)] cursor-pointer h-1.5"
-        />
-      </div>
+      <StudioRangeSlider
+        value={safeAvgVol}
+        min={0}
+        max={100}
+        resetValue={70}
+        surfaceTone="theme"
+        accentVar="var(--cordel-status-success)"
+        ariaLabel={isFr ? 'Volume Global' : 'Volume Geral'}
+        labelContent={<span className="font-cactus font-bold uppercase">{isFr ? 'Volume Global :' : 'Volume Geral :'}</span>}
+        onScrub={(val, isFirstChange) => onVolumeChange(val, val - safeAvgVol, isFirstChange)}
+        onReset={(resetVal) => onVolumeChange(resetVal, resetVal - safeAvgVol, true)}
+      />
 
-      <div className="flex flex-col gap-1">
-        <div className="flex justify-between text-[10px] font-cactus font-bold uppercase">
-          <span>{isVoice ? (isFr ? 'Durée Globale :' : 'Duração Geral :') : (isFr ? 'Résonance Globale (Decay) :' : 'Ressonância Geral (Decay) :')}</span>
-          <span className="font-mono text-[var(--cordel-accent-readable)]">{safeAvgDecay}%</span>
-        </div>
-        <input
-          type="range" min={10} max={100} value={safeAvgDecay}
-          onChange={(e) => {
-            const val = parseInt(e.target.value, 10);
-            onDecayChange(val, val - safeAvgDecay);
-          }}
-          className="w-full accent-[var(--cordel-accent)] cursor-pointer h-1.5"
-        />
-      </div>
+      <StudioRangeSlider
+        value={safeAvgDecay}
+        min={10}
+        max={100}
+        resetValue={100}
+        surfaceTone="theme"
+        accentVar="var(--cordel-accent)"
+        ariaLabel={isVoice ? (isFr ? 'Durée Globale' : 'Duração Geral') : (isFr ? 'Résonance Globale' : 'Ressonância Geral')}
+        labelContent={
+          <span className="font-cactus font-bold uppercase">
+            {isVoice ? (isFr ? 'Durée Globale :' : 'Duração Geral :') : (isFr ? 'Résonance Globale (Decay) :' : 'Ressonância Geral (Decay) :')}
+          </span>
+        }
+        onScrub={(val, isFirstChange) => onDecayChange(val, val - safeAvgDecay, isFirstChange)}
+        onReset={(resetVal) => onDecayChange(resetVal, resetVal - safeAvgDecay, true)}
+      />
 
       <button
         type="button"

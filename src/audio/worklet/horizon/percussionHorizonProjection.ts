@@ -71,52 +71,58 @@ export function projectHorizonMeasures(input: HorizonProjectionInput): Projected
 
   for (let h = 0; h < count; h++) {
     const seqId = input.baseSeqId + h;
-    const timing = buildMeasureTimingTable({
-      measureIdx: currM, startFrame: currFrame, sampleRate: input.sampleRate, totalMeasures: totalM,
-      measureTimeSigs: input.measureTimeSigs, measureBpms: input.measureBpms,
-      measureBpmTransitions: input.measureBpmTransitions, fallbackBpm: input.fallbackBpm, speedTrainerBpm: stBpm,
-    });
+    const activeMeasure = currM;
+    const activeStBpm = stBpm;
+    let nextM: number | null = null;
 
-    result.push({
-      seqId, measureIdx: currM,
-      measureStartTick: getMeasureStartTick(currM, input.measureTimeSigs as Record<number, string>),
-      timing, speedTrainerBpm: stBpm,
-    });
-    currFrame = timing.endFrame;
-
-    if (input.soloPatternPlayId !== null && input.soloPatternPlayId !== undefined) continue;
-    if (queued !== null && queued !== undefined) {
-      currM = Math.max(0, Math.min(lastM, queued));
+    if (input.soloPatternPlayId !== null && input.soloPatternPlayId !== undefined) {
+      nextM = currM;
+    } else if (queued !== null && queued !== undefined) {
+      nextM = Math.max(0, Math.min(lastM, queued));
       queued = null;
-      continue;
-    }
-
-    const regionActive = Boolean(input.isLoopRegionActive && input.loopStartMeasure !== null && input.loopEndMeasure !== null);
-    if (loopBypassed) {
-      if (currM >= lastM) break;
-      currM++;
-    } else if (regionActive) {
-      const lStart = input.loopStartMeasure!, lEnd = input.loopEndMeasure!;
-      if (currM === lEnd) {
+    } else {
+      const regionActive = Boolean(input.isLoopRegionActive && input.loopStartMeasure !== null && input.loopEndMeasure !== null);
+      if (loopBypassed) {
+        if (currM < lastM) nextM = currM + 1;
+      } else if (regionActive) {
+        const lStart = input.loopStartMeasure!, lEnd = input.loopEndMeasure!;
+        if (currM === lEnd) {
+          const fixedReached = typeof input.loopMode === 'number' && input.loopMode > 0 && loopIter >= input.loopMode;
+          if (exitReq || fixedReached || !input.isLooping) {
+            exitReq = false; loopBypassed = true;
+            if (lEnd < lastM) nextM = lEnd + 1;
+          } else {
+            loopIter++; nextM = lStart;
+            const nextSt = advanceSpeedTrainerBpm(stBpm, stTour, input.speedTrainerConfig);
+            stBpm = nextSt.bpm; stTour = nextSt.tour;
+          }
+        } else { nextM = currM + 1; }
+      } else if (currM >= lastM) {
+        const isLinear1x = input.loopMode === 1 || (input.loopMode as any) === 'off' || !input.isLooping;
         const fixedReached = typeof input.loopMode === 'number' && input.loopMode > 0 && loopIter >= input.loopMode;
-        if (exitReq || fixedReached || !input.isLooping) {
-          exitReq = false; loopBypassed = true;
-          if (lEnd >= lastM) break;
-          currM = lEnd + 1;
-        } else {
-          loopIter++; currM = lStart;
+        if (!exitReq && !isLinear1x && !fixedReached) {
+          loopIter++; nextM = 0;
           const nextSt = advanceSpeedTrainerBpm(stBpm, stTour, input.speedTrainerConfig);
           stBpm = nextSt.bpm; stTour = nextSt.tour;
         }
-      } else { currM++; }
-    } else if (currM >= lastM) {
-      const isLinear1x = input.loopMode === 1 || !input.isLooping;
-      const fixedReached = typeof input.loopMode === 'number' && input.loopMode > 0 && loopIter >= input.loopMode;
-      if (exitReq || isLinear1x || fixedReached) break;
-      loopIter++; currM = 0;
-      const nextSt = advanceSpeedTrainerBpm(stBpm, stTour, input.speedTrainerConfig);
-      stBpm = nextSt.bpm; stTour = nextSt.tour;
-    } else { currM++; }
+      } else { nextM = currM + 1; }
+    }
+
+    const timing = buildMeasureTimingTable({
+      measureIdx: activeMeasure, startFrame: currFrame, sampleRate: input.sampleRate, totalMeasures: totalM,
+      measureTimeSigs: input.measureTimeSigs, measureBpms: input.measureBpms,
+      measureBpmTransitions: input.measureBpmTransitions, fallbackBpm: input.fallbackBpm,
+      speedTrainerBpm: activeStBpm, targetNextMeasureIdx: nextM,
+    });
+
+    result.push({
+      seqId, measureIdx: activeMeasure,
+      measureStartTick: getMeasureStartTick(activeMeasure, input.measureTimeSigs as Record<number, string>),
+      timing, speedTrainerBpm: activeStBpm,
+    });
+    currFrame = timing.endFrame;
+    if (nextM === null) break;
+    currM = nextM;
   }
   return result;
 }

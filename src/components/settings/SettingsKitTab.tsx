@@ -113,8 +113,8 @@ export const SettingsKitTab: React.FC<SettingsKitTabProps> = ({ lang, isLeftHand
                         isStrokeCurrentlyActive={isStrokeCurrentlyActive} avgVolume={avgVolume} avgDecay={avgDecay} lang={lang}
                         onToggleForcedState={() => setStrokeForcedState(`${track.id}:${stroke}`, !isStrokeCurrentlyActive)}
                         onClose={() => setSelectedMacro(null)}
-                        onVolumeChange={(val, delta) => applyMacroVolumeDelta(track.id, stroke, delta, val)}
-                        onDecayChange={(val, delta) => applyMacroDecayDelta(track.id, stroke, delta, val)}
+                        onVolumeChange={(val, delta, isFirstChange) => applyMacroVolumeDelta(track.id, stroke, delta, val, { skipUndo: !isFirstChange })}
+                        onDecayChange={(val, delta, isFirstChange) => applyMacroDecayDelta(track.id, stroke, delta, val, { skipUndo: !isFirstChange })}
                       />
                     );
                   })()}

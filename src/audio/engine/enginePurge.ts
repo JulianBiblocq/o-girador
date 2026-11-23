@@ -40,11 +40,13 @@ export class EnginePurge {
           if (barulho.activeBarulhoNodes.get(instrumentId) === source) {
             barulho.activeBarulhoNodes.delete(instrumentId);
             barulho.activeBarulhoGains.delete(instrumentId);
+            barulho.activeBarulhoCoords.delete(instrumentId);
           }
         }
       }
     });
     scheduledHits.clear();
+    barulho.clear();
   }
 
   public static cleanDeadNodes(

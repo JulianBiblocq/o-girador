@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { EditableNumber } from './EditableNumber';
 
 interface MicrotimingSliderControlProps {
   totalVal: number;
   swingOffset: number;
   lang: string;
-  onChange: (clampedManual: number) => void;
+  onChange: (clampedManual: number, isFirstChange?: boolean) => void;
 }
 
 export const MicrotimingSliderControl: React.FC<MicrotimingSliderControlProps> = ({
@@ -15,10 +15,11 @@ export const MicrotimingSliderControl: React.FC<MicrotimingSliderControlProps> =
   onChange,
 }) => {
   const clampedTotalVal = Math.max(-100, Math.min(100, totalVal));
+  const dragUndoArmedRef = useRef(true);
 
-  const handleTotalChange = (newTotal: number) => {
+  const handleTotalChange = (newTotal: number, isFirstChange = true) => {
     const newManual = newTotal - swingOffset;
-    onChange(Math.max(-100, Math.min(100, newManual)));
+    onChange(Math.max(-100, Math.min(100, newManual)), isFirstChange);
   };
 
   return (
@@ -30,7 +31,7 @@ export const MicrotimingSliderControl: React.FC<MicrotimingSliderControlProps> =
           suffix="%"
           min={-100}
           max={100}
-          onChange={handleTotalChange}
+          onChange={(v) => handleTotalChange(v, true)}
         />
       </div>
       <div className="flex items-center gap-2 relative h-6">
@@ -55,7 +56,13 @@ export const MicrotimingSliderControl: React.FC<MicrotimingSliderControlProps> =
             min="-100"
             max="100"
             value={clampedTotalVal}
-            onChange={(e) => handleTotalChange(parseInt(e.target.value, 10))}
+            onPointerDown={() => { dragUndoArmedRef.current = true; }}
+            onPointerUp={() => { dragUndoArmedRef.current = true; }}
+            onChange={(e) => {
+              const first = dragUndoArmedRef.current;
+              dragUndoArmedRef.current = false;
+              handleTotalChange(parseInt(e.target.value, 10), first);
+            }}
             className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
           />
         </div>

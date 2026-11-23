@@ -38,6 +38,7 @@ export async function renderOfflineBaquePass(params: {
   timeline: FullSongUnrolledTimeline;
   globalSwing: any;
   chorusAmount: number;
+  breathingAmount?: number;
   isEcoMode: boolean;
   disableEq: boolean;
   disableFx: boolean;
@@ -76,7 +77,7 @@ export async function renderOfflineBaquePass(params: {
   const sampleCache = new Map<string, AudioBuffer>(), offlineRR = new EngineRoundRobin();
   const lookaheadPts = buildOfflineBounceLookaheadPoints(schedule, unrolledTracks, baqueIdSet, timeline.timing, globalSwing, temperamentMap);
   const barulhoTracker = new OfflineBarulhoPhraseTracker(lookaheadPts, timeline.totalDurationSec);
-  const breathingAmount = getEffectiveRodaBreathingAmount(useSequencerStore.getState());
+  const breathingAmount = params.breathingAmount ?? getEffectiveRodaBreathingAmount(useSequencerStore.getState());
   const snareCandidate = resolveAudibleSympathySnareTrack(rawTracks, breathingAmount, null);
   const lastBuzzTimeSecRef = { value: -10 };
 

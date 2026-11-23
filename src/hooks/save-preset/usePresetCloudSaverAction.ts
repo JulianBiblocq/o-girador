@@ -3,6 +3,7 @@ import { savePresetToCloud } from '../../cloudLibrary';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { setActiveCloudPresetId } from '../../utils/cloudPresetState';
+import { sanitizeMasterVolumeDb } from '../../utils/audioMath';
 import { buildCurrentPresetData } from '../../contexts/audio/audioPresetDataBuilder';
 import { savePresetToLibrary } from '../../db';
 import { isMestreOrAdminProfile } from '../../utils/presetPermissions';
@@ -50,10 +51,7 @@ export async function executeSavePresetToCloud({
 
   const storeState = useSequencerStore.getState();
   const currentVocalPreset = useAudioStore.getState().vocalPreset || presetData?.vocalPreset || 'guide';
-  const effectiveMasterVol =
-    typeof presetData?.masterVol === 'number' && !isNaN(presetData.masterVol) && presetData.masterVol <= 12
-      ? presetData.masterVol
-      : 0;
+  const effectiveMasterVol = sanitizeMasterVolumeDb(presetData?.masterVol, true);
 
   const freshData = buildCurrentPresetData(
     sequencer,

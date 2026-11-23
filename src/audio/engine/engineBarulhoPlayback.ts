@@ -22,8 +22,24 @@ export function playBarulhoStroke(
   maxPreviewDurSec?: number,
   playerIdx = 0,
   extraCleanup?: () => void,
-  partnerRank = 0
+  partnerRank = 0,
+  originCoord = 0
 ): void {
+  const isSoftB = strokeSymbol === 'b' || (instrumentId === 'apito' && strokeSymbol === 'l');
+  const barKey = playerIdx > 0 ? `${instrumentId}__p${playerIdx}` : instrumentId;
+  const hasCustomStepDur = typeof maxPreviewDurSec === 'number' && maxPreviewDurSec !== 0;
+  const isContinuousSeqLoop = isLiveHold || (originCoord > 0 && !hasCustomStepDur);
+
+  if (isContinuousSeqLoop && ctx.barulho.trySustainLegatoBarulho(barKey, originCoord, velocity, time, isSoftB)) {
+    try { source.disconnect(); } catch (_) {}
+    extraCleanup?.();
+    ctx.channels.releaseGainNode(ctx.audioContext, instrumentId, gainNode);
+    return;
+  }
+  if (ctx.barulho.activeBarulhoNodes.has(barKey)) {
+    ctx.barulho.fadeOutBarulho(barKey, time, 0.020);
+  }
+
   const baked = getOrBakeBarulhoAudioBuffer(ctx.audioContext, buffer, instrumentId);
   source.buffer = baked.buffer;
   source.playbackRate.value = TUNEABLE_INSTRUMENTS.has(instrumentId) && calculatedPitch > 0 ? calculatedPitch : 1.0;
@@ -31,7 +47,6 @@ export function playBarulhoStroke(
   source.loopStart = baked.region.loopResumeSec;
   source.loopEnd = baked.region.loopWrapSec;
 
-  const isSoftB = strokeSymbol === 'b' || (instrumentId === 'apito' && strokeSymbol === 'l');
   const sr = baked.buffer.sampleRate;
   const hasLoop = baked.region.loopWrapFrame > baked.region.loopResumeFrame;
   const decorrelIdx = playerIdx > 0 ? playerIdx : partnerRank;
@@ -40,9 +55,9 @@ export function playBarulhoStroke(
     : (isSoftB
         ? computeBarulhoSoftEntryFrame(trackId ?? 0, baked.region.bodyStartFrame, baked.region.loopResumeFrame, baked.region.loopWrapFrame, baked.region.softEntryFrame) / sr
         : 0);
-  const barKey = playerIdx > 0 ? `${instrumentId}__p${playerIdx}` : instrumentId;
 
-  if (isLiveHold) {
+  if (isContinuousSeqLoop) {
+    ctx.scheduledHits.add(source);
     gainNode.gain.cancelScheduledValues(time);
     if (isSoftB || decorrelIdx > 0) {
       const ramp = isSoftB ? DEFAULT_BARULHO_FADEIN_SEC : BARULHO_PARTNER_ATTACK_RAMP_SEC;
@@ -54,6 +69,7 @@ export function playBarulhoStroke(
     source.start(time, entrySec);
     ctx.barulho.activeBarulhoNodes.set(barKey, source);
     ctx.barulho.activeBarulhoGains.set(barKey, gainNode);
+    ctx.barulho.activeBarulhoCoords.set(barKey, isSoftB ? 0 : originCoord);
     ctx.activeGainNodes.set(source, ctx.voiceGuard.getGainNodeMapping(instrumentId, gainNode, Infinity));
   } else {
     ctx.scheduledHits.add(source);
@@ -107,6 +123,7 @@ export function playBarulhoStroke(
     if (ctx.barulho.activeBarulhoNodes.get(barKey) === source) {
       ctx.barulho.activeBarulhoNodes.delete(barKey);
       ctx.barulho.activeBarulhoGains.delete(barKey);
+      ctx.barulho.activeBarulhoCoords.delete(barKey);
     }
   };
 }

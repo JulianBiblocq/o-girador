@@ -5,7 +5,6 @@ import { vocalEngineService } from '../../audio/vocalEngineService';
 import { invalidateAudioParamsCache } from '../../hooks/useAudioSync';
 import { clearFreeze } from '../../hooks/audio-sync/frozenPlaybackState';
 import { CURRENT_AUDIO_SCALE_VERSION } from '../../utils/audioMath';
-import { normalizePresetAcousticsOnLoad } from './acousticNormalizer';
 import { migrateAndSanitizePresetTracks } from './audioPresetTracksMigrator';
 import { restorePresetVocalRecordings } from './audioPresetVocalRestorer';
 import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
@@ -14,10 +13,11 @@ import { resolvePresetVocalTransposeSteps, restorePresetAutomationsAndVocal, res
 import { markAutosaveBaselineClean } from '../../hooks/app-audio/autosavePayloadBuilder';
 
 export async function executeApplyPreset(
-  p: any, sequencer: any, audioSync: any,
+  rawPreset: any, sequencer: any, audioSync: any,
   setters: { setMasterEQ: (eq: any) => void; setMasterCompressor: (comp: any) => void; setMasterVol: (vol: number) => void; setMasterReverbVol: (vol: number) => void; setReverbDecay: (decay: number) => void; }
 ): Promise<void> {
-  normalizePresetAcousticsOnLoad(p);
+  const isAudioV2 = rawPreset?.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
+  const p = rawPreset && typeof rawPreset === 'object' ? { ...rawPreset } : {};
   clearFreeze();
   useTransportStore.getState().setIsPaused(false);
   vocalEngineService.disposeAllVocalPlayers();
@@ -28,8 +28,7 @@ export async function executeApplyPreset(
   useSequencerStore.getState().setMetadata(fullMeta);
 
   const loadedMeasures = p.totalMeasures || 8;
-  const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
-  const loadedTracks = migrateAndSanitizePresetTracks(p, loadedMeasures);
+  const loadedTracks = migrateAndSanitizePresetTracks(p, loadedMeasures, isAudioV2);
   await restorePresetVocalRecordings(loadedTracks);
 
   const loadedTrackIds = new Set(loadedTracks.map((t) => t.id));
@@ -66,10 +65,9 @@ export async function executeApplyPreset(
 
   const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs) ? p.measureTimeSigs : Array(loadedMeasures).fill(defaultTimeSig);
   const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions) ? p.measureBpmTransitions : Array(loadedMeasures).fill('immediate');
-  let rawMeasureVols = p.measureVols && Array.isArray(p.measureVols) ? p.measureVols.map((v: number) => {
-    const rounded = Math.round(v);
-    return !isAudioV2 ? (rounded === 100 ? 75 : Math.round(rounded * 0.75)) : rounded;
-  }) : Array(loadedMeasures).fill(100);
+  let rawMeasureVols = p.measureVols && Array.isArray(p.measureVols)
+    ? p.measureVols.map((v: number) => (Number.isFinite(Number(v)) ? Math.max(0, Math.min(100, Math.round(Number(v)))) : 100))
+    : Array(loadedMeasures).fill(100);
   if (rawMeasureVols.length > 0 && rawMeasureVols.every((v: number) => v === 75)) rawMeasureVols = Array(loadedMeasures).fill(100);
   const loadedVols = rawMeasureVols;
   const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions) ? p.measureVolTransitions : Array(loadedMeasures).fill('immediate');

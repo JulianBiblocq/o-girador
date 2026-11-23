@@ -27,7 +27,8 @@ export function resolveMeasureStepTickDurSec(
   measureBpms: number[] | Record<number, number> | undefined,
   measureBpmTransitions: Record<number, string> | undefined,
   fallbackBpm: number,
-  speedTrainerBpm?: number
+  speedTrainerBpm?: number,
+  targetNextMeasureIdx?: number | null
 ): number {
   if (speedTrainerBpm !== undefined && speedTrainerBpm > 0) {
     return 2.5 / Math.max(1, speedTrainerBpm);
@@ -38,11 +39,18 @@ export function resolveMeasureStepTickDurSec(
   const currentBpm = rawCurr && !isNaN(rawCurr) && rawCurr > 0 ? rawCurr : (fallbackBpm || 100);
   const transition = measureBpmTransitions?.[mIdx] || 'immediate';
 
-  if (transition === 'immediate' || mIdx >= totalM - 1) {
+  if (
+    transition === 'immediate' ||
+    targetNextMeasureIdx === null ||
+    (targetNextMeasureIdx === undefined && mIdx >= totalM - 1)
+  ) {
     return 2.5 / Math.max(1, currentBpm);
   }
 
-  const nextMIdx = (mIdx + 1) % totalM;
+  const nextMIdx =
+    targetNextMeasureIdx !== undefined
+      ? ((targetNextMeasureIdx % totalM) + totalM) % totalM
+      : (mIdx + 1) % totalM;
   const rawNext = measureBpms?.[nextMIdx];
   const nextBpm = rawNext && !isNaN(rawNext) && rawNext > 0 ? rawNext : currentBpm;
   if (Math.abs(nextBpm - currentBpm) < 1e-4) {
@@ -57,14 +65,38 @@ export function resolveMeasureStepTickDurSec(
   return 2.5 / Math.max(1, interpolatedBpm);
 }
 
+export function resolveClampedHorizonTriggerFrame(
+  rawFrame: number,
+  baseStepFrame: number,
+  currentFrame: number,
+  minRebuildFrame: number,
+  sampleRate: number,
+  oldFrame?: number
+): number | null {
+  const expiryFrames = Math.round(0.015 * sampleRate);
+  if (minRebuildFrame > 0) {
+    if (oldFrame !== undefined && oldFrame < minRebuildFrame) return null;
+    if (oldFrame !== undefined && oldFrame >= minRebuildFrame) return Math.max(rawFrame, minRebuildFrame);
+    if (rawFrame >= currentFrame && rawFrame < minRebuildFrame) return minRebuildFrame;
+    if (rawFrame < minRebuildFrame && baseStepFrame >= minRebuildFrame) return minRebuildFrame;
+    if (rawFrame < minRebuildFrame) return null;
+    return rawFrame;
+  }
+  if (rawFrame < currentFrame - expiryFrames) {
+    return baseStepFrame >= currentFrame - expiryFrames ? currentFrame : null;
+  }
+  return rawFrame < currentFrame ? currentFrame : rawFrame;
+}
+
 export function buildMeasureTimingTable(params: {
   measureIdx: number; startFrame: number; sampleRate: number; totalMeasures: number;
   measureTimeSigs: Record<number, string> | string[];
   measureBpms: number[] | Record<number, number> | undefined;
   measureBpmTransitions?: Record<number, string>;
   fallbackBpm: number; speedTrainerBpm?: number;
+  targetNextMeasureIdx?: number | null;
 }): MeasureTimingTable {
-  const { measureIdx, startFrame, sampleRate, totalMeasures, measureTimeSigs, measureBpms, measureBpmTransitions, fallbackBpm, speedTrainerBpm } = params;
+  const { measureIdx, startFrame, sampleRate, totalMeasures, measureTimeSigs, measureBpms, measureBpmTransitions, fallbackBpm, speedTrainerBpm, targetNextMeasureIdx } = params;
   const sr = sampleRate > 0 ? sampleRate : 48000;
   const timeSig = measureTimeSigs?.[measureIdx] || '4/4';
   const maxTicks = Math.max(1, getMaxTicks(timeSig as any));
@@ -75,7 +107,7 @@ export function buildMeasureTimingTable(params: {
   tickOffsetsSec[0] = 0;
   for (let s = 0; s < maxTicks; s++) {
     const d = resolveMeasureStepTickDurSec(
-      measureIdx, s, maxTicks, totalMeasures, measureBpms, measureBpmTransitions, fallbackBpm, speedTrainerBpm
+      measureIdx, s, maxTicks, totalMeasures, measureBpms, measureBpmTransitions, fallbackBpm, speedTrainerBpm, targetNextMeasureIdx
     );
     instantTickDurSec[s] = d;
     accumSec += d;

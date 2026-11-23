@@ -94,6 +94,7 @@ export function syncTrackChannels(p: SyncTrackChannelsParams): void {
     const eqHash = `eq_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
 
     if (lastAppliedTracksParamsRef.current[t.id] !== channelHash) {
+      if (muteState) audioEngine?.stopBarulho(inst.id);
       applyChannelVolumeLinear(channels[t.id], effectiveVol, panCompensationDb, muteState, 0.018);
       safeRampPan(channels[t.id].pan, acousticPan, 0.02);
       if (t.isLinkMaster) syncBusSendVcaGain(t.id, muteState ? 0 : computeBusLinearVcaGain(t, tracks), 0.018);

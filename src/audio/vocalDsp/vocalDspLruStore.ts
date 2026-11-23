@@ -3,7 +3,10 @@
  * - Plafonne uniquement les buffers dérivés `__dsp_*` sans jamais toucher aux buffers maîtres `${trackId}_${patternId}`.
  * - Promotion O(1) à chaque lecture/écriture et éviction automatique des variantes les plus anciennes (ex. SpeedTrainer).
  */
-import type { VocalPatternDspCacheEntry } from './vocalPatternBufferCache';
+export interface VocalPatternDspCacheEntry {
+  cacheKey: string; audioBuffer: AudioBuffer; alpha: number; recordedBpm: number; liveBpm: number;
+  transpositionSemitones: number; deltaSemitones: number; scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number;
+}
 
 export const DEFAULT_MAX_VOCAL_DSP_CACHE_ENTRIES = 24;
 

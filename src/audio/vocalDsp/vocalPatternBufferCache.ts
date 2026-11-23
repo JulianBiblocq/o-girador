@@ -5,21 +5,18 @@ import { synthesizeTimePitchHybridTdPsola } from './formantPreservingTimePitchEn
 import {
   buildVocalDspCacheKey, clearLruDspCache, DEFAULT_MAX_VOCAL_DSP_CACHE_ENTRIES, evictVocalDspVariantsByPrefix,
   getCachedVocalPatternDspEntry, getLruDspEntry, getVocalDspCacheKeys, getVocalDspCacheSize,
-  setLruDspEntry, setMaxVocalDspCacheEntriesForTests,
+  setLruDspEntry, setMaxVocalDspCacheEntriesForTests, type VocalPatternDspCacheEntry,
 } from './vocalDspLruStore';
 import type { VocalDspWorkerRequest, VocalDspWorkerResponse } from '../../workers/vocalDsp.worker';
 
 export {
   buildVocalDspCacheKey, DEFAULT_MAX_VOCAL_DSP_CACHE_ENTRIES, evictVocalDspVariantsByPrefix,
   getCachedVocalPatternDspEntry, getVocalDspCacheKeys, getVocalDspCacheSize, setMaxVocalDspCacheEntriesForTests,
+  type VocalPatternDspCacheEntry,
 };
 export const getCachedVocalPatternDsp = getCachedVocalPatternDspEntry;
 
 export interface ScaledPatternTiming { alpha: number; scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number; when: number; }
-export interface VocalPatternDspCacheEntry {
-  cacheKey: string; audioBuffer: AudioBuffer; alpha: number; recordedBpm: number; liveBpm: number;
-  transpositionSemitones: number; deltaSemitones: number; scaledT1OffsetSec: number; scaledTrimStartSec: number; scaledTrimEndSec: number;
-}
 
 const pendingWorkerPromises = new Map<string, Promise<VocalPatternDspCacheEntry>>();
 let dspWorkerInstance: Worker | null = null;

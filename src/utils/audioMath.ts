@@ -4,6 +4,7 @@ export {
   CURRENT_AUDIO_SCALE_VERSION,
   sanitizeFaderPosition,
   normalizeToFaderPosition,
+  sanitizeMasterVolumeDb,
   faderPositionToDb,
   faderPositionToGain,
   dbToFaderPosition,

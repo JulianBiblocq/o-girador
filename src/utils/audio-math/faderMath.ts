@@ -21,7 +21,7 @@ export function sanitizeFaderPosition(val: unknown): number {
 
 /**
  * Normalise la valeur de volume d'un preset/piste lors du chargement.
- * Convertit les anciens gains linéaires (0 < num <= 1.5) et assainit les valeurs invalides.
+ * En v1 (!isAudioV2), convertit l'échelle linéaire 0..100 (100 = 0 dB) ou gain 0..1.5 vers la courbe fader v2 (75 = 0 dB).
  */
 export function normalizeToFaderPosition(val: unknown, isAudioV2 = false): number {
   if (val === undefined || val === null) {
@@ -29,10 +29,27 @@ export function normalizeToFaderPosition(val: unknown, isAudioV2 = false): numbe
   }
   const num = Number(val);
   if (isNaN(num)) return UNITY_GAIN_FADER_POSITION;
-  if (!isAudioV2 && num > 0 && num <= 1.5) {
-    return gainToFaderPosition(num);
+  if (num <= 0) return 0;
+  if (!isAudioV2) {
+    if (num <= 1.5) return gainToFaderPosition(num);
+    return gainToFaderPosition(Math.min(100, num) / 100);
   }
   return Math.max(0, Math.min(100, num));
+}
+
+/**
+ * Assainit et borne le volume Master strictement en décibels (dB), sans jamais retomber sur 75 d'échelle piste.
+ */
+export function sanitizeMasterVolumeDb(val: unknown, isAudioV2 = true): number {
+  if (val === undefined || val === null) return 0;
+  const num = Number(val);
+  if (Number.isNaN(num)) return 0;
+  if (num === -Infinity || num <= -60) return -Infinity;
+  if (num > 12) {
+    const faderPos = isAudioV2 ? Math.min(100, num) : normalizeToFaderPosition(num, false);
+    return faderPositionToDb(faderPos);
+  }
+  return Math.max(-60, Math.min(12, num));
 }
 
 /**

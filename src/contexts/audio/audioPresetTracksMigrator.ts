@@ -6,14 +6,15 @@ import { normalizePatternData } from './audioPatternNormalizer';
 import { sanitizeVocalTransposeSteps } from './presetSerializationHelpers';
 import { hasActiveTrackAutomation } from '../../utils/automationDetectHelper';
 import { sanitizeTrackLinkingAndBuses } from './audioPresetLinkSanitizer';
-import { normalizePresetAcousticsOnLoad } from './acousticNormalizer';
+import { CURRENT_LUTHERIE_VERSION, normalizePresetAcousticsOnLoad } from './acousticNormalizer';
 import { sanitizeSectionPlayers } from '../../constants/sectionEnsembleLimits';
 import { migrateLegacySlavePatternOverrides } from '../../utils/legacySlaveOverridesMigrator';
 import { reconcileAllLinkedTracks } from '../../utils/trackLinkingSync';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 
-export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): TrackGroup[] {
-  const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
+export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number, isAudioV2Override?: boolean): TrackGroup[] {
+  const isAudioV2 = isAudioV2Override ?? (p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION);
+  const isLutherieV3 = typeof p.lutherieVersion === 'number' && p.lutherieVersion >= CURRENT_LUTHERIE_VERSION;
   let loadedTracks: TrackGroup[] = [];
   const version = p.version || 1;
 
@@ -56,18 +57,16 @@ export function migrateAndSanitizePresetTracks(p: any, loadedMeasures: number): 
   }
 
   p.tracks = loadedTracks;
-  normalizePresetAcousticsOnLoad(p);
+  normalizePresetAcousticsOnLoad(p, { isAudioV2, isLutherieV3 });
 
   loadedTracks.forEach((t) => {
-    const rawVol = (t as any).volumeVal !== undefined ? (t as any).volumeVal : (t as any).volume;
-    t.volumeVal = normalizeToFaderPosition(rawVol, isAudioV2);
-    if (!isAudioV2 && t.volumeVal === 100) t.volumeVal = 75;
+    if (t.volumeVal === undefined) {
+      const rawVol = (t as any).volume;
+      t.volumeVal = normalizeToFaderPosition(rawVol, isAudioV2);
+    }
 
     if (t.measureVols && Array.isArray(t.measureVols)) {
-      t.measureVols = t.measureVols.map((v: number) => {
-        const norm = normalizeToFaderPosition(v, isAudioV2);
-        return !isAudioV2 && norm === 100 ? 75 : norm;
-      });
+      t.measureVols = t.measureVols.map((v: number) => normalizeToFaderPosition(v, isAudioV2));
       if (!hasActiveTrackAutomation(t, 'volume')) {
         t.measureVols = undefined; t.measureVolTransitions = undefined;
       } else if (t.measureVols.length !== loadedMeasures) {

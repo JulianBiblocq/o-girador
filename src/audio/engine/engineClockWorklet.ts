@@ -21,7 +21,7 @@ export function createEngineClock(
 
   const initFallback = () => {
     if (handle.hasWorkletTicked || handle.clockNode !== null || handle.fallbackTimerId !== null) return;
-    handle.fallbackTimerId = window.setInterval(onTick, lookaheadInterval);
+    handle.fallbackTimerId = globalThis.setInterval(onTick, lookaheadInterval) as unknown as number;
   };
 
   const nativeCtx = (audioContext as any)._nativeContext || (audioContext as any).rawContext || audioContext;
@@ -55,7 +55,7 @@ export function createEngineClock(
       node.port.onmessage = () => {
         // Dès le premier tick, détruire immédiatement et définitivement le timer de repli
         if (handle.fallbackTimerId !== null) {
-          window.clearInterval(handle.fallbackTimerId);
+          globalThis.clearInterval(handle.fallbackTimerId);
           handle.fallbackTimerId = null;
         }
         handle.hasWorkletTicked = true;

@@ -103,13 +103,13 @@ export function normalizePatternData(p: Pattern, targetMeasures: number): void {
     p.vocalMode = 'micro';
   }
 
-  p.volumes = sanitizeSculptArray(p.volumes, p.steps, 80, false);
+  p.volumes = sanitizeSculptArray(p.volumes, p.steps, 70, false);
   p.decays = sanitizeSculptArray(p.decays, p.steps, 100, false);
   p.microtimings = sanitizeSculptArray(p.microtimings, p.steps, 0, false);
 
   if (Array.isArray(p.preRollActiveSteps) && p.preRollActiveSteps.length > 0) {
     const preLen = p.preRollActiveSteps.length;
-    if (p.preRollVolumes) p.preRollVolumes = sanitizeSculptArray(p.preRollVolumes, preLen, 80, false);
+    if (p.preRollVolumes) p.preRollVolumes = sanitizeSculptArray(p.preRollVolumes, preLen, 70, false);
     if (p.preRollDecays) p.preRollDecays = sanitizeSculptArray(p.preRollDecays, preLen, 100, false);
   }
 
@@ -118,7 +118,7 @@ export function normalizePatternData(p: Pattern, targetMeasures: number): void {
       const rawVar = v as PatternVariation & { stepVolumes?: StepSculptValue[]; stepDecays?: StepSculptValue[] };
       const vLen = Array.isArray(v.steps) && v.steps.length > 0 ? v.steps.length : p.steps;
       const srcVols = v.volumes ?? rawVar.stepVolumes, srcDecays = v.decays ?? rawVar.stepDecays;
-      if (srcVols) { v.volumes = sanitizeSculptArray(srcVols, vLen, 80, false); delete rawVar.stepVolumes; }
+      if (srcVols) { v.volumes = sanitizeSculptArray(srcVols, vLen, 70, false); delete rawVar.stepVolumes; }
       if (srcDecays) { v.decays = sanitizeSculptArray(srcDecays, vLen, 100, false); delete rawVar.stepDecays; }
     });
   }

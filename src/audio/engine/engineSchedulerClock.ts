@@ -52,10 +52,10 @@ export class EngineSchedulerClock {
     } catch (_) {}
 
     if (!this.clockHandle?.hasWorkletTicked && !this.clockHandle?.clockNode && this.isPlaying && this.clockHandle?.fallbackTimerId !== null) {
-      window.clearInterval(this.clockHandle.fallbackTimerId);
-      this.clockHandle.fallbackTimerId = window.setInterval(() => {
+      globalThis.clearInterval(this.clockHandle.fallbackTimerId);
+      this.clockHandle.fallbackTimerId = globalThis.setInterval(() => {
         if (this.isPlaying) this.scheduler();
-      }, this.LOOKAHEAD_INTERVAL);
+      }, this.LOOKAHEAD_INTERVAL) as unknown as number;
     }
   }
 
@@ -132,7 +132,7 @@ export class EngineSchedulerClock {
       this.clockHandle.clockNode = null;
     }
     if (this.clockHandle?.fallbackTimerId) {
-      window.clearInterval(this.clockHandle.fallbackTimerId);
+      globalThis.clearInterval(this.clockHandle.fallbackTimerId);
       this.clockHandle.fallbackTimerId = null;
     }
     if (this.clockHandle) this.clockHandle.hasWorkletTicked = false;

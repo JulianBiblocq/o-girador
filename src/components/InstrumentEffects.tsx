@@ -69,6 +69,7 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
   const swingOffset = computeStepBalancoPercent({ stepIdx: selectedStepIdx, steps: pattern.steps, beatResolutions: pattern.beatResolutions, track, pattern, globalSwing });
 
   const resetValues = () => {
+    useSequencerStore.getState().pushUndoState();
     if (selectedVariationId) {
       handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 70, subToPass);
       handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, 100, subToPass);
@@ -105,11 +106,11 @@ export const InstrumentEffects: React.FC<InstrumentEffectsProps> = React.memo(({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[var(--cordel-ink-dark)]">
-        <VolumeSliderControl currVol={currVol} onChange={(val) => selectedVariationId ? handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass) : handleTrackStepVolumeChange(trackId, pattern.id, targets, val, subToPass)} />
+        <VolumeSliderControl currVol={currVol} onChange={(val, isFirst) => { if (isFirst) useSequencerStore.getState().pushUndoState(); if (selectedVariationId) handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass); else handleTrackStepVolumeChange(trackId, pattern.id, targets, val, subToPass); }} />
         <div className="flex flex-col gap-0.5">
-          <DecaySliderControl initialValue={currDecay} isVoice={isVoice} lang={lang} onCommit={(val) => selectedVariationId ? handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass) : handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass)} />
+          <DecaySliderControl initialValue={currDecay} isVoice={isVoice} lang={lang} onCommit={(val) => { useSequencerStore.getState().pushUndoState(); if (selectedVariationId) handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass); else handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass); }} />
         </div>
-        <MicrotimingSliderControl totalVal={manualVal + swingOffset} swingOffset={swingOffset} lang={lang} onChange={(clampedManual) => selectedVariationId ? handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual, subToPass) : handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual, subToPass)} />
+        <MicrotimingSliderControl totalVal={manualVal + swingOffset} swingOffset={swingOffset} lang={lang} onChange={(clampedManual, isFirst) => { if (isFirst) useSequencerStore.getState().pushUndoState(); if (selectedVariationId) handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual, subToPass); else handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual, subToPass); }} />
       </div>
     </div>
   );

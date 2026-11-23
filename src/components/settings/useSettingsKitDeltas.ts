@@ -7,15 +7,15 @@ export function useSettingsKitDeltas() {
   const pushUndoState = useSequencerStore((state) => state.pushUndoState);
   const setStrokeDefault = useSequencerSettingsStore((state) => state.setStrokeDefault);
 
-  const applyMacroVolumeDelta = (trackId: number, stroke: string, delta: number, targetVal: number) => {
-    if (pushUndoState) pushUndoState();
+  const applyMacroVolumeDelta = (trackId: number, stroke: string, delta: number, targetVal: number, options?: { skipUndo?: boolean }) => {
+    if (!options?.skipUndo && pushUndoState) pushUndoState();
     setStrokeDefault(`${trackId}:${stroke}`, { volume: targetVal });
     setTracks((prev) => prev.map((t) => {
       if (t.id !== trackId) return t;
       return {
         ...t,
         patterns: t.patterns.map((p) => {
-          const newVols = [...(p.volumes || Array(p.steps).fill(80))];
+          const newVols = [...(p.volumes || Array(p.steps).fill(70))];
           let changed = false;
           p.activeSteps.forEach((step, idx) => {
             if (step === stroke) {
@@ -24,7 +24,7 @@ export function useSettingsKitDeltas() {
             }
           });
           const newVars = p.variations?.map((v) => {
-            const vVols = [...(v.volumes || Array(v.steps.length).fill(80))];
+            const vVols = [...(v.volumes || Array(v.steps.length).fill(70))];
             let vChanged = false;
             v.steps.forEach((st, idx) => {
               if (st === stroke) {
@@ -40,8 +40,8 @@ export function useSettingsKitDeltas() {
     }));
   };
 
-  const applyMacroDecayDelta = (trackId: number, stroke: string, delta: number, targetVal: number) => {
-    if (pushUndoState) pushUndoState();
+  const applyMacroDecayDelta = (trackId: number, stroke: string, delta: number, targetVal: number, options?: { skipUndo?: boolean }) => {
+    if (!options?.skipUndo && pushUndoState) pushUndoState();
     setStrokeDefault(`${trackId}:${stroke}`, { decay: targetVal });
     setTracks((prev) => prev.map((t) => {
       if (t.id !== trackId) return t;

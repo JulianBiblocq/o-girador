@@ -35,7 +35,7 @@ export class EngineExecuteStroke {
     deps: NotePlayerDeps, trackId: number | null, instrumentId: string, config: InstrumentAudioConfig,
     stroke: StrokeMapping, time: number, velocity: number, decayMultiplier: number,
     overrideTuning: number | undefined, isLiveHold: boolean, track: TrackGroup | null,
-    requestedSymbol?: string, maxBarulhoDurSec?: number
+    requestedSymbol?: string, maxBarulhoDurSec?: number, originCoord = 0
   ): void {
     const effectiveSymbol = requestedSymbol || stroke.symbol;
 
@@ -51,9 +51,8 @@ export class EngineExecuteStroke {
       return;
     }
 
-    if (!stroke.isBarulho || (!isLiveHold && !maxBarulhoDurSec)) {
+    if (!stroke.isBarulho) {
       deps.playbackCtx.barulho.stopBarulho(instrumentId, time);
-      for (let k = 1; k < 5; k++) deps.playbackCtx.barulho.stopBarulho(`${instrumentId}__p${k}`, time);
     }
 
     const storeState = useSequencerStore.getState();
@@ -90,7 +89,9 @@ export class EngineExecuteStroke {
     const chorusAmount = getEffectiveSkinChorusAmount(storeState);
     const baseRate = EngineTuning.calculatePitch(instrumentId, config, track, overrideTuning, allTracks, chorusAmount);
     const calculatedPitch = resolvedStroke.isBarulho ? baseRate : baseRate * pitchNuance;
-    const adaptedTrackDecay = computeAlfaiaHighBpmDecayNorm(instrumentId, track?.trackDecay, storeState.bpm);
+    const schedM = deps.getSchedulingMeasure ? deps.getSchedulingMeasure() : (storeState.currentMeasure || 0);
+    const effBpm = (storeState.isSpeedTrainerActive && storeState.speedTrainerCurrentBpm > 0) ? storeState.speedTrainerCurrentBpm : (storeState.measureBpms?.[schedM] || storeState.bpm || 100);
+    const adaptedTrackDecay = computeAlfaiaHighBpmDecayNorm(instrumentId, track?.trackDecay, effBpm);
     const effectiveDecayNorm = computeEffectiveDecayNorm(decayMultiplier, adaptedTrackDecay, overrideTuning !== undefined);
     const isStudioCalibrated = Boolean(config.calibratedStudioBank);
     const rimStroke = resolvedStroke.compositeRimSymbol ? config.strokes.find((s) => s.symbol === resolvedStroke.compositeRimSymbol) : undefined;
@@ -116,7 +117,7 @@ export class EngineExecuteStroke {
       EngineStrokePlayback.play(
         deps.playbackCtx, trackId, instrumentId, resolvedStroke,
         entryK.get() as AudioBuffer, calculatedPitch * pitchMul, timeK, velK, effectiveDecayNorm, isLiveHold,
-        { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec, playerIdx: k, partnerRank: temp.rank, playerSpec: pSpec }
+        { isStudioCalibrated, forceShort80ms, strokeSymbol: effectiveSymbol, maxBarulhoDurSec, playerIdx: k, partnerRank: temp.rank, originCoord, playerSpec: pSpec }
       );
 
       if (rimStroke) {

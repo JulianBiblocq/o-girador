@@ -7,7 +7,10 @@
 import { instrumentAudioConfigs } from '../data/audioConfig';
 import { GENERATED_SAMPLE_REVISIONS } from '../data/generatedSampleRevisions';
 import { STUDIO_BANK_ENABLED } from '../universes/maracatu/instruments/studioBankRegistry';
-import { normalizeCanonicalSampleKey } from './engine/sampleFetchUtils';
+
+export function normalizeCanonicalSampleKey(path: string): string {
+  return path.split('?')[0].replace(/\.m4a$/i, '.ogg');
+}
 
 let cachedBankDescriptorMap: Map<string, string> | null = null;
 const sampleRevisionOverrides = new Map<string, string>();

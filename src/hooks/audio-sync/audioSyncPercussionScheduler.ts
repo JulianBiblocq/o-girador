@@ -6,6 +6,7 @@ import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { AudioEngine } from '../../AudioEngine';
 import { resolveFallbackApitoHoldSpec } from '../../audio/barulho/apitoFallbackHoldResolver';
 import { isApitoSustainSymbol } from '../../audio/barulho/apitoBreathCutPlanner';
+import { packBarulhoOriginCoord } from '../../audio/barulho/barulhoRampPlanner';
 import { isTrackCoveredInWorkletHorizon } from '../../audio/worklet/horizon/percussionHorizonPusher';
 import { computePercussionNoteSwing, resolveActivePatternForMeasure } from './percussionSwingHelper';
 import { getLiveVariationAudioOverride } from './liveVariationLookaheadEngine';
@@ -56,9 +57,10 @@ function triggerPackedNote(
   });
 
   const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
-  const triggerTime = time + noteSwingOffset + microOffset;
+  const rawTriggerTime = time + noteSwingOffset + microOffset;
   const nowSec = audioEngine ? audioEngine.getCurrentTime() : 0;
-  const isPastCatchupHit = Boolean(audioEngine && triggerTime < nowSec - 0.015);
+  const isPastCatchupHit = Boolean(audioEngine && time < nowSec - 0.015);
+  const triggerTime = audioEngine && !isPastCatchupHit ? Math.max(nowSec, rawTriggerTime) : rawTriggerTime;
 
   const storeState = useSequencerStore.getState();
   const isPracticeMuted = soloPatternPlayId !== null ? false : isTrackMutedByPracticeMode(liveTrack.id, tracks || storeState.tracks, storeState, familyMuteSet);
@@ -80,7 +82,8 @@ function triggerPackedNote(
         const spec = resolveFallbackApitoHoldSpec(activePattern?.activeSteps, circleStepIdx, stepDurSec);
         maxBarulhoDurSec = spec.fadeOutSec <= 0.0125 ? -spec.holdDurSec : spec.holdDurSec;
       }
-      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier, false, maxBarulhoDurSec);
+      const originCoord = packBarulhoOriginCoord(currentMeasureIdx, circleStepIdx, (packedData & 1) === 1);
+      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, velocity, decayMultiplier, false, maxBarulhoDurSec, originCoord);
     }
   }
   if (!isDocHidden && !storeState.isPreRolling && currentMeasureIdx >= 0 && !isPastCatchupHit) {

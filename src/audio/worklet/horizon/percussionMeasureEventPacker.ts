@@ -13,7 +13,7 @@ import { stageWorkletApitoPreCutEvents } from '../../barulho/apitoFallbackHoldRe
 import { BarulhoLookaheadPoint } from '../../barulho/barulhoRampPlanner';
 import { resolveAudibleSympathySnareTrack } from '../../groove/snareSympathyPlanner';
 import { WORKLET_EVENT_STRIDE } from '../percussionWorkletTypes';
-import { MeasureTimingTable } from './percussionHorizonTiming';
+import { MeasureTimingTable, resolveClampedHorizonTriggerFrame } from './percussionHorizonTiming';
 import { HorizonPackerEngineDeps } from './percussionHorizonTypes';
 import { stageMeasureStrokeEvent } from './workletStrokeEventStager';
 import { stageWorkletSnareSympathyIfEligible } from './workletSympathyHelper';
@@ -80,18 +80,14 @@ export function packMeasureHorizonEvents(p: PackMeasureEventsParams): PackedMeas
     const microSec = (microPct / 100) * stepDurationSec * 0.5;
     const swungTimeSec = baseStepAudioSec + microSec + engineDeps.getTrackUnisonDelaySec(liveTrack.id) + swingSec;
     const rawFrame = Math.round(swungTimeSec * sampleRate);
+    const baseStepFrame = Math.round(baseStepAudioSec * sampleRate);
 
     const trackOrderIdx = trackOrderById.get(liveTrack.id) ?? 0;
     const noteUid = ((trackOrderIdx & 0xFF) << 8) | ((circleStepIdx & 0x3F) << 1) | (isSecondStroke ? 1 : 0);
     const oldFrame = previousEmittedNoteFrames?.get(noteUid);
     if (minRebuildFrame > 0 && oldFrame !== undefined && oldFrame < minRebuildFrame) { emittedNoteFrames.set(noteUid, oldFrame); return; }
-    let triggerFrame = rawFrame;
-    if (minRebuildFrame > 0) {
-      if (oldFrame !== undefined && oldFrame >= minRebuildFrame) triggerFrame = Math.max(rawFrame, minRebuildFrame);
-      else if (rawFrame >= currentFrame && rawFrame < minRebuildFrame) triggerFrame = minRebuildFrame;
-      else if (rawFrame < minRebuildFrame) return;
-    } else if (rawFrame < currentFrame - Math.round(0.015 * sampleRate)) return;
-    else if (rawFrame < currentFrame) triggerFrame = currentFrame;
+    const triggerFrame = resolveClampedHorizonTriggerFrame(rawFrame, baseStepFrame, currentFrame, minRebuildFrame, sampleRate, oldFrame);
+    if (triggerFrame === null) return;
 
     const isBeatHead = !isSecondStroke && resolveStepBeatInfo(circleStepIdx, activePattern, timing.timeSig).posInBeat === 0;
     const res = stageMeasureStrokeEvent({

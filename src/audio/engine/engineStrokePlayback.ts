@@ -19,6 +19,7 @@ export interface StrokePlaybackOptions {
   maxBarulhoDurSec?: number;
   playerIdx?: number;
   partnerRank?: number;
+  originCoord?: number;
   skipVoiceGuard?: boolean;
   playerSpec?: SectionPlayerAcousticSpec;
 }
@@ -75,7 +76,7 @@ export class EngineStrokePlayback {
       playBarulhoStroke(
         ctx, trackId, source, gainNode, instrumentId, buffer, calculatedPitch,
         time, gainMultiplier, isLiveHold, effectiveSymbol, opts.maxBarulhoDurSec,
-        opts.playerIdx ?? 0, spatialRoute.cleanup, opts.partnerRank ?? 0
+        opts.playerIdx ?? 0, spatialRoute.cleanup, opts.partnerRank ?? 0, opts.originCoord ?? 0
       );
     } else {
       this.playOneShot(

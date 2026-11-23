@@ -35,12 +35,13 @@ export class EngineNotePlayer {
     velocity: number,
     decayMultiplier: number,
     isLiveHold = false,
-    maxBarulhoDurSec?: number
+    maxBarulhoDurSec?: number,
+    originCoord = 0
   ): void {
     const ctx = deps.playbackCtx.audioContext;
     const wasSuspended = wakeAudioContextForNotePreview(ctx);
     const currentTime = ctx.currentTime;
-    if (!wasSuspended && time < currentTime - 0.120) return;
+    if (!wasSuspended && time < currentTime - 0.015) return;
     const safeTime = Math.max(currentTime + (wasSuspended ? 0.008 : 0), time);
 
     let trackId: number | null = null;
@@ -68,7 +69,7 @@ export class EngineNotePlayer {
     if (trackId !== null) ensureAudiblePreview(trackId);
 
     EngineExecuteStroke.execute(
-      deps, trackId, instrumentId, config, stroke, safeTime, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol, maxBarulhoDurSec
+      deps, trackId, instrumentId, config, stroke, safeTime, velocity, decayMultiplier, undefined, isLiveHold, track || null, strokeSymbol, maxBarulhoDurSec, originCoord
     );
   }
 

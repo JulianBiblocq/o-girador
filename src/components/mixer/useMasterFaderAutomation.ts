@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import * as Tone from 'tone';
-import { dbToFaderPosition, faderPositionToDbString, setFaderThumbPercent } from '../../utils/audioMath';
+import { dbToFaderPosition, faderPositionToDbString, gainToFaderPosition, setFaderThumbPercent } from '../../utils/audioMath';
+import { masterDbToLinearGain } from '../../utils/audio/channelFaderLinearRamp';
 import { interpolateAutomationValue } from '../../utils/automationMath';
 import { getLastAudibleTick } from '../../audio/visualTickBuffer';
 
@@ -73,16 +74,18 @@ export function useMasterFaderAutomation({
 
         const mVols = measureVolsRef.current;
         if (mVols && mVols.length > 0) {
-          const rawStart = mVols[prevM] !== undefined ? mVols[prevM] : 75;
-          const rawEnd = mVols[currentM] !== undefined ? mVols[currentM] : 75;
+          const rawStart = mVols[prevM] !== undefined ? mVols[prevM] : 100;
+          const rawEnd = mVols[currentM] !== undefined ? mVols[currentM] : 100;
           const trans = measureVolTransitionsRef.current?.[currentM] || 'immediate';
-          const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
+          const interpPct = Math.max(0, Math.min(100, interpolateAutomationValue(rawStart, rawEnd, progress, trans)));
+          const effGain = interpPct <= 0 ? 0 : masterDbToLinearGain(masterVolRef.current) * (interpPct / 100);
+          const faderPos = effGain <= 0.0001 ? 0 : gainToFaderPosition(effGain);
 
           if (masterFaderHandleRef.current) {
-            setFaderThumbPercent(masterFaderHandleRef.current, interpVol);
+            setFaderThumbPercent(masterFaderHandleRef.current, faderPos);
           }
           if (masterFaderTextRef.current) {
-            masterFaderTextRef.current.textContent = faderPositionToDbString(interpVol);
+            masterFaderTextRef.current.textContent = faderPositionToDbString(faderPos);
           }
         }
       }

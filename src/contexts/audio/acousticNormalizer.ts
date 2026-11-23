@@ -51,10 +51,15 @@ function recalibrateFlatStepVelocities(pattern: any): void {
   }
 }
 
-export function normalizePresetAcousticsOnLoad(rawPreset: any): any {
+export function normalizePresetAcousticsOnLoad(
+  rawPreset: any,
+  flags?: { isAudioV2?: boolean; isLutherieV3?: boolean }
+): any {
   if (!rawPreset || typeof rawPreset !== 'object') return rawPreset;
   const p = rawPreset;
-  const isAudioV2 = p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION;
+  const isAudioV2 = flags?.isAudioV2 ?? (p.audioScaleVersion === CURRENT_AUDIO_SCALE_VERSION);
+  const isLutherieV3 = flags?.isLutherieV3 ?? (typeof p.lutherieVersion === 'number' && p.lutherieVersion >= CURRENT_LUTHERIE_VERSION);
+  const shouldRecalibrateSteps = !isAudioV2 || !isLutherieV3;
 
   if (typeof p.masterReverbVol === 'number' && p.masterReverbVol < 0) {
     p.masterReverbVol = convertLegacyReverbDbToPercent(p.masterReverbVol);
@@ -66,12 +71,13 @@ export function normalizePresetAcousticsOnLoad(rawPreset: any): any {
   if (Array.isArray(p.tracks)) {
     p.tracks.forEach((t: any) => {
       if (!t) return;
-      if (Array.isArray(t.patterns)) t.patterns.forEach(recalibrateFlatStepVelocities);
+      if (shouldRecalibrateSteps && Array.isArray(t.patterns)) {
+        t.patterns.forEach(recalibrateFlatStepVelocities);
+      }
 
       const rawVol = t.volumeVal !== undefined ? t.volumeVal : t.volume;
       if (rawVol !== undefined) {
-        const normVol = normalizeToFaderPosition(rawVol, isAudioV2);
-        t.volumeVal = !isAudioV2 && normVol === 100 ? 75 : normVol;
+        t.volumeVal = normalizeToFaderPosition(rawVol, isAudioV2);
       }
     });
   }

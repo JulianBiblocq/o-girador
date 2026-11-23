@@ -14,10 +14,6 @@ export {
   renameCloudPreset,
   togglePresetDraftStatus,
 } from './services/cloud-presets/sanctuarization';
-export {
-  listStoragePath,
-  fetchStoragePresetsJSON,
-} from './services/cloud-presets/storagePresetsFetcher';
 export { isPresetAuthorized } from './services/cloud-presets/presetAuthorization';
 
 /**

@@ -5,7 +5,6 @@ export {
   deleteCloudPreset,
   renameCloudPreset,
   togglePresetDraftStatus,
-  fetchStoragePresetsJSON,
   isPresetAuthorized,
   SANCTUARIZED_PRESET_IDS,
   isTestPresetName,

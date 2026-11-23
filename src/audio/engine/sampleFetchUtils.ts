@@ -4,15 +4,13 @@
  * - Garantit que tous les appelants indexent les AudioBuffers décodés sous leur clé canonique `.ogg`.
  * - Appose `?v=${revTag}` après la résolution d'extension `.ogg` <-> `.m4a` pour contourner un cache SW/HTTP obsolète.
  */
-import { getSampleRevisionTag } from '../sampleCacheFingerprint';
+import { getSampleRevisionTag, normalizeCanonicalSampleKey } from '../sampleCacheFingerprint';
+
+export { normalizeCanonicalSampleKey };
 
 let forcedM4aPreference: boolean | null = null;
 let cachedNativeM4aPreference: boolean | null = null;
 let latchedM4aFallback = false;
-
-export function normalizeCanonicalSampleKey(path: string): string {
-  return path.split('?')[0].replace(/\.m4a$/i, '.ogg');
-}
 
 function detectWebkitM4aPreference(): boolean {
   if (cachedNativeM4aPreference !== null) return cachedNativeM4aPreference;
