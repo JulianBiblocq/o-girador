@@ -39,7 +39,7 @@ const TimelinePlayheadComponent: React.FC<TimelinePlayheadProps> = ({
 
   if (!uiContext && propMeasureW === undefined) return null;
 
-  const isEcoMode = useSequencerStore.getState().isEcoMode;
+  const isEcoMode = useSequencerStore((s) => Boolean(s.isEcoMode));
   const isMobileDevice = typeof window !== 'undefined' && window.innerWidth <= 768;
   const disableHeavyShadow = isEcoMode || isMobileDevice;
 

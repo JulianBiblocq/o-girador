@@ -1,7 +1,6 @@
 /**
  * O Girador - High-Precision Web Audio Lookahead Engine & Sampler Orchestrator (< 132 lignes)
  */
-
 import { instrumentAudioConfigs, InstrumentAudioConfig, StrokeMapping } from './data/audioConfig';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { TrackGroup } from './types';
@@ -66,7 +65,7 @@ export class AudioEngine implements HorizonEngineLike {
       }
     };
     void this.workletManager.init(audioContext, this.configMap, initTracks, this.sampleLoader.bufferPool).then((ok) => { if (ok && this.clock?.isPlaying) rebuildWorkletHorizonFromNow('sample'); });
-    this.unsubscribeTracks = useSequencerStore.subscribe((s, prev) => { if (s.tracks !== prev.tracks || s.isEcoMode !== prev.isEcoMode) { this.updateTrackLookupMap(s.tracks); this.workletManager.syncTracks(s.tracks); } });
+    this.unsubscribeTracks = useSequencerStore.subscribe((s, prev) => { if (s.tracks !== prev.tracks || s.ecoConfig?.disableFx !== prev.ecoConfig?.disableFx) { this.updateTrackLookupMap(s.tracks); this.workletManager.syncTracks(s.tracks); } });
     this.barulho.init(audioContext, this.channels, this.voiceGuard, this.activeGainNodes);
     this.voiceSynthManager.initVoiceSynth(undefined, this.channels.instrumentChannels);
     this.clock = new EngineSchedulerClock(audioContext, { onTick, getTickDuration, getTicksPerMeasure, purgeScheduledHits: () => this.purgeScheduledHits() });

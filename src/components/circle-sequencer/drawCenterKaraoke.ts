@@ -20,7 +20,8 @@ export const drawCenterKaraoke = (
   soloPlayId?: number | null,
   dynamicScale: number = 1,
   timeSig?: string,
-  measureTimeSigs?: Record<number, string> | string[]
+  measureTimeSigs?: Record<number, string> | string[],
+  disableShadow: boolean = false
 ): void => {
   ctx.save();
   try {
@@ -123,7 +124,7 @@ export const drawCenterKaraoke = (
       activeSyllableIndex = -1;
     }
 
-    drawCenterKaraokeText(ctx, centerX, centerY, activeWord, activeSyllableIndex, words, roleColor, dynamicScale);
+    drawCenterKaraokeText(ctx, centerX, centerY, activeWord, activeSyllableIndex, words, roleColor, dynamicScale, disableShadow);
   } finally {
     ctx.shadowBlur = 0;
     ctx.shadowColor = 'transparent';

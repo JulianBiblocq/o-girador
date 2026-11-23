@@ -5,6 +5,7 @@ import { MobilePartitionPreviewModal } from './MobilePartitionPreviewModal';
 import { MobilePocketLegendModal } from './MobilePocketLegendModal';
 import { RodaSweepModeToggle } from '../roda/RodaSweepModeToggle';
 import { openAoVivoLabWithActiveTrack } from '../AoVivo/aoVivoStrokeTester';
+import { EcoModeControls } from '../settings/EcoModeControls';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 import { useGuideStore } from '../../stores/useGuideStore';
@@ -115,6 +116,10 @@ export const MobileMenuSheet: React.FC<Props> = ({
               <button type="button" onClick={() => { openAoVivoLabWithActiveTrack(primaryTrackId); onClose(); }} className="p-2 bg-[var(--cordel-surface)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer">
                 <Sliders size={14} /> {lang === 'pt' ? 'Labo Posição Ao Vivo (Mobile)' : 'Labo Position Ao Vivo (Mobile)'}
               </button>
+
+              <div className="pt-2 border-t border-[var(--cordel-border)]/40">
+                <EcoModeControls lang={lang} variant="compact" />
+              </div>
 
               <button type="button" onClick={() => { onClose(); onToggleStudio(); }} className="p-2.5 bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)] border-2 border-[var(--cordel-border)] font-cactus font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:translate-y-0.5 cursor-pointer">
                 <Monitor size={15} /> {tMobile(lang, 'modeComplet')}

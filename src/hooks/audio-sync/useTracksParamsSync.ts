@@ -42,7 +42,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         if (masterReverbVolumeNode) {
           const revBypassed = disableFx || !fxActive.reverb || masterFX.reverb.isMuted;
           const revGain = revBypassed ? 0 : Tone.dbToGain(percentToDb(masterFX.reverb.returnVolume));
-          safeRampTo(masterReverbVolumeNode.gain, Number.isFinite(revGain) ? revGain : 0, 0.02, 0, 4);
+          safeRampTo(masterReverbVolumeNode.gain, Number.isFinite(revGain) ? revGain : 0, 0.025, 0, 4);
         }
 
         if (reverbNode) {
@@ -54,15 +54,12 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
             dampHz: masterFX.reverb.dampHz,
             stereoWidth: masterFX.reverb.stereoWidth,
           });
-          if (typeof (reverbNode as any).wet?.rampTo === 'function') {
-            (reverbNode as any).wet.rampTo(fxActive.reverb && !masterFX.reverb.isMuted ? 1 : 0, 0.02);
-          }
         }
 
         if (masterDistortionVolumeNode) {
           const distBypassed = disableFx || !fxActive.disto || masterFX.distortion.isMuted;
           const distGain = distBypassed ? 0 : Tone.dbToGain(percentToDb(masterFX.distortion.returnVolume));
-          safeRampTo(masterDistortionVolumeNode.gain, Number.isFinite(distGain) ? distGain : 0, 0.02, 0, 4);
+          safeRampTo(masterDistortionVolumeNode.gain, Number.isFinite(distGain) ? distGain : 0, 0.025, 0, 4);
         }
 
         if (distortionNode) {
@@ -76,9 +73,6 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
             },
             disableFx
           );
-          if (typeof distortionNode.wet?.rampTo === 'function') {
-            distortionNode.wet.rampTo(fxActive.disto && !masterFX.distortion.isMuted ? 1 : 0, 0.02);
-          }
         }
 
         const busCfg = masterFX.masterBus;
@@ -101,7 +95,7 @@ export function useTracksParamsSync(props: UseTracksParamsSyncProps): void {
         state.skinChorusAmount !== prevState.skinChorusAmount ||
         state.rodaBreathingAmount !== prevState.rodaBreathingAmount ||
         state.isEnsembleAcousticsBypassed !== prevState.isEnsembleAcousticsBypassed ||
-        state.isEcoMode !== prevState.isEcoMode;
+        state.ecoConfig?.disableFx !== prevState.ecoConfig?.disableFx;
       if ((ensembleChanged || state.ecoConfig !== prevState.ecoConfig) && isAudioInitializedRef.current) {
         audioEngine?.syncTracksToWorklet(state.tracks);
         syncLiveRodaSpectralSubBuses(state.tracks, getEffectiveRodaBreathingAmount(state), Boolean(state.ecoConfig?.disableEq));

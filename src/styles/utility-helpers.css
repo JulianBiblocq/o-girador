@@ -97,11 +97,13 @@
    Coupe uniquement les effets GPU decoratifs. Les surfaces --cordel-bg, les images
    statiques (atelier de la Roda) et les grilles Canvas restent intactes et lisibles.
    ============================================================================ */
-body.eco-mode *,
-body.eco-mode *::before,
-body.eco-mode *::after {
+body.eco-mode [class*="backdrop-blur"] {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+}
+
+body.eco-mode #timeline-playhead-line {
+  box-shadow: none !important;
 }
 
 body.eco-mode #center-afficheur,

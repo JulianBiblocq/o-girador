@@ -6,18 +6,19 @@ export const drawAlfaiaRims = (
   bgCtx: CanvasRenderingContext2D,
   centerX: number,
   centerY: number,
-  theme: ThemeColors
+  theme: ThemeColors,
+  isEco = false
 ): void => {
   const isDark = Boolean(theme.isDark);
   const numCords = 16;
 
-  // 1. Bord extérieur du tambour en Mode Clair (trait net #1a1a1a + ombre portée douce)
+  // 1. Bord extérieur du tambour en Mode Clair (trait net #1a1a1a + ombre portée douce hors Mode Éco)
   if (!isDark) {
     bgCtx.save();
     bgCtx.beginPath();
     bgCtx.arc(centerX, centerY, DRUM_RADIUS, 0, Math.PI * 2);
-    bgCtx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-    bgCtx.shadowBlur = 10;
+    bgCtx.shadowColor = isEco ? 'transparent' : 'rgba(0, 0, 0, 0.15)';
+    bgCtx.shadowBlur = isEco ? 0 : 10;
     bgCtx.lineWidth = 2.5;
     bgCtx.strokeStyle = '#1a1a1a';
     bgCtx.stroke();

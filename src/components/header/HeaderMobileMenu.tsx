@@ -37,7 +37,7 @@ export const HeaderMobileMenu: React.FC<HeaderMobileMenuProps> = (props) => {
       </button>
 
       {mobileMenuOpen && (
-        <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0_var(--cordel-shadow-color)] w-[285px] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain custom-scrollbar z-[999] flex flex-col p-3 gap-3">
+        <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border-strong)] shadow-[4px_4px_0_var(--cordel-shadow-color)] w-[285px] max-h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain custom-scrollbar z-[999] flex flex-col p-3 gap-3">
           <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-2.5">
             <span className="text-[10px] font-bold text-[var(--cordel-accent-readable)] uppercase tracking-wide font-cactus">
               {props.lang === 'pt' ? 'Modo de exibição' : "Mode d'affichage"}

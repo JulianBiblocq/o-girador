@@ -78,7 +78,7 @@ export async function renderBaqueCycleOffline(options: { sampleRate?: number } =
     const strokeSymbol = String.fromCharCode((packed >>> 9) & 0x7F);
     const { mIdx, circleStepIdx, triggerSec, isBeatHead, partnerRank, measureBpm } = resolveBounceNoteTrigger(absTick, packed, microPct, track, slicedAllTracks as any, inst.id, timing, globalSwing, temperamentMap);
     await scheduleOfflineBounceStroke({
-      offlineCtx, graph, track, allTracks: state.tracks, chorusAmount, isEcoMode: Boolean(state.isEcoMode),
+      offlineCtx, graph, track, allTracks: state.tracks, chorusAmount, isEcoMode: Boolean(state.ecoConfig?.disableFx),
       globalAutomationBypass: state.globalAutomationBypass, instId: inst.id, instCfg: configMap.get(inst.id)!, strokesMaps, sampleCache,
       offlineRR, barulhoTracker, packed, strokeSymbol, mIdx, circleStepIdx, triggerSec, stepVol, totalDurationSec: timing.totalDurationSec,
       isBeatHead, partnerRank, measureBpm,

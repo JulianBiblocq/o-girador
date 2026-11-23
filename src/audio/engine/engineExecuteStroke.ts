@@ -58,12 +58,10 @@ export class EngineExecuteStroke {
 
     const storeState = useSequencerStore.getState();
     const hasPanAuto = track ? (!isAutomationBypassed(track, 'pan', storeState.globalAutomationBypass) && hasActiveTrackAutomation(track, 'pan')) : false;
-    const spatial = resolveTrackSectionSpatialProfile(track, instrumentId, Boolean(storeState.isEcoMode), hasPanAuto ? 0 : (track?.panVal ?? track?.pan ?? 0));
+    const spatial = resolveTrackSectionSpatialProfile(track, instrumentId, Boolean(storeState.ecoConfig?.disableFx), hasPanAuto ? 0 : (track?.panVal ?? track?.pan ?? 0));
     const rawSynthCount = spatial.isNeutralSolo ? 1 : spatial.synthesizedCount;
     const hasSquadRR = typeof deps.roundRobin.selectSquadFileIndices === 'function';
-
-    let resolvedStroke = stroke;
-    let forceShort80ms = false;
+    let resolvedStroke = stroke, forceShort80ms = false;
     let synthCount = resolvedStroke.isBarulho ? rawSynthCount : Math.min(rawSynthCount, Math.max(1, resolvedStroke.files.length));
     let squadIndices = hasSquadRR ? deps.roundRobin.selectSquadFileIndices(instrumentId, resolvedStroke, time, synthCount, trackId) : null;
     const pickFile = (s: StrokeMapping, indices: number[] | null, k: number): string =>

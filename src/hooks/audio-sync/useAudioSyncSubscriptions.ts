@@ -82,7 +82,7 @@ export function useAudioSyncSubscriptions({
         state.bpm !== prev.bpm ||
         state.measureBpms !== prev.measureBpms ||
         state.measureBpmTransitions !== prev.measureBpmTransitions ||
-        state.isEcoMode !== prev.isEcoMode ||
+        state.ecoConfig?.disableFx !== prev.ecoConfig?.disableFx ||
         squadCountChanged
       ) {
         rebuildWorkletHorizonFromNow('bpm');

@@ -53,7 +53,7 @@ export class PercussionWorkletTrackSync {
     const seqState = useSequencerStore.getState();
     const effBpm = liveBpm && liveBpm > 0 ? liveBpm : (seqState.bpm || 100);
     const chorusAmount = getEffectiveSkinChorusAmount(seqState);
-    const isEco = Boolean(seqState.isEcoMode);
+    const isStrictAudioEco = Boolean(seqState.ecoConfig?.disableFx);
     const familyCache = new Set<string>();
     const temperamentMap = computeSectionTemperamentMap(tracks);
 
@@ -72,7 +72,7 @@ export class PercussionWorkletTrackSync {
       this.trackPartnerRank.set(trackId, temp.rank);
 
       const hasPanAuto = !isAutomationBypassed(track, 'pan', seqState.globalAutomationBypass) && hasActiveTrackAutomation(track, 'pan');
-      const spatial = resolveTrackSectionSpatialProfile(track, instrumentId, isEco, hasPanAuto ? 0 : (track.panVal ?? track.pan ?? 0));
+      const spatial = resolveTrackSectionSpatialProfile(track, instrumentId, isStrictAudioEco, hasPanAuto ? 0 : (track.panVal ?? track.pan ?? 0));
       this.trackSpatialProfile.set(trackId, spatial);
 
       const config = instrumentId ? configMap.get(instrumentId) : undefined;

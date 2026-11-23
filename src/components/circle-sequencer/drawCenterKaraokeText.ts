@@ -9,7 +9,8 @@ export const drawCenterKaraokeText = (
   activeSyllableIndex: number,
   words: WordItem[],
   roleColor: string,
-  dynamicScale: number
+  dynamicScale: number,
+  disableShadow: boolean = false
 ): void => {
   // 7. Rendu horizontal du mot entier au centre de la Roda
   if (activeWord) {
@@ -35,8 +36,8 @@ export const drawCenterKaraokeText = (
       if (isHitNow) {
         activeNote = syl.note;
         ctx.globalAlpha = 1.0;
-        ctx.shadowColor = roleColor;
-        ctx.shadowBlur = 14 * dynamicScale;
+        ctx.shadowColor = disableShadow ? 'transparent' : roleColor;
+        ctx.shadowBlur = disableShadow ? 0 : 14 * dynamicScale;
         ctx.fillStyle = roleColor;
         ctx.fillText(syl.cleanText, curX, wordY);
         ctx.shadowBlur = 0;

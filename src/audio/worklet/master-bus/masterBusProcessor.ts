@@ -9,6 +9,7 @@ import {
   MasterBusDspParams, MasterBusDspState, MasterBusInboundMessage, MasterBusTelemetryMessage,
   createMasterBusDspState, resetMasterBusDspState, updateMasterBusDspParams,
 } from './masterBusWorkletTypes';
+import { primeMasterBusBypassMixes } from './masterBusBypassRamp';
 import { processMasterStage1CrossoverAndShaper } from './masterBusCrossoverAndShaper';
 import { processMasterStage2DuckingAndGlue } from './masterBusGlueCompressor';
 import { processMasterStage3AdaaAndLimiter } from './masterBusAdaaLimiter';
@@ -75,6 +76,7 @@ export function processOfflineStereoArraysThroughMasterBus(
 ): MasterBusDspState {
   const state = createMasterBusDspState(sr);
   if (params) updateMasterBusDspParams(state, params);
+  primeMasterBusBypassMixes(state);
   for (let offset = 0; offset < chL.length; offset += 128) {
     const len = Math.min(128, chL.length - offset);
     const subL = chL.subarray(offset, offset + len), subR = chR.subarray(offset, offset + len);

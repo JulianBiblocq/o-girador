@@ -9,14 +9,15 @@ export const drawAlfaiaBackground = (
   localTicks: number,
   centerX: number,
   centerY: number,
-  theme: ThemeColors
+  theme: ThemeColors,
+  isEco = false
 ): void => {
   bgCtx.save();
   bgCtx.globalAlpha = 1.0;
   bgCtx.globalCompositeOperation = 'source-over';
   bgCtx.clearRect(0, 0, logicalSize, logicalSize);
 
-  drawAlfaiaRims(bgCtx, centerX, centerY, theme);
+  drawAlfaiaRims(bgCtx, centerX, centerY, theme, isEco);
   drawAlfaiaMarkers(bgCtx, centerX, centerY, localTimeSig, localTicks, theme);
 
   bgCtx.restore();

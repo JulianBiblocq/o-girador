@@ -46,10 +46,12 @@ export function useCirclePlayheadRaf(
     if (!ctx) return;
 
     const bgCanvas = document.createElement('canvas');
-    bgCanvas.width = 1200; bgCanvas.height = 1200;
+    const initMobile = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
+    const initPx = initMobile ? 600 : 1200;
+    bgCanvas.width = initPx; bgCanvas.height = initPx;
     const bgCtx = bgCanvas.getContext('2d');
 
-    let isBgCached = false, lastTimeSig = '', lastTicks = -1, lastThemeDark: boolean | undefined = undefined;
+    let isBgCached = false, lastTimeSig = '', lastTicks = -1, lastThemeDark: boolean | undefined = undefined, lastBgEco: boolean | undefined = undefined;
     let ripples: Ripple[] = [];
     const haloState = createMetronomeHaloState();
 
@@ -60,11 +62,9 @@ export function useCirclePlayheadRaf(
       const seqState = useSequencerStore.getState();
       const isEco = Boolean(seqState.isEcoMode);
       const isMobileDevice = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
-      const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-      const effectiveDpr = isMobileDevice ? 1 : Math.min(dpr, 2);
-      const targetPx = Math.round(1200 * effectiveDpr);
+      const targetPx = isMobileDevice ? 600 : 1200;
 
-      if (canvas.width !== targetPx || canvas.height !== targetPx) {
+      if (canvas.width !== targetPx || canvas.height !== targetPx || bgCanvas.width !== targetPx || bgCanvas.height !== targetPx) {
         canvas.width = targetPx; canvas.height = targetPx;
         bgCanvas.width = targetPx; bgCanvas.height = targetPx;
         isBgCached = false;
@@ -88,15 +88,15 @@ export function useCirclePlayheadRaf(
         processHitTriggers(hitTriggersRef.current, localRawTracks, activeVisibleTracks, getLiveActivePatternId, theme.skinInk, ripples);
       }
 
-      if (lastTimeSig !== localTimeSig || lastTicks !== localTicks || lastThemeDark !== theme.isDark) {
-        isBgCached = false; lastTimeSig = localTimeSig; lastTicks = localTicks; lastThemeDark = theme.isDark;
+      if (lastTimeSig !== localTimeSig || lastTicks !== localTicks || lastThemeDark !== theme.isDark || lastBgEco !== isHeavyDisabled) {
+        isBgCached = false; lastTimeSig = localTimeSig; lastTicks = localTicks; lastThemeDark = theme.isDark; lastBgEco = isHeavyDisabled;
       }
 
       if (!isBgCached && bgCtx) {
         bgCtx.setTransform(1, 0, 0, 1, 0, 0);
         bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
         bgCtx.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
-        drawAlfaiaBackground(bgCtx, 1200, localTimeSig, localTicks, 600, 600, theme);
+        drawAlfaiaBackground(bgCtx, 1200, localTimeSig, localTicks, 600, 600, theme, isHeavyDisabled);
         isBgCached = true;
       }
 
@@ -120,7 +120,7 @@ export function useCirclePlayheadRaf(
         const karaokeLive = !isCurrentlyPlaying && frozenPlaybackState.active
           ? { ...live, step: frozenPlaybackState.tick, measure: frozenPlaybackState.measure, maxTicks: localTicks, ratio: frozenPlaybackState.progress, isPreRoll: false }
           : live;
-        drawCenterKaraoke(ctx, 600, 600, karaokeLive, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs);
+        drawCenterKaraoke(ctx, 600, 600, karaokeLive, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs, isHeavyDisabled);
       }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);

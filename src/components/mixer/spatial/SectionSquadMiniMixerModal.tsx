@@ -24,7 +24,7 @@ export const SectionSquadMiniMixerModal: React.FC<{ trackId: number; anchorRect:
   const [tab, setTab] = useState<'mixer' | 'cone'>('mixer');
   const selectTrack = useCallback((s: { tracks: TrackGroup[] }) => s.tracks.find((t) => t.id === trackId), [trackId]);
   const track = useSequencerStore(selectTrack);
-  const lang = useSequencerStore((s) => s.lang), isEcoMode = useSequencerStore((s) => s.isEcoMode);
+  const lang = useSequencerStore((s) => s.lang), isStrictAudioEco = useSequencerStore((s) => Boolean(s.ecoConfig?.disableFx));
   const setTrackSectionPlayers = useSequencerStore((s) => s.setTrackSectionPlayers);
   const isFr = lang === 'fr';
 
@@ -121,7 +121,7 @@ export const SectionSquadMiniMixerModal: React.FC<{ trackId: number; anchorRect:
       {tab === 'mixer' ? (
         <div className="flex items-stretch justify-center gap-1.5 overflow-x-auto py-0.5">
           {effectivePlayers.map((p, idx) => (
-            <SectionSquadPlayerStrip key={p.id || idx} player={p} playerIdx={idx} trackPanVal={track.panVal ?? track.pan ?? 0} isEcoMuted={Boolean(isEcoMode && idx >= 2)} isFr={isFr} onAudioDragVol={handleAudioDragVol} onCommitVol={handleCommitVol} onCommitPan={handleCommitPan} />
+            <SectionSquadPlayerStrip key={p.id || idx} player={p} playerIdx={idx} trackPanVal={track.panVal ?? track.pan ?? 0} isEcoMuted={Boolean(isStrictAudioEco && idx >= 2)} isFr={isFr} onAudioDragVol={handleAudioDragVol} onCommitVol={handleCommitVol} onCommitPan={handleCommitPan} />
           ))}
         </div>
       ) : (
@@ -129,7 +129,6 @@ export const SectionSquadMiniMixerModal: React.FC<{ trackId: number; anchorRect:
           <SectionStageConeCanvas players={effectivePlayers} trackPanVal={track.panVal ?? track.pan ?? 0} isFr={isFr} onDragStart={() => useSequencerStore.getState().pushUndoState()} onMovePlayer={handleMoveConePlayer} />
         </div>
       )}
-
       <div className="grid grid-cols-3 gap-1 pt-0.5">
         <button type="button" data-testid="section-preset-arc" onClick={() => handleApplyPreset('arc')} className={presetCls}>{isFr ? 'En arc' : 'Em arco'}</button>
         <button type="button" data-testid="section-preset-column" onClick={() => handleApplyPreset('column')} className={presetCls}>{isFr ? 'En colonne' : 'Em coluna'}</button>

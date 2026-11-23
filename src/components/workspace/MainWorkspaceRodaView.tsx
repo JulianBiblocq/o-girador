@@ -99,7 +99,7 @@ export const MainWorkspaceRodaView: React.FC<MainWorkspaceRodaViewProps> = ({
           )}
           <div className="flex-1 min-h-0 w-full relative overflow-hidden">
             <ErrorBoundary fallback={renderFallback('Roda', 'Roda')}>
-              <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} isActive={viewMode === 'roda' && !isPistasOpen} />
+              <CircleSequencer isMobile={isMobile} mestreSignals={filteredMestreSignals} isActive={viewMode === 'roda' && (isMobile || !isPistasOpen)} />
             </ErrorBoundary>
             {!isMobile && isRodaWorkspaceActive && (
               <WorkspacePistasOverlay

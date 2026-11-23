@@ -64,7 +64,7 @@ export async function renderFullSongBounceOffline(opts: FullSongBounceOptions = 
 
   const baquePass = await renderOfflineBaquePass({
     OfflineCtx, rawTracks, unrolledTracks, baqueTracks, timeline, globalSwing,
-    chorusAmount: getEffectiveSkinChorusAmount(store), isEcoMode: Boolean(store.isEcoMode),
+    chorusAmount: getEffectiveSkinChorusAmount(store), isEcoMode: disableFx,
     disableEq, disableFx, globalBypass: store.globalAutomationBypass, onProgress: opts.onProgress,
   });
 

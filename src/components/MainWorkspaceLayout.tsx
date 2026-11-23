@@ -49,19 +49,21 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = (props) =
   return (
     <div id="main-workspace" className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg">
       <Suspense fallback={<XiloLoadingSpinner lang={lang} />}>
-        <MainWorkspaceRodaView
-          viewMode={props.viewMode}
-          renderedView={props.renderedView}
-          isFadingIn={props.isFadingIn}
-          isMobile={props.isMobile}
-          mobileTab={props.mobileTab}
-          filteredMestreSignals={props.filteredMestreSignals}
-          refreshMestreSignals={props.refreshMestreSignals}
-          hideGlobalSignals={props.hideGlobalSignals}
-          onToggleHideGlobalSignals={props.onToggleHideGlobalSignals}
-          activeRightPanel={props.activeRightPanel}
-          onToggleRightPanel={props.onToggleRightPanel}
-        />
+        {(!props.isMobile || props.viewMode === 'roda') && (
+          <MainWorkspaceRodaView
+            viewMode={props.viewMode}
+            renderedView={props.renderedView}
+            isFadingIn={props.isFadingIn}
+            isMobile={props.isMobile}
+            mobileTab={props.mobileTab}
+            filteredMestreSignals={props.filteredMestreSignals}
+            refreshMestreSignals={props.refreshMestreSignals}
+            hideGlobalSignals={props.hideGlobalSignals}
+            onToggleHideGlobalSignals={props.onToggleHideGlobalSignals}
+            activeRightPanel={props.activeRightPanel}
+            onToggleRightPanel={props.onToggleRightPanel}
+          />
+        )}
 
         <MainWorkspaceConsoleView
           viewMode={props.viewMode}

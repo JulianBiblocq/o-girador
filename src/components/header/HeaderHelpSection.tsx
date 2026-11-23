@@ -4,6 +4,7 @@ import { XiloFanion } from '../XiloIcons';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useTourStore } from '../../stores/useTourStore';
 import { useGuideStore } from '../../stores/useGuideStore';
+import { EcoModeControls } from '../settings/EcoModeControls';
 import { i18n } from '../../data';
 
 interface HeaderHelpSectionProps {
@@ -106,6 +107,10 @@ export const HeaderHelpSection: React.FC<HeaderHelpSectionProps> = ({
             <XiloFanion size={14} className="shrink-0" /> {lang === 'pt' ? 'Papel de Parede' : 'Papier Peint'}
           </button>
         )}
+      </div>
+
+      <div className="flex flex-col gap-1 border-t border-[var(--cordel-border)]/30 pt-2 mt-1">
+        <EcoModeControls lang={lang} variant="compact" />
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ import { getEffectiveMuteState } from '../../stores/useSequencerStore';
 import { reverbSends, distortionSends, masterDistortionVolumeNode, distortionNode } from './audioEngineNodes';
 import { syncTrackInsertChain, syncBusInsertChain } from '../../audio/effectsChain';
 import { applyVocalHaasEco } from '../../audio/vocal/vocalHaasModule';
-import { resolveSaturationOversample } from '../../audio/effects/studioSaturationChain';
+import { syncSaturationOversampleSmooth } from '../../audio/effects/studioSaturationChain';
 import { syncToadaVocalSlapback } from '../../audio/effects/toadaVocalSlapback';
 
 /** Departs Reverbe + Distorsion des pistes ET des bus (meme table indexee par id). */
@@ -28,9 +28,7 @@ export function applyFxSendsEco(disableFx: boolean, tracks: any[]): void {
 
 /** Retour Distorsion Master : coupe en Palier 2, restaure la valeur du store sinon. */
 export function applyMasterDistortionEco(disableFx: boolean, state: any): void {
-  if (distortionNode) {
-    try { distortionNode.oversample = resolveSaturationOversample(disableFx); } catch (_) {}
-  }
+  if (distortionNode) syncSaturationOversampleSmooth(distortionNode, disableFx);
   const busCfg = state.masterFX?.masterBus;
   syncToadaVocalSlapback(busCfg?.toadaSlapbackMode ?? 'off', busCfg?.toadaSlapbackWet ?? 0, disableFx);
   if (!masterDistortionVolumeNode) return;
