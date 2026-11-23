@@ -1,5 +1,5 @@
 /**
- * O Girador - Vocal IndexedDB Records Rehydration Scanner (< 85 lignes)
+ * O Girador - Vocal IndexedDB Records Rehydration Scanner (< 95 lignes)
  * - Résolution stricte par motif éligible : `${track.id}_${pattern.id}` -> `Number(id)` -> `String(id)` -> `vocalClip.id`.
  * - Décodage isolé `try/catch` sur `arrayBuffer.slice(0)` et zéro mutation Zustand intermédiaire (batch atomique).
  */
@@ -31,8 +31,13 @@ export class VocalIdbScanner {
 
     const idbByExactKey = new Map<number | string, Blob>();
     for (const rec of records) {
-      if (rec && rec.patternId !== undefined && rec.audioBlob) {
-        idbByExactKey.set(rec.patternId, rec.audioBlob);
+      if (!rec || rec.patternId === undefined || rec.patternId === null || !rec.audioBlob) continue;
+      idbByExactKey.set(rec.patternId, rec.audioBlob);
+      const trimmed = String(rec.patternId).trim();
+      if (trimmed && !idbByExactKey.has(trimmed)) idbByExactKey.set(trimmed, rec.audioBlob);
+      if (trimmed && !trimmed.includes('_')) {
+        const num = Number(trimmed);
+        if (Number.isFinite(num) && !idbByExactKey.has(num)) idbByExactKey.set(num, rec.audioBlob);
       }
     }
 

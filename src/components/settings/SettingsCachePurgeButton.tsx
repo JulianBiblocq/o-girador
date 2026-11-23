@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
+import { clearAudioSampleCache } from '../../audio/audioSampleCache';
 import { useSequencer } from '../../contexts/SequencerContext';
 
 interface SettingsCachePurgeButtonProps {
@@ -20,6 +21,7 @@ export const SettingsCachePurgeButton: React.FC<SettingsCachePurgeButtonProps> =
     if (!ok) return;
 
     try {
+      await clearAudioSampleCache();
       if ('caches' in window) {
         const keys = await caches.keys();
         for (const key of keys) {

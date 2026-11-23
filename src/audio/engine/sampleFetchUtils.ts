@@ -1,15 +1,17 @@
 /**
- * Résolution des chemins canoniques (.ogg), détection native iOS/WebKit (.m4a) et chargement réseau (< 105 lignes).
+ * Résolution des chemins canoniques (.ogg), détection native iOS/WebKit (.m4a) et chargement réseau (< 135 lignes).
  * - Détecte d'emblée l'absence de support Ogg Vorbis sur iOS/WebKit (sans télécharger les .ogg en pure perte).
  * - Garantit que tous les appelants indexent les AudioBuffers décodés sous leur clé canonique `.ogg`.
+ * - Appose `?v=${revTag}` après la résolution d'extension `.ogg` <-> `.m4a` pour contourner un cache SW/HTTP obsolète.
  */
+import { getSampleRevisionTag } from '../sampleCacheFingerprint';
 
 let forcedM4aPreference: boolean | null = null;
 let cachedNativeM4aPreference: boolean | null = null;
 let latchedM4aFallback = false;
 
 export function normalizeCanonicalSampleKey(path: string): string {
-  return path.replace(/\.m4a$/i, '.ogg');
+  return path.split('?')[0].replace(/\.m4a$/i, '.ogg');
 }
 
 function detectWebkitM4aPreference(): boolean {
@@ -52,18 +54,26 @@ export function setPreferM4aFallbackForTests(preferM4a: boolean | null): void {
 }
 
 export function resolveSampleFetchPath(path: string): string {
-  let fetchPath = path;
-  if (path.includes('Mixdown/') || path.includes('mixdown/')) {
-    const filename = path.substring(path.lastIndexOf('/') + 1);
+  const cleanRaw = path.split('?')[0];
+  let fetchPath = cleanRaw;
+  if (cleanRaw.includes('Mixdown/') || cleanRaw.includes('mixdown/')) {
+    const filename = cleanRaw.substring(cleanRaw.lastIndexOf('/') + 1);
     // @ts-ignore
     fetchPath = `${import.meta.env?.BASE_URL || '/'}Mixdown/${filename}`;
   } else {
-    const cleanPath = path.startsWith('/') ? path : '/' + path;
+    const cleanPath = cleanRaw.startsWith('/') ? cleanRaw : '/' + cleanRaw;
     // @ts-ignore
     const baseUrl = import.meta.env?.BASE_URL || '/';
     fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
   }
   return fetchPath.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+}
+
+export function appendSampleRevisionQuery(encodedUrl: string, canonicalPath: string): string {
+  const revTag = getSampleRevisionTag(canonicalPath);
+  if (!revTag) return encodedUrl;
+  const sep = encodedUrl.includes('?') ? '&' : '?';
+  return `${encodedUrl}${sep}v=${encodeURIComponent(revTag)}`;
 }
 
 export async function fetchSampleWithRetry(encodedPath: string): Promise<Response> {
@@ -91,9 +101,11 @@ export async function fetchAndDecodeAudioSample(
   samplePath: string
 ): Promise<AudioBuffer | null> {
   const canonicalPath = normalizeCanonicalSampleKey(samplePath);
-  const oggUrl = resolveSampleFetchPath(canonicalPath);
-  const m4aUrl = oggUrl.replace(/\.ogg$/i, '.m4a');
-  const hasM4aVariant = m4aUrl !== oggUrl;
+  const baseOggUrl = resolveSampleFetchPath(canonicalPath);
+  const baseM4aUrl = baseOggUrl.replace(/\.ogg$/i, '.m4a');
+  const hasM4aVariant = baseM4aUrl !== baseOggUrl;
+  const oggUrl = appendSampleRevisionQuery(baseOggUrl, canonicalPath);
+  const m4aUrl = appendSampleRevisionQuery(baseM4aUrl, canonicalPath);
 
   if (hasM4aVariant && shouldPreferM4aFallback()) {
     try {

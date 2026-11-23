@@ -8,7 +8,8 @@ export function serveMixdownPlugin(rootDir: string): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (req.url) {
-          const decodedUrl = decodeURIComponent(req.url);
+          const cleanReqUrl = req.url.split('?')[0];
+          const decodedUrl = decodeURIComponent(cleanReqUrl);
           if (decodedUrl.includes('/Mixdown/') || decodedUrl.includes('/mixdown/')) {
             if (decodedUrl.includes('\0')) {
               res.statusCode = 400;
@@ -17,8 +18,8 @@ export function serveMixdownPlugin(rootDir: string): Plugin {
             }
             const mixdownBaseDir = process.env.VITE_MIXDOWN_PATH || path.resolve(rootDir, 'public', 'Mixdown');
             const relativePath = decodedUrl.includes('/Mixdown/')
-              ? decodedUrl.split('/Mixdown/')[1].split('?')[0]
-              : decodedUrl.split('/mixdown/')[1].split('?')[0];
+              ? decodedUrl.split('/Mixdown/')[1]
+              : decodedUrl.split('/mixdown/')[1];
             const rawPath = path.join(mixdownBaseDir, relativePath);
             try {
               if (fs.existsSync(rawPath) && fs.existsSync(mixdownBaseDir)) {

@@ -81,20 +81,18 @@ export function resolveVocalPlaybackBuffer(
 
   if (!dspEntry) {
     if (typeof Worker !== 'undefined' && typeof window !== 'undefined') {
-      // Environnement navigateur : interdiction de bloquer le Main Thread UI -> lancement Worker asynchrone
+      // Environnement navigateur : interdiction de bloquer le Main Thread UI -> lancement Worker asynchrone vers cache LRU
       void requestVocalPatternDspAsync(
         canonicalPatternKey, baseAudioBuffer, recordedBpm, currentBpm,
-        targetTranspositionSt, packTranspositionSt, timingMeta,
-        (readyEntry) => { if (vocalBuffers) vocalBuffers[readyEntry.cacheKey] = readyEntry.audioBuffer; }
+        targetTranspositionSt, packTranspositionSt, timingMeta
       );
       const scaled = computeScaledPatternTiming({ ...timingMeta, recordedBpm }, currentBpm, 0, baseAudioBuffer.duration);
       const pendingKey = buildVocalDspCacheKey(canonicalPatternKey, currentBpm, targetTranspositionSt);
-      const prewarmedBuf = vocalBuffers?.[pendingKey] || baseAudioBuffer;
       dspEntry = {
-        cacheKey: pendingKey, audioBuffer: prewarmedBuf, alpha: scaled.alpha, recordedBpm, liveBpm: currentBpm,
+        cacheKey: pendingKey, audioBuffer: baseAudioBuffer, alpha: scaled.alpha, recordedBpm, liveBpm: currentBpm,
         transpositionSemitones: targetTranspositionSt, deltaSemitones: pitchShiftSemitones,
         scaledT1OffsetSec: scaled.scaledT1OffsetSec, scaledTrimStartSec: scaled.scaledTrimStartSec,
-        scaledTrimEndSec: Math.min(prewarmedBuf.duration, scaled.scaledTrimEndSec),
+        scaledTrimEndSec: Math.min(baseAudioBuffer.duration, scaled.scaledTrimEndSec),
       };
     } else {
       dspEntry = getOrComputeVocalPatternDspSync(
@@ -102,10 +100,6 @@ export function resolveVocalPlaybackBuffer(
         targetTranspositionSt, packTranspositionSt, timingMeta
       );
     }
-  }
-
-  if (vocalBuffers && dspEntry.audioBuffer) {
-    vocalBuffers[dspEntry.cacheKey] = dspEntry.audioBuffer;
   }
 
   return {

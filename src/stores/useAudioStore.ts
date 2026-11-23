@@ -67,13 +67,15 @@ export const useAudioStore = create<AudioState>((set) => ({
       return { vocalBlobs: nextBlobs };
     }),
   addVocalBuffer: (patternId, buffer) =>
-    set((state) => ({
-      vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer },
-    })),
+    set((state) => {
+      if (String(patternId).includes('__dsp_')) return state;
+      return { vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer } };
+    }),
   setVocalBuffer: (patternId, buffer) =>
-    set((state) => ({
-      vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer },
-    })),
+    set((state) => {
+      if (String(patternId).includes('__dsp_')) return state;
+      return { vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer } };
+    }),
   setVocalBuffersBatch: (entries) =>
     set((state) => {
       if (!entries || entries.length === 0) return state;
@@ -81,6 +83,7 @@ export const useAudioStore = create<AudioState>((set) => ({
       const nextBlobs = { ...state.vocalBlobs };
       let changed = false;
       for (const entry of entries) {
+        if (String(entry.key).includes('__dsp_')) continue;
         if (nextBuffers[entry.key] !== entry.buffer) {
           nextBuffers[entry.key] = entry.buffer;
           changed = true;
@@ -89,7 +92,7 @@ export const useAudioStore = create<AudioState>((set) => ({
           nextBlobs[entry.key] = entry.blob;
           changed = true;
         }
-        if (entry.legacyAliasKey !== undefined && !nextBuffers[entry.legacyAliasKey]) {
+        if (entry.legacyAliasKey !== undefined && !String(entry.legacyAliasKey).includes('__dsp_') && !nextBuffers[entry.legacyAliasKey]) {
           nextBuffers[entry.legacyAliasKey] = entry.buffer;
           if (entry.blob && !nextBlobs[entry.legacyAliasKey]) nextBlobs[entry.legacyAliasKey] = entry.blob;
           changed = true;

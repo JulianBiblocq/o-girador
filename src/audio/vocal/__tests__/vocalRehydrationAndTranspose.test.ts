@@ -128,6 +128,7 @@ function installMockOGiradorDB() {
   restorePresetAutomationsAndVocal({ metadata: { transpositionSemitones: '-7' } });
   assert.equal(useSequencerStore.getState().vocalTransposeSteps, -7);
   assert.equal(resolvePresetVocalTransposeSteps(builtPreset), -5);
+  assert.equal(resolvePresetVocalTransposeSteps({ transpositionSemitones: 6 }), 6);
 
   const sanitizedTracks = migrateAndSanitizePresetTracks({
     version: 3,

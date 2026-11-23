@@ -41,32 +41,26 @@ export class VocalPlayerPool {
     let haasNodes: ActiveVocal['haasNodes'];
 
     if (isCoroTrack) {
-      // Graphe stable : le module Haas est toujours cable pour le Coro ; le Palier 2 Eco
-      // se contente d'abaisser ses gains Side (voir applyVocalHaasEco), sans recablage.
       haasNodes = createHaasModule(mainGain, resolvedOutput, isFxLightened);
     } else {
       const dest = (resolvedOutput && (resolvedOutput.input || resolvedOutput)) || (masterVolumeNode && (masterVolumeNode.input || masterVolumeNode));
       mainGain.connect(dest);
     }
 
-    const directPlayer = new Tone.Player(audioBuffer);
-    directPlayer.volume.value = 0;
-    directPlayer.playbackRate = 1.0;
-    directPlayer.loop = false;
-    directPlayer.fadeIn = 0.004;
-    directPlayer.fadeOut = 0.015;
-    directPlayer.onstop = () => {};
-    directPlayer.connect(mainGain);
+    const mainPlayer = new Tone.Player(audioBuffer);
+    mainPlayer.volume.value = 0;
+    mainPlayer.playbackRate = 1.0;
+    mainPlayer.loop = false;
+    mainPlayer.fadeIn = 0.004;
+    mainPlayer.fadeOut = 0.015;
+    mainPlayer.onstop = () => {};
+    mainPlayer.connect(mainGain);
 
     entry = {
-      mainPlayer: directPlayer,
-      directPlayer,
+      mainPlayer,
       mainGain,
       currentBuffer: audioBuffer,
       haasNodes,
-      chorusPlayers: [],
-      chorusGains: [],
-      panners: [],
     };
     activeVocals.set(vocalKey, entry);
     return entry;
@@ -74,11 +68,14 @@ export class VocalPlayerPool {
 
   public static disposePlayer(trackIdOrKey: string | number, patternId?: number): void {
     const keys = new Set<string>();
-    if (patternId !== undefined) keys.add(`${trackIdOrKey}_${patternId}`);
-    else {
+    if (patternId !== undefined) {
+      const prefix = `${trackIdOrKey}_${patternId}`;
+      keys.add(prefix);
+      activeVocals.forEach((_, k) => { if (k === prefix || k.startsWith(`${prefix}__`)) keys.add(k); });
+    } else {
       const s = String(trackIdOrKey);
       keys.add(s);
-      activeVocals.forEach((_, k) => { if (k.endsWith(`_${s}`) || k === s) keys.add(k); });
+      activeVocals.forEach((_, k) => { if (k.endsWith(`_${s}`) || k === s || k.startsWith(`${s}__`)) keys.add(k); });
     }
     keys.forEach((k) => {
       const e = activeVocals.get(k);
@@ -93,23 +90,15 @@ export class VocalPlayerPool {
 
   private static disposeEntry(e: ActiveVocal): void {
     try { e.mainPlayer.onstop = () => {}; e.mainPlayer.stop(); e.mainPlayer.disconnect(); e.mainPlayer.dispose(); } catch (_) {}
-    if (e.directPlayer && e.directPlayer !== e.mainPlayer) {
-      try { e.directPlayer.onstop = () => {}; e.directPlayer.stop(); e.directPlayer.disconnect(); e.directPlayer.dispose(); } catch (_) {}
-    }
     try { e.mainGain.disconnect(); e.mainGain.dispose(); } catch (_) {}
     disposeHaasNodes(e.haasNodes);
-    e.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); p.disconnect(); p.dispose(); } catch (_) {} });
-    e.chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
-    e.panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
   }
 
   public static stopPattern(patternId: number | string, trackId?: string | number): void {
     const filter = trackId !== undefined ? `${trackId}_${patternId}` : null;
     activeVocals.forEach((entry, k) => {
-      if (filter ? k === filter : (k.endsWith(`_${patternId}`) || k === String(patternId))) {
+      if (filter ? (k === filter || k.startsWith(`${filter}__`)) : (k.endsWith(`_${patternId}`) || k === String(patternId))) {
         try { entry.mainPlayer.stop(); } catch (_) {}
-        try { entry.directPlayer?.stop(); } catch (_) {}
-        entry.chorusPlayers.forEach(p => { try { p.stop(); } catch (_) {} });
       }
     });
   }
@@ -117,8 +106,6 @@ export class VocalPlayerPool {
   public static stopAll(): void {
     activeVocals.forEach((entry) => {
       try { entry.mainPlayer.onstop = () => {}; entry.mainPlayer.stop(); } catch (_) {}
-      try { entry.directPlayer?.stop(); } catch (_) {}
-      entry.chorusPlayers.forEach(p => { try { p.onstop = () => {}; p.stop(); } catch (_) {} });
     });
   }
 }

@@ -1,10 +1,11 @@
 /**
- * O Girador - Empreinte déterministe & Validation d'intégrité du cache PCM IndexedDB (< 115 lignes)
- * - Calcule une signature FNV-1a 32 bits déterministe par chemin canonique `.ogg` (banque active + révision).
+ * O Girador - Empreinte déterministe & Validation d'intégrité du cache PCM IndexedDB (< 125 lignes)
+ * - Calcule une signature FNV-1a 32 bits déterministe par chemin canonique `.ogg` (banque active + révision `.ogg/.m4a`).
  * - Vérifie la cohérence stricte `version` / `sampleRate` / `sampleHash` / `numberOfChannels` / `length` / `pcmHash`.
  */
 
 import { instrumentAudioConfigs } from '../data/audioConfig';
+import { GENERATED_SAMPLE_REVISIONS } from '../data/generatedSampleRevisions';
 import { STUDIO_BANK_ENABLED } from '../universes/maracatu/instruments/studioBankRegistry';
 import { normalizeCanonicalSampleKey } from './engine/sampleFetchUtils';
 
@@ -60,10 +61,15 @@ export function clearSampleRevisionOverrides(): void {
   sampleRevisionOverrides.clear();
 }
 
+export function getSampleRevisionTag(rawPath: string): string | null {
+  const canonicalPath = normalizeCanonicalSampleKey(rawPath);
+  return sampleRevisionOverrides.get(canonicalPath) ?? GENERATED_SAMPLE_REVISIONS[canonicalPath] ?? null;
+}
+
 export function computeExpectedSampleHash(rawPath: string, cacheVersion: number): string {
   const canonicalPath = normalizeCanonicalSampleKey(rawPath);
   const bankDesc = getBankDescriptorMap().get(canonicalPath) ?? 'custom';
-  const revOverride = sampleRevisionOverrides.get(canonicalPath) ?? 'r0';
+  const revOverride = getSampleRevisionTag(canonicalPath) ?? 'r0';
   return fnv1a32Hex(`v${cacheVersion}|${canonicalPath}|${bankDesc}|${revOverride}`);
 }
 

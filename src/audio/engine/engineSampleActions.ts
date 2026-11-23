@@ -55,8 +55,7 @@ export class EngineSampleActions {
       configMap,
       loader.bufferPool,
       (ctx, p) => loader.loadPath(ctx, p),
-      activeInstruments,
-      (evicted) => loader.onSamplesEvicted?.(evicted)
+      activeInstruments
     );
   }
 }

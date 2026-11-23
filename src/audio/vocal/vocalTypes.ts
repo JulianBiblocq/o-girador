@@ -6,7 +6,6 @@ import * as Tone from 'tone';
 
 export interface ActiveVocal {
   mainPlayer: Tone.Player;
-  directPlayer?: Tone.Player;
   mainGain: Tone.Gain;
   currentBuffer: AudioBuffer | null;
   haasNodes?: {
@@ -17,9 +16,6 @@ export interface ActiveVocal {
     sideGainRight: GainNode;
     merger: ChannelMergerNode;
   };
-  chorusPlayers: Tone.Player[];
-  chorusGains: Tone.Gain[];
-  panners: Tone.Panner[];
 }
 
 export const activeVocals = new Map<string, ActiveVocal>();

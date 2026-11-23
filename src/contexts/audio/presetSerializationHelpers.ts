@@ -24,6 +24,7 @@ export function sanitizeVocalTransposeSteps(raw: unknown, fallback = 0): number 
 export function resolvePresetVocalTransposeSteps(p: any): number {
   const raw =
     p?.vocalTransposeSteps ??
+    p?.transpositionSemitones ??
     p?.metadata?.vocalTransposeSteps ??
     p?.metadata?.transpositionSemitones;
   return sanitizeVocalTransposeSteps(raw, 0);
@@ -62,7 +63,13 @@ export function restorePresetAutomationsAndVocal(p: any): void {
   const store = useSequencerStore.getState();
 
   const targetTranspose = resolvePresetVocalTransposeSteps(p);
-  store.setVocalTransposeSteps(targetTranspose);
+  const meta = store.metadata;
+  useSequencerStore.setState({
+    vocalTransposeSteps: targetTranspose,
+    metadata: meta
+      ? { ...meta, vocalTransposeSteps: targetTranspose, transpositionSemitones: targetTranspose }
+      : meta,
+  });
 
   const isMasterBypassed = Boolean(p.isMasterVolumeBypassed);
   const globalBypass = p.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false };

@@ -14,8 +14,7 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const totalMeasuresRef = props.totalMeasuresRef || useRef(props.totalMeasures);
   totalMeasuresRef.current = props.totalMeasures;
 
-  const defaultTracksRef = useRef<Track[]>([]);
-  const tracksRef = (props.tracksRef as any) || defaultTracksRef;
+  const tracksRef = (props.tracksRef as any) || useRef<Track[]>([]);
   const measureTimeSigsRef = (props.measureTimeSigsRef as any) || useRef(props.measureTimeSigs);
   if (!props.measureTimeSigsRef) measureTimeSigsRef.current = props.measureTimeSigs;
 
@@ -64,7 +63,6 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const anchoredMeasureIdxRef = useRef(-1);
   const lastElapsedSecRef = useRef(0);
   const isPreRollActiveRef = useRef(false);
-  const preRollTotalMeasuresRef = useRef(1);
   const preRollRemainingMeasuresRef = useRef(1);
   const targetPreRollMeasureRef = useRef(0);
 
@@ -101,7 +99,7 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
     speedTrainerConsolidationLapsDoneRef, activeSequencerVocalsRef, anticipatedMeasuresRef,
     mutedVoiceTracksRef, lastPlayedPatternRef, lastPlayedSignalIdRef,
     anchoredMeasureStartSecRef, anchoredMeasureIdxRef, lastElapsedSecRef,
-    isPreRollActiveRef, preRollTotalMeasuresRef, preRollRemainingMeasuresRef,
+    isPreRollActiveRef, preRollRemainingMeasuresRef,
     targetPreRollMeasureRef, isAudioInitializedRef, flatCompiledScheduleRef,
     flatArrayPointerRef, lastCompiledScheduleRef, lastAbsoluteTickRef,
     familyMuteSetRef, savedSoloMuteStateRef, lastAppliedTracksParamsRef,

@@ -29,14 +29,14 @@ function makeMockAudioBuffer(sampleRate = 48000, length = 480): AudioBuffer {
   } as unknown as AudioBuffer;
 }
 
-// 1. Clé canonique `.ogg` & version de cache PCM incrémentée (v11)
+// 1. Clé canonique `.ogg` & version de cache PCM incrémentée (v12)
 {
-  assert.equal(SAMPLE_CACHE_VERSION, 11);
+  assert.equal(SAMPLE_CACHE_VERSION, 12);
   assert.equal(normalizeCanonicalSampleKey('Mixdown/Timbal studio T D 1.m4a'), 'Mixdown/Timbal studio T D 1.ogg');
   assert.equal(normalizeCanonicalSampleKey('Mixdown/Timbal studio T D 1.ogg'), 'Mixdown/Timbal studio T D 1.ogg');
   assert.equal(
     getSampleCacheKey('Mixdown/Timbal studio T D 1.m4a', 48000),
-    'v11_Mixdown/Timbal studio T D 1.ogg_48000'
+    'v12_Mixdown/Timbal studio T D 1.ogg_48000'
   );
 }
 
@@ -58,10 +58,11 @@ function makeMockAudioBuffer(sampleRate = 48000, length = 480): AudioBuffer {
   const requestedUrls: string[] = [];
   globalThis.fetch = (async (url: string | URL | Request) => {
     const u = String(url);
+    const cleanU = u.split('?')[0];
     requestedUrls.push(u);
     return {
-      ok: u.endsWith('.m4a'),
-      status: u.endsWith('.m4a') ? 200 : 404,
+      ok: cleanU.endsWith('.m4a'),
+      status: cleanU.endsWith('.m4a') ? 200 : 404,
       arrayBuffer: async () => new ArrayBuffer(64),
     } as Response;
   }) as typeof fetch;
@@ -80,7 +81,8 @@ function makeMockAudioBuffer(sampleRate = 48000, length = 480): AudioBuffer {
   await loader.loadPath(mockCtx, 'Mixdown/Timbal studio T D 1.ogg');
 
   assert.equal(requestedUrls.length, 1, 'Must perform a single direct .m4a HTTP request (zero wasted .ogg fetch)');
-  assert.ok(requestedUrls[0].endsWith('Timbal%20studio%20T%20D%201.m4a'), `Expected .m4a URL, got ${requestedUrls[0]}`);
+  assert.ok(requestedUrls[0].split('?')[0].endsWith('Timbal%20studio%20T%20D%201.m4a'), `Expected .m4a URL, got ${requestedUrls[0]}`);
+  assert.ok(requestedUrls[0].includes('.m4a?v='), `Expected revision query after .m4a extension, got ${requestedUrls[0]}`);
   assert.equal(loader.bufferPool.has('Mixdown/Timbal studio T D 1.ogg'), true, 'bufferPool must index under canonical .ogg key');
   assert.equal(loader.bufferPool.has('Mixdown/Timbal studio T D 1.m4a'), false);
   assert.equal(workletPosted.length, 1);
@@ -120,7 +122,7 @@ function makeMockAudioBuffer(sampleRate = 48000, length = 480): AudioBuffer {
   const buf2 = await fetchAndDecodeAudioSample(fallbackCtx, 'Mixdown/Tarol F 2.ogg');
   assert.ok(buf2 !== null);
   assert.equal(requestedUrls.length, 1, 'Subsequent loads must skip .ogg and fetch .m4a directly');
-  assert.ok(requestedUrls[0].endsWith('Tarol%20F%202.m4a'));
+  assert.ok(requestedUrls[0].split('?')[0].endsWith('Tarol%20F%202.m4a'));
 }
 
 globalThis.fetch = originalFetch;

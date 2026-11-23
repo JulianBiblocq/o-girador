@@ -39,12 +39,15 @@ export async function executeApplyPreset(
   const finalRodaOrder = [...validExisting, ...missing];
   loadedTracks.forEach((t) => { delete (t as any).radius; });
 
+  const targetTranspose = resolvePresetVocalTransposeSteps(p);
+  const defaultBpm = Math.round(p.bpm || 90);
+  const defaultTimeSig = p.timeSig || '4/4';
+  const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms) ? p.measureBpms.map((b: number) => Math.round(b)) : Array(loadedMeasures).fill(defaultBpm);
+
   useSequencerStore.setState({
-    rodaTrackOrder: finalRodaOrder,
-    totalMeasures: loadedMeasures,
-    tracksVersion: useSequencerStore.getState().tracksVersion + 1,
-    isLetraActive: false,
-    toadaConductorSlots: Array.isArray(p.toadaConductorSlots) ? p.toadaConductorSlots : [],
+    rodaTrackOrder: finalRodaOrder, totalMeasures: loadedMeasures, bpm: defaultBpm, measureBpms: loadedBpms,
+    vocalTransposeSteps: targetTranspose, tracksVersion: useSequencerStore.getState().tracksVersion + 1,
+    isLetraActive: false, toadaConductorSlots: Array.isArray(p.toadaConductorSlots) ? p.toadaConductorSlots : [],
   });
   useSequencerStore.getState().setTracks(loadedTracks);
   useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);
@@ -61,9 +64,6 @@ export async function executeApplyPreset(
     console.error('[VOCAL REHYDRATE] Error during applyPreset:', err);
   }
 
-  const defaultBpm = Math.round(p.bpm || 90);
-  const defaultTimeSig = p.timeSig || '4/4';
-  const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms) ? p.measureBpms.map((b: number) => Math.round(b)) : Array(loadedMeasures).fill(defaultBpm);
   const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs) ? p.measureTimeSigs : Array(loadedMeasures).fill(defaultTimeSig);
   const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions) ? p.measureBpmTransitions : Array(loadedMeasures).fill('immediate');
   let rawMeasureVols = p.measureVols && Array.isArray(p.measureVols) ? p.measureVols.map((v: number) => {
@@ -86,9 +86,7 @@ export async function executeApplyPreset(
   const loadedSections = (p.songSections && Array.isArray(p.songSections)) ? JSON.parse(JSON.stringify(p.songSections)) : [];
   const rawMarkers = p.songMarkers || p.markers;
   const loadedMarkers = (rawMarkers && Array.isArray(rawMarkers))
-    ? JSON.parse(JSON.stringify(rawMarkers)).map((mk: any, idx: number) =>
-        mk && typeof mk === 'object' && !mk.id ? { ...mk, id: `mk-${Date.now()}-${idx}` } : mk
-      )
+    ? JSON.parse(JSON.stringify(rawMarkers)).map((mk: any, idx: number) => mk && typeof mk === 'object' && !mk.id ? { ...mk, id: `mk-${Date.now()}-${idx}` } : mk)
     : [];
   const loadedSignals = (p.measureSignals && Array.isArray(p.measureSignals)) ? JSON.parse(JSON.stringify(p.measureSignals)) : Array(loadedMeasures).fill(null);
   const loadedMestreSignals = (p.mestreSignals && Array.isArray(p.mestreSignals)) ? JSON.parse(JSON.stringify(p.mestreSignals)) : [];
@@ -100,7 +98,7 @@ export async function executeApplyPreset(
     currentMeasure: 0, currentExpandedMeasureIdx: 0,
     isMasterVolumeBypassed: Boolean(p.isMasterVolumeBypassed),
     globalAutomationBypass: p.globalAutomationBypass || { all: false, volume: false, pan: false, reverb: false },
-    vocalTransposeSteps: resolvePresetVocalTransposeSteps(p),
+    vocalTransposeSteps: targetTranspose,
   });
   if (p.letras !== undefined) {
     useSequencerStore.getState().setLetras(p.letras);

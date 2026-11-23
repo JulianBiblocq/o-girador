@@ -91,8 +91,7 @@ export class VocalSequencerPlayer {
       ? slotMeasureT1Time + (effectiveTrimStart - effectiveT1Offset) + (timing.nudgeMs / 1000) + timing.balancoOffset
       : timing.triggerTime;
 
-    const playerKey = resolved.variantKey ? `${canonicalKey}__${resolved.variantKey}` : canonicalKey;
-    const activeEntry = VocalPlayerPool.getOrCreate(playerKey, activeAudioBuffer, outputNode, isCoroTrack, trackId, true);
+    const activeEntry = VocalPlayerPool.getOrCreate(canonicalKey, activeAudioBuffer, outputNode, isCoroTrack, trackId, true);
     const { mainPlayer, mainGain } = activeEntry;
 
     mainPlayer.playbackRate = 1.0;

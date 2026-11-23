@@ -3,8 +3,8 @@
  */
 import assert from 'node:assert/strict';
 import {
-  clearSampleRevisionOverrides, computeExpectedSampleHash, getCachedPcmSample, getCachedSampleBuffer,
-  getSampleCacheKey, resetAudioSampleCacheSingletonForTests, SAMPLE_CACHE_VERSION, saveCachedPcmSample,
+  clearAudioSampleCache, clearSampleRevisionOverrides, computeExpectedSampleHash, getCachedPcmSample, getCachedSampleBuffer,
+  getSampleCacheKey, getSampleRevisionTag, resetAudioSampleCacheSingletonForTests, SAMPLE_CACHE_VERSION, saveCachedPcmSample,
   setSampleRevisionOverride,
 } from '../audioSampleCache';
 
@@ -30,6 +30,7 @@ function installMockBrowserCaches() {
   const mockStore = {
     put(val: any) { idbRows.set(val.id, val); },
     delete(k: string) { idbRows.delete(String(k)); },
+    clear() { idbRows.clear(); },
     get(k: string) {
       const req: any = { result: idbRows.get(String(k)), onsuccess: null, onerror: null };
       queueMicrotask(() => req.onsuccess?.());
@@ -64,6 +65,7 @@ function installMockBrowserCaches() {
   (globalThis as any).localStorage = {
     getItem: (k: string) => ls.get(k) ?? null,
     setItem: (k: string, v: string) => { ls.set(k, v); },
+    removeItem: (k: string) => { ls.delete(k); },
   };
   (globalThis as any).caches = {
     delete: async (name: string) => { deletedSwCaches.push(name); return true; },
@@ -91,14 +93,15 @@ function installMockBrowserCaches() {
   const sampleBufV1 = ctx.createBuffer(1, 320, 48000);
   sampleBufV1.getChannelData(0).fill(0.42);
 
-  // 1. Ouverture singleton concurrente + purge SW unique + suppression des clés IDB != v11_
+  // 1. Ouverture singleton concurrente + purge SW unique + suppression des clés IDB != v12_
   await Promise.all([
     saveCachedPcmSample('Mixdown/Alfaia meiao B.m4a', sampleBufV1),
     getCachedPcmSample('Mixdown/Alfaia meiao B.ogg', 48000),
   ]);
   await new Promise((r) => setTimeout(r, 20));
 
-  assert.equal(SAMPLE_CACHE_VERSION, 11);
+  assert.equal(SAMPLE_CACHE_VERSION, 12);
+  assert.ok(Boolean(getSampleRevisionTag('Mixdown/Alfaia meiao B.ogg')), 'Generated manifest revision tag must be hydrated');
   assert.equal(env.getIdbOpenCalls(), 1, 'Singleton promise must open IndexedDB only once');
   assert.deepEqual(env.deletedSwCaches, ['audio-samples-cache'], 'Must purge Workbox audio-samples-cache once on version bump');
   assert.equal(env.idbRows.has('v10_Mixdown/Alfaia meiao B.ogg_48000'), false, 'Stale v10 key must be purged');
@@ -116,7 +119,6 @@ function installMockBrowserCaches() {
   // 4. Rejet + re-fetch automatique sur divergence d'empreinte (échantillon remasterisé à nom constant)
   setSampleRevisionOverride('Mixdown/Alfaia meiao B.ogg', 'remaster-2026-11');
   assert.equal(await getCachedPcmSample('Mixdown/Alfaia meiao B.ogg', 48000), null, 'Divergent sampleHash must be rejected');
-
   let fetchCalls = 0;
   const remasteredBuf = ctx.createBuffer(1, 640, 48000);
   remasteredBuf.getChannelData(0).fill(-0.75);
@@ -124,14 +126,15 @@ function installMockBrowserCaches() {
   assert.equal(fetchCalls, 1, 'Stale hash must trigger fresh fetchAndDecode');
   assert.equal(reloaded?.length, 640);
   await new Promise((r) => setTimeout(r, 20));
-
   const hitAfterOverwrite = await getCachedPcmSample('Mixdown/Alfaia meiao B.ogg', 48000);
   assert.ok(hitAfterOverwrite !== null && hitAfterOverwrite.length === 640, 'Background save must overwrite stale entry');
 
-  // 5. Rejet sur corruption PCM (length / pcmHash altérés)
+  // 5. Rejet sur corruption PCM + purge complète clearAudioSampleCache
   const rawStored = env.idbRows.get(getSampleCacheKey('Mixdown/Alfaia meiao B.ogg', 48000));
   rawStored.channels[0][0] = 0.99;
   assert.equal(await getCachedPcmSample('Mixdown/Alfaia meiao B.ogg', 48000), null, 'Corrupted PCM payload must be rejected');
+  await clearAudioSampleCache();
+  assert.equal(env.idbRows.size, 0, 'clearAudioSampleCache must empty IDB store');
 
   clearSampleRevisionOverrides();
   resetAudioSampleCacheSingletonForTests();

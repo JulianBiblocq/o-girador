@@ -21,7 +21,6 @@ export class EngineSampleLoader {
   public bufferPool = new Map<string, ToneType.ToneAudioBuffer>();
   public loadingPromises = new Map<string, Promise<void>>();
   public onSampleDecoded?: (path: string, buffer: AudioBuffer) => void;
-  public onSamplesEvicted?: (paths: string[]) => void;
 
   public async loadPath(audioContext: AudioContext, rawPath: string): Promise<void> {
     const path = normalizeCanonicalSampleKey(rawPath);

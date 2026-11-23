@@ -68,9 +68,6 @@ function executeVocalDspPrewarm(overrideBpm?: number, overrideTranspositionSemit
               t1OffsetSec: clip?.t1OffsetSec,
               trimStartSec: clip?.trimStartSec,
               trimEndSec: clip?.trimEndSec,
-            },
-            (entry) => {
-              useAudioStore.getState().setVocalBuffer(entry.cacheKey, entry.audioBuffer);
             }
           );
         }

@@ -1,8 +1,9 @@
-
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { vocalEngineService } from '../../audio/vocalEngineService';
+import { evictVocalDspVariantsByPrefix } from '../../audio/vocalDsp/vocalDspLruStore';
+import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrewarmer';
 import { saveVocalRecording } from '../../db';
 import { VocalClipMeta } from '../../types/store.types';
 
@@ -33,27 +34,23 @@ export function useVocalValidationSave({
 
     try {
       const pId = tempRecording.patternId;
-      await vocalEngineService.saveValidatedRecording(pId, wavBlob);
-      await saveVocalRecording(pId, wavBlob);
-      await saveVocalRecording(String(pId), wavBlob);
-      if (!isNaN(Number(pId))) await saveVocalRecording(Number(pId), wavBlob);
+      const hasTrackId = voiceTrack?.id !== undefined && voiceTrack?.id !== null;
+      const canonicalKey = hasTrackId ? `${voiceTrack.id}_${pId}` : String(pId);
 
-      useAudioStore.getState().setVocalBuffer(pId, cleanBuffer);
-      useAudioStore.getState().setVocalBuffer(String(pId), cleanBuffer);
-      useAudioStore.getState().addVocalBlob(pId, wavBlob);
-      useAudioStore.getState().addVocalBlob(String(pId), wavBlob);
-      if (!isNaN(Number(pId))) {
-        useAudioStore.getState().setVocalBuffer(Number(pId), cleanBuffer);
-        useAudioStore.getState().addVocalBlob(Number(pId), wavBlob);
-      }
-      if (voiceTrack?.id) {
-        const compositeKey = `${voiceTrack.id}_${pId}`;
-        useAudioStore.getState().setVocalBuffer(compositeKey, cleanBuffer);
-        useAudioStore.getState().addVocalBlob(compositeKey, wavBlob);
-        const compositeKeyStr = `${voiceTrack.id}_${String(pId)}`;
-        useAudioStore.getState().setVocalBuffer(compositeKeyStr, cleanBuffer);
-        useAudioStore.getState().addVocalBlob(compositeKeyStr, wavBlob);
-      }
+      await saveVocalRecording(canonicalKey, wavBlob);
+      await vocalEngineService.saveValidatedRecording(pId, wavBlob);
+
+      evictVocalDspVariantsByPrefix(canonicalKey);
+      evictVocalDspVariantsByPrefix(pId);
+
+      useAudioStore.getState().setVocalBuffersBatch([
+        {
+          key: canonicalKey,
+          buffer: cleanBuffer,
+          blob: wavBlob,
+          legacyAliasKey: pId,
+        },
+      ]);
 
       useSequencerStore.getState().setTracks(
         tracks.map((t) => {
@@ -65,6 +62,7 @@ export function useVocalValidationSave({
                   return {
                     ...p,
                     vocalMode: 'micro',
+                    hasVocalAudio: true,
                     vocalClip: meta,
                     vocalAudioUrl: undefined,
                     vocalNudge: undefined,
@@ -81,6 +79,7 @@ export function useVocalValidationSave({
         })
       );
 
+      prewarmProjectVocalDspBuffers(undefined, undefined, true);
       useAudioStore.getState().setTargetPatternId(null);
       setTempRecording(null);
     } catch (err) {

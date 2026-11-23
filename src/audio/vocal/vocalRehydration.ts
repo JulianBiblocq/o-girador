@@ -1,6 +1,6 @@
 /**
- * O Girador - Vocal Audio Buffer Rehydration Orchestrator (< 120 lignes)
- * - Verrou singleton strict `rehydratingPromise` (zéro tempête IndexedDB sous appels concurrents).
+ * O Girador - Vocal Audio Buffer Rehydration Orchestrator (< 125 lignes)
+ * - Verrou singleton strict `rehydratingPromise` (zéro tempête IndexedDB ni double decodeAudioData sous appels concurrents).
  * - Court-circuit immédiat en RAM si tous les motifs vocaux actifs possèdent déjà leur `AudioBuffer`.
  * - Injection atomique unique `setVocalBuffersBatch` (zéro re-render intermédiaire).
  */
@@ -68,7 +68,7 @@ export class VocalRehydration {
     let targetSig = computeVocalTargetsSignature(targets);
 
     if (rehydratingPromise) {
-      if (rehydratingSignature === targetSig || !tracksToScan) {
+      if (rehydratingSignature === targetSig && targetSig.length > 0) {
         return rehydratingPromise;
       }
       try { await rehydratingPromise; } catch (_) {}

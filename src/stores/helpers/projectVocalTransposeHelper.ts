@@ -7,14 +7,20 @@ import { prewarmProjectVocalDspBuffers } from '../../audio/vocalDsp/vocalDspPrew
 type SetFn = (partial: Partial<SequencerStore> | ((state: SequencerStore) => Partial<SequencerStore>)) => void;
 type GetFn = () => SequencerStore;
 
-export function applyVocalTransposeStepsState(steps: number, set: SetFn, get: GetFn): void {
-  const nextSteps = Math.max(-12, Math.min(12, steps));
+export function applyVocalTransposeStepsState(
+  steps: number,
+  set: SetFn,
+  get: GetFn,
+  options?: { silentRestore?: boolean }
+): void {
+  const nextSteps = Math.max(-12, Math.min(12, Math.round(Number(steps) || 0)));
   const meta = get().metadata;
   const troupeKey = meta?.sungKey ? computeTransposedTroupeKey(meta.sungKey, nextSteps) : meta?.troupeKey;
   set({
     vocalTransposeSteps: nextSteps,
-    metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta,
+    metadata: meta ? { ...meta, vocalTransposeSteps: nextSteps, transpositionSemitones: nextSteps, troupeKey } : meta,
   });
+  if (options?.silentRestore) return;
   prewarmProjectVocalDspBuffers(undefined, nextSteps);
   if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('force-autosave'));
@@ -43,7 +49,7 @@ export function applyTransposePatternNotesState(
     tracks: newTracks,
     tracksVersion: (state.tracksVersion ?? 0) + 1,
     vocalTransposeSteps: nextSteps,
-    metadata: meta ? { ...meta, transpositionSemitones: nextSteps, troupeKey } : meta,
+    metadata: meta ? { ...meta, vocalTransposeSteps: nextSteps, transpositionSemitones: nextSteps, troupeKey } : meta,
   });
   prewarmProjectVocalDspBuffers(undefined, nextSteps);
   if (meta?.toadaPackId) void syncCloudToadaTransposition(meta.toadaPackId, nextSteps, meta.sungKey);

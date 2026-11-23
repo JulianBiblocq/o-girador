@@ -1,17 +1,17 @@
 /**
- * O Girador - Vocal Recording Service & IndexedDB Persistence
+ * O Girador - Vocal Recording Service & IndexedDB Persistence (< 135 lignes)
  */
 
 import * as Tone from 'tone';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../../db';
+import { evictVocalDspVariantsByPrefix } from '../vocalDsp/vocalDspLruStore';
 import { scheduleAudioContextAutoSuspend } from '../audioContextSuspendManager';
 import { guardFeatureWithModal } from '../../utils/cloudWriteGuard';
-
 import { resolveRecordingContext, VocalRecordingDataHandler } from './vocalRecordingDataHandler';
-
 import { base64ToBlob } from '../../contexts/audio/audioVocalBase64';
+
 export { base64ToBlob };
 
 export class VocalRecordingService {
@@ -31,7 +31,7 @@ export class VocalRecordingService {
     let stream: MediaStream | null = null;
     try {
       if (this.audioStream) {
-        try { this.audioStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        try { this.audioStream.getTracks().forEach((t) => t.stop()); } catch (_) {}
         this.audioStream = null;
       }
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -42,12 +42,9 @@ export class VocalRecordingService {
       const handler = new VocalRecordingDataHandler(patternId, trackId, measureIdx);
       rec.ondataavailable = (e) => handler.handleDataAvailable(e);
       rec.onstop = () => { handler.handleStop(rec); };
-
       rec.start();
     } catch (err) {
-      if (stream) {
-        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
-      }
+      if (stream) { try { stream.getTracks().forEach((t) => t.stop()); } catch (_) {} }
       this.audioStream = null;
       this.mediaRecorder = null;
       store.setRecordingStatus?.('inactive');
@@ -63,7 +60,7 @@ export class VocalRecordingService {
     }
     this.mediaRecorder = null;
     if (this.audioStream) {
-      try { this.audioStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      try { this.audioStream.getTracks().forEach((t) => t.stop()); } catch (_) {}
       this.audioStream = null;
     }
     const store = useAudioStore.getState() as any;
@@ -73,7 +70,6 @@ export class VocalRecordingService {
     try { Tone.Transport.stop(); } catch (_) {}
     scheduleAudioContextAutoSuspend(500);
   }
-
 
   public static async loadVocalRecording(patternId: number): Promise<Blob | null> {
     try {
@@ -94,24 +90,30 @@ export class VocalRecordingService {
 
   public static async deleteRecording(patternId: number, disposeFn: (id: number) => void): Promise<void> {
     try {
-      await deleteVocalRecording(patternId);
-      useAudioStore.getState().removeVocalBlob(patternId);
-      useAudioStore.getState().removeVocalBuffer(patternId);
+      const sequencerStore = useSequencerStore.getState();
+      const audioStore = useAudioStore.getState();
+      const purgeKey = async (k: number | string) => {
+        await deleteVocalRecording(k);
+        audioStore.removeVocalBlob(k);
+        audioStore.removeVocalBuffer(k);
+        evictVocalDspVariantsByPrefix(k);
+      };
+      await purgeKey(patternId);
+      for (const t of sequencerStore.tracks) {
+        if (t.patterns?.some((p) => Number(p.id) === Number(patternId))) {
+          await purgeKey(`${t.id}_${patternId}`);
+        }
+      }
       disposeFn(patternId);
 
-      const sequencerStore = useSequencerStore.getState();
       const newTracks = sequencerStore.tracks.map((t) => {
-        const hasPattern = t.patterns.some((p) => Number(p.id) === Number(patternId));
-        if (!hasPattern) return t;
+        if (!t.patterns.some((p) => Number(p.id) === Number(patternId))) return t;
         return {
           ...t,
-          patterns: t.patterns.map((p) => {
-            if (Number(p.id) !== Number(patternId)) return p;
-            return {
-              ...p, vocalMode: 'synth', vocalClip: undefined, vocalNudge: 0,
-              vocalTrimStart: 0, vocalBaseBpm: undefined, vocalBpmSync: undefined
-            } as any;
-          })
+          patterns: t.patterns.map((p) => Number(p.id) !== Number(patternId) ? p : ({
+            ...p, vocalMode: 'synth', hasVocalAudio: false, vocalClip: undefined,
+            vocalNudge: 0, vocalTrimStart: 0, vocalBaseBpm: undefined, vocalBpmSync: undefined,
+          } as any)),
         };
       });
       sequencerStore.setTracks(newTracks);
@@ -119,13 +121,10 @@ export class VocalRecordingService {
   }
 
   public static async saveValidatedRecording(patternId: number | string, blob: Blob): Promise<void> {
-    const numId = Number(patternId);
-    const strId = String(patternId);
-
+    const numId = Number(patternId), strId = String(patternId);
     await saveVocalRecording(patternId, blob);
     if (strId !== patternId) await saveVocalRecording(strId, blob);
     if (!isNaN(numId) && numId !== patternId) await saveVocalRecording(numId, blob);
-
     useAudioStore.getState().addVocalBlob(patternId, blob);
     if (strId !== patternId) useAudioStore.getState().addVocalBlob(strId, blob);
     if (!isNaN(numId) && numId !== patternId) useAudioStore.getState().addVocalBlob(numId, blob);
@@ -133,7 +132,5 @@ export class VocalRecordingService {
 }
 
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    VocalRecordingService.stopRecording();
-  });
+  import.meta.hot.dispose(() => { VocalRecordingService.stopRecording(); });
 }
