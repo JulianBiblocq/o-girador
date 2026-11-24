@@ -80,7 +80,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
       className="@container w-full bg-[var(--cordel-parchment-surface)] border-t-[3px] border-[var(--cordel-ink-dark)] px-2 sm:px-3 py-1 shrink-0 flex items-center justify-between gap-2 shadow-[0_-2px_6px_var(--cordel-shadow-color)] z-30 select-none"
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className="flex items-end gap-1.5 sm:gap-2 overflow-x-auto pl-0.5 pr-1 py-0.5 min-w-0 flex-1 scrollbar-none">
+        <div className="flex items-end gap-1.5 sm:gap-2 overflow-x-auto px-1.5 py-1.5 min-w-0 flex-1 scrollbar-none">
           <StrokeDockMatrixView
             trackId={trackId} instrument={instrument} spec={matrixSpec} activeTool={activeTool}
             isBrushSuppressed={isScissorsActive || isEraserActive || isSelectionModeActive}

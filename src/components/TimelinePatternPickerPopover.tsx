@@ -42,35 +42,46 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
   }, [anchorRect]);
 
   useEffect(() => {
-    let attached = false;
-    const t0 = Date.now(), sc = document.getElementById('timeline-scroll-container');
-    const sL = sc?.scrollLeft || 0, sT = sc?.scrollTop || 0, wX = window.scrollX, wY = window.scrollY;
+    const doc = popoverRef.current?.ownerDocument || document;
+    const win = doc.defaultView || window;
+    const openedAt = typeof performance !== 'undefined' ? performance.now() : 0;
+    const t0 = Date.now(), sc = doc.getElementById('timeline-scroll-container');
+    const sL = sc?.scrollLeft || 0, sT = sc?.scrollTop || 0, wX = win.scrollX, wY = win.scrollY;
 
     const onDown = (e: MouseEvent | PointerEvent) => {
+      if (openedAt > 0 && typeof e.timeStamp === 'number' && e.timeStamp > 0 && e.timeStamp < openedAt) return;
       const target = e.target as Node | null;
       if (!target) return;
       if (popoverRef.current?.contains(target)) return;
       if (triggerRef?.current?.contains(target)) return;
-      if (attached) onClose();
+      onClose();
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); onClose(); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
     const onScroll = (e: Event) => {
       if ((popoverRef.current && popoverRef.current.contains(e.target as Node)) || Date.now() - t0 < 150) return;
-      const dX = sc ? Math.abs(sc.scrollLeft - sL) : Math.abs(window.scrollX - wX);
-      const dY = sc ? Math.abs(sc.scrollTop - sT) : Math.abs(window.scrollY - wY);
+      const dX = sc ? Math.abs(sc.scrollLeft - sL) : Math.abs(win.scrollX - wX);
+      const dY = sc ? Math.abs(sc.scrollTop - sT) : Math.abs(win.scrollY - wY);
       if (dX > 4 || dY > 4 || e.type === 'wheel') onClose();
     };
 
-    const timer = setTimeout(() => { attached = true; }, 150);
-    window.addEventListener('pointerdown', onDown); window.addEventListener('mousedown', onDown);
-    window.addEventListener('keydown', onKey, { capture: true });
-    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
-    window.addEventListener('wheel', onScroll, { capture: true, passive: true });
+    win.addEventListener('pointerdown', onDown, { capture: true });
+    win.addEventListener('mousedown', onDown, { capture: true });
+    win.addEventListener('keydown', onKey, { capture: true });
+    win.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    win.addEventListener('wheel', onScroll, { capture: true, passive: true });
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener('pointerdown', onDown); window.removeEventListener('mousedown', onDown);
-      window.removeEventListener('keydown', onKey, { capture: true });
-      window.removeEventListener('scroll', onScroll, { capture: true }); window.removeEventListener('wheel', onScroll, { capture: true });
+      win.removeEventListener('pointerdown', onDown, { capture: true });
+      win.removeEventListener('mousedown', onDown, { capture: true });
+      win.removeEventListener('keydown', onKey, { capture: true });
+      win.removeEventListener('scroll', onScroll, { capture: true });
+      win.removeEventListener('wheel', onScroll, { capture: true });
     };
   }, [onClose, triggerRef]);
 
@@ -84,13 +95,26 @@ export const TimelinePatternPickerPopover: React.FC<TimelinePatternPickerPopover
   return createPortal(
     <div
       ref={popoverRef}
-      className="fixed z-[100] bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1 w-[200px] select-none font-cactus animate-in fade-in zoom-in-95 duration-75"
+      role="dialog"
+      aria-label={trackTitle}
+      className="fixed z-[100] bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] border-2 border-[var(--cordel-ink-dark)] shadow-[4px_4px_0px_var(--cordel-ink-dark)] p-1 w-[200px] select-none font-cactus animate-in fade-in zoom-in-95 duration-75"
       style={{ top: `${pos.top}px`, left: `${pos.left}px` }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="px-2 py-1 border-b border-[#1a1a1a]/30 font-bold text-xs uppercase tracking-wider flex items-center justify-between !text-[#1a1a1a]/80">
-        <span className="truncate">{trackTitle}</span>
-        <span className="font-mono text-[10px] !text-[#1a1a1a]/50">M{measureIdx + 1}</span>
+      <div className="pl-2 pr-1 py-1 border-b border-[var(--cordel-ink-dark)]/30 font-bold text-xs uppercase tracking-wider flex items-center justify-between gap-1.5 text-[var(--cordel-paper-ink)]/85">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <span className="truncate">{trackTitle}</span>
+          <span className="font-mono text-[10px] text-[var(--cordel-paper-ink)]/55 shrink-0">M{measureIdx + 1}</span>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          aria-label={lang === 'fr' ? 'Fermer' : 'Fechar'}
+          title={`${lang === 'fr' ? 'Fermer' : 'Fechar'} (Esc)`}
+          className="w-5 h-5 flex items-center justify-center rounded-xs text-[11px] leading-none font-sans font-bold text-[var(--cordel-paper-ink)]/75 hover:text-[var(--cordel-on-accent)] hover:bg-[var(--cordel-wood)] active:scale-95 transition-colors cursor-pointer shrink-0"
+        >
+          ✕
+        </button>
       </div>
       <TimelinePatternPickerList patternsList={patternsList} activePatternId={activePatternId} isSlave={isSlave} isFollowingMaster={isFollowingMaster} instColor={instColor} lang={lang} onSelect={handleSelect} />
     </div>,

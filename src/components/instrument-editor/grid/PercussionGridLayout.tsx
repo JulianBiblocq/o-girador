@@ -5,6 +5,7 @@ import { splitIntoHalfMeasures } from './gridSymmetricSplitter';
 import { PercussionStepWrapper } from './PercussionStepWrapper';
 
 export interface PercussionGridLayoutProps {
+  gridZoneRef?: React.RefObject<HTMLDivElement | null>;
   trackId: number;
   pattern: Pattern;
   instrument: { id: string; colors: Record<string, string>; [key: string]: any };
@@ -31,7 +32,7 @@ export interface PercussionGridLayoutProps {
 }
 
 export const PercussionGridLayout: React.FC<PercussionGridLayoutProps> = ({
-  trackId, pattern, instrument, isTupletEditMode, selectedStepIndices,
+  gridZoneRef, trackId, pattern, instrument, isTupletEditMode, selectedStepIndices,
   selectedStepIdx, selectedSubIndex, activeTool, isMultiSelectActive,
   swingOffsets, activeVigilanceFocus, handlePatternBeatResolutionChange,
   handleGridTouchMove, handleGridTouchEnd, handleCellTouchMove, handleCellTouchEnd,
@@ -97,6 +98,7 @@ export const PercussionGridLayout: React.FC<PercussionGridLayoutProps> = ({
 
   return (
     <div
+      ref={gridZoneRef}
       className="step-boxes flex flex-wrap gap-2 lg:gap-3 w-full"
       id={`detail-steps-${trackId}-${pattern.id}`}
       onContextMenu={(e) => e.preventDefault()}

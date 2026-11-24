@@ -18,19 +18,22 @@ export const StrokeWritingDockSpecialTools: React.FC<StrokeWritingDockSpecialToo
   isEraserActive, isScissorsActive, isMultiSelectActive,
   defaultBrushSymbol, isFr, onSelectTool,
 }) => {
-  const activeCls = 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0px_var(--cordel-ink-dark)]';
-  const idleCls = 'border-[var(--cordel-ink-dark)] bg-[var(--cordel-surface-elevated)] hover:bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] shadow-[1px_1px_0px_var(--cordel-ink-dark)]';
+  const altActiveCls = 'border-2 border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)] shadow-[2px_2px_0px_var(--cordel-ink-dark)]';
+  const toolActiveCls = 'scale-110 border-[3px] border-[#c0392b] bg-[var(--cordel-gold)]/45 text-[var(--cordel-ink-dark)] shadow-[3px_3px_0px_var(--cordel-ink-dark)] z-20';
+  const idleCls = 'border-2 border-[var(--cordel-ink-dark)] bg-[var(--cordel-surface-elevated)] hover:bg-[var(--cordel-paper-surface)] text-[var(--cordel-paper-ink)] shadow-[1px_1px_0px_var(--cordel-ink-dark)]';
+  const eraserOn = isEraserActive && !isMultiSelectActive;
+  const scissorsOn = isScissorsActive && !isMultiSelectActive;
 
   return (
-    <div className="flex items-center gap-1.5 shrink-0 self-end pb-[1px]">
+    <div className="flex items-center gap-2 shrink-0 self-end pb-[1px]">
       <div className="h-[46px] w-[1px] bg-[var(--cordel-ink-dark)]/20 shrink-0 mx-0.5" aria-hidden="true" />
 
       {supportsAlternation && onToggleAlternating && (
         <button
           type="button"
           onClick={onToggleAlternating}
-          className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm border-2 transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
-            isAlternating ? activeCls : idleCls
+          className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
+            isAlternating ? altActiveCls : idleCls
           }`}
           title={isFr ? 'Mode Alternance (Frisé biomécanique Droite / Gauche)' : 'Modo Alternância (Direita / Esquerda)'}
         >
@@ -47,38 +50,38 @@ export const StrokeWritingDockSpecialTools: React.FC<StrokeWritingDockSpecialToo
       <button
         type="button"
         onClick={() => onSelectTool('0')}
-        className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm border-2 transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
-          isEraserActive && !isMultiSelectActive ? `${activeCls} scale-105 z-10` : idleCls
+        className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
+          eraserOn ? toolActiveCls : idleCls
         }`}
         title={isFr ? 'Gomme (Effacer) [0 / Del]' : 'Borracha (Apagar) [0 / Del]'}
       >
-        <div className={`w-6 h-6 rounded-sm flex items-center justify-center font-bold border border-[var(--cordel-ink-dark)]/20 ${
-          isEraserActive && !isMultiSelectActive ? 'bg-[var(--cordel-paper-surface)] text-[var(--cordel-wood)]' : 'bg-[var(--cordel-parchment-panel)] text-[var(--cordel-paper-ink)]'
+        <div className={`w-6 h-6 rounded-sm flex items-center justify-center font-bold border ${
+          eraserOn ? 'bg-[#c0392b] text-[var(--cordel-on-accent)] border-[var(--cordel-ink-dark)]' : 'bg-[var(--cordel-parchment-panel)] text-[var(--cordel-paper-ink)] border-[var(--cordel-ink-dark)]/20'
         }`}>
           <Delete size={13} />
         </div>
         <div className="flex flex-col items-start leading-tight">
           <span className="text-[10.5px] font-cactus font-bold">{isFr ? 'Gomme' : 'Borracha'}</span>
-          <span className={`text-[9px] font-mono ${isEraserActive && !isMultiSelectActive ? 'text-[var(--cordel-on-accent)]/80' : 'text-[var(--cordel-text-muted)]'}`}>[0 / Del]</span>
+          <span className={`text-[9px] font-mono ${eraserOn ? 'text-[var(--cordel-ink-dark)] font-bold' : 'text-[var(--cordel-text-muted)]'}`}>[0 / Del]</span>
         </div>
       </button>
 
       <button
         type="button"
         onClick={() => onSelectTool(isScissorsActive ? defaultBrushSymbol : 'scissors')}
-        className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm border-2 transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
-          isScissorsActive && !isMultiSelectActive ? `${activeCls} scale-105 z-10` : idleCls
+        className={`flex items-center gap-1.5 px-2 py-1.5 h-[44px] rounded-sm transition-transform cursor-pointer select-none shrink-0 active:scale-95 ${
+          scissorsOn ? toolActiveCls : idleCls
         }`}
         title={isFr ? 'Ciseau / Colle : Clic sur un pas simple pour scinder, ou pas scindé pour recoller' : 'Tesoura / Cola : Clique num passo para dividir ou colar'}
       >
-        <div className={`w-6 h-6 rounded-sm flex items-center justify-center font-bold text-xs border border-[var(--cordel-ink-dark)]/20 ${
-          isScissorsActive && !isMultiSelectActive ? 'bg-[var(--cordel-paper-surface)] text-[var(--cordel-wood)]' : 'bg-[var(--cordel-parchment-panel)] text-[var(--cordel-paper-ink)]'
+        <div className={`w-6 h-6 rounded-sm flex items-center justify-center font-bold text-xs border ${
+          scissorsOn ? 'bg-[#c0392b] text-[var(--cordel-on-accent)] border-[var(--cordel-ink-dark)]' : 'bg-[var(--cordel-parchment-panel)] text-[var(--cordel-paper-ink)] border-[var(--cordel-ink-dark)]/20'
         }`}>
           <Scissors size={13} />
         </div>
         <div className="flex flex-col items-start leading-tight">
           <span className="text-[10.5px] font-cactus font-bold">{isFr ? 'Ciseau / Colle' : 'Tesoura / Cola'}</span>
-          <span className={`text-[9px] font-mono ${isScissorsActive && !isMultiSelectActive ? 'text-[var(--cordel-on-accent)]/80' : 'text-[var(--cordel-text-muted)]'}`}>[{isFr ? 'Scinder' : 'Dividir'}]</span>
+          <span className={`text-[9px] font-mono ${scissorsOn ? 'text-[var(--cordel-ink-dark)] font-bold' : 'text-[var(--cordel-text-muted)]'}`}>[{isFr ? 'Scinder' : 'Dividir'}]</span>
         </div>
       </button>
     </div>

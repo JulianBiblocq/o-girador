@@ -53,7 +53,7 @@ export const StrokeDockMatrixView: React.FC<StrokeDockMatrixViewProps> = React.m
       );
     }
     return (
-      <div className="flex items-center gap-[2px]">
+      <div className="flex items-center gap-[3px]">
         <StrokeDockKeyPad
           trackId={trackId} instrument={instrument} symbol={cell.strong.symbol} customTitle={cell.strong.title}
           variant="strong" isSelected={isKeySelected(cell.strong.symbol)}

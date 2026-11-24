@@ -14,6 +14,7 @@ import {
 } from '../../../audio/animations/aoVivoConfigStorage';
 import {
   buildFullMobileAoVivoExportObject,
+  DEFAULT_AO_VIVO_MOBILE_STROKE_OVERRIDES,
   setActiveMobileDrumFamily,
 } from '../../../audio/animations/aoVivoMobileStrokeConfigs';
 import { CONFIG_ALFAIA_STICKS, DEFAULT_ALFAIA_STICKS_CONFIG, resetAlfaiaSticksConfig, updateAlfaiaSticksConfig } from '../../../audio/animations/alfaiaStickConfig';
@@ -85,17 +86,22 @@ describe('Ao Vivo — Multi-Instrument Routing & 7 Calibrated Configs', () => {
     expect(resolveAlfaiaSecondaryFamily(useSequencerStore.getState().tracks[0])).toBe('bacalhau');
   });
 
-  it('matches all 7 calibrated PC and v4 Mobile default configurations', () => {
+  it('matches all 7 calibrated PC and v5/v2 Mobile default configurations', () => {
     expect(DEFAULT_ALFAIA_STICKS_CONFIG).toMatchObject({ leftStickMode: 'auto', stickAngleDeg: 33, stickSpreadPx: 168, impactReachY: -110 });
     expect(DEFAULT_CAIXA_STICKS_CONFIG).toMatchObject({ previewMode: 'auto', stickAngleDeg: 31, rimshotSkinImpactY: 46 });
     expect(DEFAULT_GONGUE_STICK_CONFIG).toMatchObject({ globalOffsetX: 196, strikeDurationMs: 110, metalCrushMs: 68 });
     expect(DEFAULT_TIMBAL_HANDS_CONFIG.anatomy).toMatchObject({ handScale: 2.1, handSpreadPx: 124, restOffsetY: 208 });
     expect(DEFAULT_AGBE_LAB_CONFIG).toMatchObject({ pivotYPercent: 27, strongTranslateX: 66, pendulumDurationMs: 260 });
     expect(DEFAULT_MINEIRO_LAB_CONFIG).toMatchObject({ pushStrongY: -26, ladoOffsetX: -66, cycleDurationMs: 380 });
-    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.alfaia).toEqual({ offsetY: -20, offsetX: -2, scaleMult: 1.34, spreadDeltaPx: -20, reachDeltaY: 74 });
-    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.caixa).toEqual({ offsetY: 10, offsetX: 0, scaleMult: 1.4, spreadDeltaPx: -36, reachDeltaY: 76 });
-    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.tarol).toEqual({ offsetY: 70, offsetX: 0, scaleMult: 1.4, spreadDeltaPx: 32, reachDeltaY: 0 });
-    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.timbal).toEqual({ offsetY: -36, offsetX: 0, scaleMult: 1.16, spreadDeltaPx: -120, reachDeltaY: 2 });
+    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.alfaia).toEqual({ offsetY: 18, offsetX: -2, scaleMult: 1.34, spreadDeltaPx: -20, reachDeltaY: 74 });
+    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.caixa).toEqual({ offsetY: 10, offsetX: 0, scaleMult: 1.4, spreadDeltaPx: -14, reachDeltaY: 76 });
+    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.tarol).toEqual({ offsetY: 10, offsetX: 0, scaleMult: 1.4, spreadDeltaPx: -14, reachDeltaY: 76 });
+    expect(DEFAULT_AO_VIVO_MOBILE_OFFSETS.timbal).toEqual({ offsetY: -158, offsetX: 0, scaleMult: 1.16, spreadDeltaPx: -120, reachDeltaY: 2 });
+    expect(DEFAULT_AO_VIVO_MOBILE_STROKE_OVERRIDES).toEqual({
+      caixa: { transitions: { stayLowAfterStrongY: -18 }, crossClickConvergeX: 84, rimshotSkinImpactY: -28 },
+      tarol: { transitions: { stayLowAfterStrongY: -18 }, crossClickConvergeX: 84, rimshotSkinImpactY: -28 },
+      timbal: { strokes: { graveImpactY: 252, graveConvergeX: -74, slapConvergeX: -30 } },
+    });
   });
 
   it('isolates Mobile per-stroke configs (including independent Caixa vs Tarol) without touching PC', () => {

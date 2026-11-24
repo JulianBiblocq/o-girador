@@ -16,6 +16,7 @@ import { disambiguateRoleAndSteps } from '../../../../utils/paper/paperRoleDisam
 import { getAlternatingStroke } from '../../strokes/strokeNuanceCycles';
 import { getMineiroStrokeDefs } from '../../strokes/mineiroStrokes';
 import { getVisualStrokeSymbol } from '../../strokes/visualStrokeSymbol';
+import { ALFAIA_WEAK_RIGHT_BASE_GAIN } from '../alfaiaBankBuilder';
 import { instrumentAudioConfigs } from '../index';
 import {
   buildStudioAgbeStrokes, buildStudioApitoStrokes, buildStudioCaixaStrokes, buildStudioGongueStrokes,
@@ -58,6 +59,11 @@ import { legacyTarolStrokes, tarolConfig } from '../tarolOnlyConfig';
   }
   assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'mineiro', 'l')?.isBarulho, undefined);
   assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, 'apito', 'l')?.isBarulho, true);
+  for (const role of ['marcante', 'meiao', 'repique'] as const) {
+    assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, role, 'D')?.baseGain, 1.0);
+    assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, role, 'e')?.baseGain, 1.0);
+    assert.equal(EngineVirtualStrokes.resolveStroke(strokesMaps, role, 'd')?.baseGain, ALFAIA_WEAK_RIGHT_BASE_GAIN[role]);
+  }
 }
 
 // 2. Nomenclature Studio *_min sans collision Windows/Linux & baseGain 1.0 (a/f/v/s/l virtuels à 0.82)
