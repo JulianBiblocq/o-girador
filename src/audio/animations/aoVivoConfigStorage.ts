@@ -1,5 +1,5 @@
 const STORAGE_PREFIX = 'og_aovivo_cfg_v7_';
-const MOBILE_STORAGE_PREFIX = 'og_aovivo_mobile_cfg_v1_';
+const MOBILE_STORAGE_PREFIX = 'og_aovivo_mobile_cfg_v2_';
 
 export type AoVivoStorageKey = 'alfaia' | 'caixa' | 'gongue' | 'timbal' | 'agbe' | 'mineiro';
 export type AoVivoMobileConfigKey = 'alfaia' | 'caixa' | 'tarol' | 'gongue' | 'timbal' | 'agbe' | 'mineiro';
@@ -86,11 +86,12 @@ export function subscribeAoVivoTargetMode(fn: () => void): () => void {
   return () => targetModeListeners.delete(fn);
 }
 
+const isPlainObj = (v: unknown): v is Record<string, any> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+
 export function cloneAoVivoConfig<T extends Record<string, any>>(obj: T): T {
   const out: any = { ...obj };
   for (const k of Object.keys(obj)) {
-    const v = obj[k];
-    if (v && typeof v === 'object' && !Array.isArray(v)) out[k] = { ...v };
+    if (isPlainObj(obj[k])) out[k] = cloneAoVivoConfig(obj[k]);
   }
   return out;
 }
@@ -98,9 +99,9 @@ export function cloneAoVivoConfig<T extends Record<string, any>>(obj: T): T {
 export function deepAssignAoVivoConfig<T extends Record<string, any>>(target: T, source: Record<string, any>): void {
   for (const k of Object.keys(source)) {
     const sv = source[k], tv = (target as any)[k];
-    if (sv && typeof sv === 'object' && !Array.isArray(sv)) {
-      if (tv && typeof tv === 'object' && !Array.isArray(tv)) Object.assign(tv, sv);
-      else (target as any)[k] = { ...sv };
+    if (isPlainObj(sv)) {
+      if (isPlainObj(tv)) deepAssignAoVivoConfig(tv, sv);
+      else (target as any)[k] = cloneAoVivoConfig(sv);
     } else (target as any)[k] = sv;
   }
 }
@@ -113,7 +114,7 @@ function loadFromFullKey<T extends Record<string, any>>(fullKey: string, default
       const raw = window.localStorage.getItem(fullKey);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') deepAssignAoVivoConfig(merged, parsed);
+        if (isPlainObj(parsed)) deepAssignAoVivoConfig(merged, parsed);
       }
     }
   } catch { /* ignore */ }
