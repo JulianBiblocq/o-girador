@@ -53,7 +53,7 @@ export const AoVivoTransitionSliders: React.FC<{
   };
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-2">
         <S label="Maintien bas Y (→Faible)" val={`${tr.stayLowAfterStrongY}px`} min={-350} max={100} step={2} v={tr.stayLowAfterStrongY} cb={(n) => upd({ stayLowAfterStrongY: n })} />
         <S label="Échelle Z maintien bas" val={tr.stayLowScaleZ.toFixed(2)} min={0.5} max={1.2} step={0.02} v={tr.stayLowScaleZ} cb={(n) => upd({ stayLowScaleZ: n })} />

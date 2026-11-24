@@ -31,7 +31,7 @@ export const AoVivoAgbeLabSliders: React.FC<{ activeTab: AgbeLabTabId; onFocusSt
 
   if (activeTab === 'pendulum') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-2">
           <S label="Pivot pendulaire Y" val={`${c.pivotYPercent}%`} min={0} max={50} step={1} v={c.pivotYPercent} cb={(n) => upd({ pivotYPercent: n }, 'D')} />
           <S label="Choc inertie perles" val={`${c.beadInertiaPx}px`} min={0} max={20} step={1} v={c.beadInertiaPx} cb={(n) => upd({ beadInertiaPx: n })} />
@@ -50,7 +50,7 @@ export const AoVivoAgbeLabSliders: React.FC<{ activeTab: AgbeLabTabId; onFocusSt
 
   if (activeTab === 'salto_volta') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-2">
           <S label="Salto (S) — Saut Y" val={`${c.saltoJumpY}px`} min={-120} max={80} step={2} v={c.saltoJumpY} cb={(n) => upd({ saltoJumpY: n }, 'S')} />
           <S label="Salto (S) — Écrasement" val={c.saltoSquash.toFixed(2)} min={0.75} max={1.35} step={0.01} v={c.saltoSquash} cb={(n) => upd({ saltoSquash: n }, 'S')} />
@@ -68,7 +68,7 @@ export const AoVivoAgbeLabSliders: React.FC<{ activeTab: AgbeLabTabId; onFocusSt
   }
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-2">
         <S label="Vitesse d'attaque" val={`${Math.round(c.attackOffset * 100)}%`} min={0.08} max={0.4} step={0.01} v={c.attackOffset} cb={(n) => upd({ attackOffset: n })} />
         <S label="Durée balancier" val={`${c.pendulumDurationMs}ms`} min={100} max={450} step={10} v={c.pendulumDurationMs} cb={(n) => upd({ pendulumDurationMs: n })} />

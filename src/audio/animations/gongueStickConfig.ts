@@ -1,8 +1,4 @@
-import {
-  clearPersistedAoVivoConfig,
-  loadPersistedAoVivoConfig,
-  savePersistedAoVivoConfig,
-} from './aoVivoConfigStorage';
+import { bindAoVivoDualProfile } from './aoVivoMobileStrokeConfigs';
 
 export type GonguePosePreview = 'auto' | 'grave_impact' | 'grave_windup' | 'aigu_impact' | 'aigu_windup';
 export type GongueNextStrokeKind = 'grave_strong' | 'grave_weak' | 'aigu_strong' | 'aigu_weak' | 'idle';
@@ -52,45 +48,35 @@ export const DEFAULT_GONGUE_STICK_CONFIG = {
   shadowOpacity: 0.6,
 };
 
-export const CONFIG_GONGUE_STICK = loadPersistedAoVivoConfig('gongue', DEFAULT_GONGUE_STICK_CONFIG);
-
 type GongueConfigListener = () => void;
 const listeners = new Set<GongueConfigListener>();
+const gongueChannel = bindAoVivoDualProfile('gongue', DEFAULT_GONGUE_STICK_CONFIG, () => listeners.forEach((fn) => fn()));
+
+export const CONFIG_GONGUE_STICK = gongueChannel.live;
 
 export function subscribeGongueStickConfig(fn: GongueConfigListener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-function notifyGongueListeners(): void {
-  savePersistedAoVivoConfig('gongue', CONFIG_GONGUE_STICK);
-  listeners.forEach((fn) => fn());
-}
-
 export function updateGongueStickConfig(patch: Partial<typeof CONFIG_GONGUE_STICK>, autoPreview?: GonguePosePreview): void {
   if (autoPreview) CONFIG_GONGUE_STICK.posePreview = autoPreview;
   Object.assign(CONFIG_GONGUE_STICK, patch);
-  notifyGongueListeners();
+  gongueChannel.commitSave();
 }
 
 export function updateGongueHandConfig(patch: Partial<GongueHandConfig>, autoPreview?: GonguePosePreview): void {
   if (autoPreview) CONFIG_GONGUE_STICK.posePreview = autoPreview;
   Object.assign(CONFIG_GONGUE_STICK.hand, patch);
-  notifyGongueListeners();
+  gongueChannel.commitSave();
 }
 
 export function updateGongueTipConfig(patch: Partial<GongueTipConfig>, autoPreview?: GonguePosePreview): void {
   if (autoPreview) CONFIG_GONGUE_STICK.posePreview = autoPreview;
   Object.assign(CONFIG_GONGUE_STICK.tip, patch);
-  notifyGongueListeners();
+  gongueChannel.commitSave();
 }
 
 export function resetGongueStickConfig(): void {
-  clearPersistedAoVivoConfig('gongue');
-  Object.assign(CONFIG_GONGUE_STICK, {
-    ...DEFAULT_GONGUE_STICK_CONFIG,
-    hand: { ...DEFAULT_GONGUE_STICK_CONFIG.hand },
-    tip: { ...DEFAULT_GONGUE_STICK_CONFIG.tip },
-  });
-  listeners.forEach((fn) => fn());
+  gongueChannel.resetActive();
 }

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Check, Copy, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { RotateCcw } from 'lucide-react';
 import {
   AoVivoMobileFamily,
   InstrumentMobileOffset,
@@ -7,8 +7,6 @@ import {
   resetMobileOffsets,
   updateMobileOffset,
 } from '../../audio/animations/aoVivoMobileOffsets';
-import { LAB_INSTRUMENT_BUTTONS } from './aoVivoLabTabsConfig';
-import { selectAoVivoLabInstrument } from './aoVivoStrokeTester';
 
 const S: React.FC<{
   label: string; val: string; min: number; max: number; step: number; v: number; cb: (n: number) => void;
@@ -28,41 +26,12 @@ const S: React.FC<{
 
 export const AoVivoMobilePositionSliders: React.FC<{
   activeMobFam: AoVivoMobileFamily;
-  onSelectMobFam: (fam: AoVivoMobileFamily) => void;
-}> = ({ activeMobFam, onSelectMobFam }) => {
-  const [copiedMob, setCopiedMob] = useState(false);
+}> = ({ activeMobFam }) => {
   const cfg = MOBILE_OFFSETS[activeMobFam];
-
-  const handleSelectInstrument = (fam: AoVivoMobileFamily) => {
-    selectAoVivoLabInstrument(fam);
-    onSelectMobFam(fam);
-  };
-
   const upd = (patch: Partial<InstrumentMobileOffset>) => updateMobileOffset(activeMobFam, patch);
-
-  const handleCopyMobileJson = () => {
-    navigator.clipboard?.writeText(JSON.stringify(MOBILE_OFFSETS, null, 2)).catch(() => {});
-    setCopiedMob(true);
-    setTimeout(() => setCopiedMob(false), 1800);
-  };
 
   return (
     <div className="space-y-1.5 pt-0.5 pr-0.5">
-      <div className="grid grid-cols-7 gap-0.5">
-        {LAB_INSTRUMENT_BUTTONS.map((f) => (
-          <button
-            key={f.id} type="button" onClick={() => handleSelectInstrument(f.id)}
-            className="py-0.5 px-0.5 border rounded text-[8.5px] font-bold truncate cursor-pointer"
-            style={{
-              borderColor: 'var(--cordel-border)',
-              backgroundColor: activeMobFam === f.id ? 'var(--cordel-wood)' : 'var(--cordel-surface)',
-              color: activeMobFam === f.id ? 'var(--cordel-parchment-bg)' : 'var(--cordel-text)',
-            }}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
       <div className="grid grid-cols-2 gap-2">
         <S label="Hauteur Y Mobile" val={`${cfg.offsetY > 0 ? '+' : ''}${cfg.offsetY}px`} min={-350} max={350} step={2} v={cfg.offsetY} cb={(n) => upd({ offsetY: n })} />
         <S label="Centrage X Mobile" val={`${cfg.offsetX > 0 ? '+' : ''}${cfg.offsetX}px`} min={-200} max={200} step={2} v={cfg.offsetX} cb={(n) => upd({ offsetX: n })} />
@@ -72,21 +41,13 @@ export const AoVivoMobilePositionSliders: React.FC<{
         <S label="Écartement G/D" val={`${cfg.spreadDeltaPx > 0 ? '+' : ''}${cfg.spreadDeltaPx}px`} min={-120} max={120} step={2} v={cfg.spreadDeltaPx} cb={(n) => upd({ spreadDeltaPx: n })} />
         <S label="Portée Y Peau" val={`${cfg.reachDeltaY > 0 ? '+' : ''}${cfg.reachDeltaY}px`} min={-200} max={200} step={2} v={cfg.reachDeltaY} cb={(n) => upd({ reachDeltaY: n })} />
       </div>
-      <div className="flex items-center justify-between gap-1.5 pt-0.5">
+      <div className="flex justify-end pt-0.5">
         <button
           type="button" onClick={() => resetMobileOffsets(activeMobFam)}
           className="flex items-center gap-1 px-2 py-0.5 border rounded text-[9.5px] font-bold cursor-pointer"
           style={{ borderColor: 'var(--cordel-border)', backgroundColor: 'var(--cordel-surface)', color: 'var(--cordel-text)' }}
         >
-          <RotateCcw className="w-3 h-3" /><span>Reset ({activeMobFam})</span>
-        </button>
-        <button
-          type="button" onClick={handleCopyMobileJson}
-          className="flex-1 flex items-center justify-center gap-1 px-2 py-0.5 border rounded text-[9.5px] font-bold cursor-pointer"
-          style={{ borderColor: 'var(--cordel-border)', backgroundColor: 'var(--cordel-accent)', color: 'var(--cordel-parchment-bg)' }}
-        >
-          {copiedMob ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          <span>{copiedMob ? 'JSON Mobile Copié !' : 'Copier JSON Mobile (Tous)'}</span>
+          <RotateCcw className="w-3 h-3" /><span>Reset Global ({activeMobFam})</span>
         </button>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   CaixaStickFamily,
-  CONFIG_CAIXA_STICKS,
+  getActiveCaixaSticksConfig,
   getCaixaShadowRestTransform,
   getCaixaStickRestTransform,
   resolveCaixaActiveFamily,
@@ -19,7 +19,7 @@ const ACORN_PATH =
   'M 50 50 C 68 58 76 82 72 104 C 69 118 60 123 50 123 C 40 123 31 118 28 104 C 24 82 32 58 50 50 Z';
 
 function renderCaixaStickContent(family: CaixaStickFamily, isShadow: boolean) {
-  const prof = CONFIG_CAIXA_STICKS[family];
+  const prof = getActiveCaixaSticksConfig(family)[family];
   const sw = +prof.shaftWidth.toFixed(3);
   const nt = +prof.neckTaper.toFixed(3);
   const ow = +prof.oliveWidth.toFixed(3);
@@ -72,7 +72,7 @@ export const CaixaStickSvg = React.forwardRef<SVGSVGElement, CaixaStickSvgProps>
     <svg ref={ref} viewBox="0 0 100 600" preserveAspectRatio="xMidYMin meet" style={{ ...style, overflow: 'visible', transformOrigin: '50% 92%' }} className={`overflow-visible ${className || ''}`}>
       <g
         className="stick-shadow" data-stick-shadow
-        style={{ transformOrigin: '50% 92px', opacity: +(CONFIG_CAIXA_STICKS.shadowOpacity * 0.42).toFixed(2), filter: 'blur(3.5px)', transform: getCaixaShadowRestTransform(isLeftSide) }}
+        style={{ transformOrigin: '50% 92px', opacity: +(getActiveCaixaSticksConfig(family).shadowOpacity * 0.42).toFixed(2), filter: 'blur(3.5px)', transform: getCaixaShadowRestTransform(isLeftSide, family) }}
       >
         {renderCaixaStickContent(family, true)}
       </g>

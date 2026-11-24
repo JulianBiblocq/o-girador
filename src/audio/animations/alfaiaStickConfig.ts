@@ -1,8 +1,4 @@
-import {
-  clearPersistedAoVivoConfig,
-  loadPersistedAoVivoConfig,
-  savePersistedAoVivoConfig,
-} from './aoVivoConfigStorage';
+import { bindAoVivoDualProfile } from './aoVivoMobileStrokeConfigs';
 import { HandTransitionConfig } from './handTransitionEngine';
 
 export type AlfaiaSecondaryStickFamily = 'macaneta' | 'fina' | 'bacalhau';
@@ -62,56 +58,44 @@ export const DEFAULT_ALFAIA_STICKS_CONFIG = {
   flexibility: 0.1,
 };
 
-export const CONFIG_ALFAIA_STICKS = loadPersistedAoVivoConfig('alfaia', DEFAULT_ALFAIA_STICKS_CONFIG);
-
 type ConfigListener = () => void;
 const listeners = new Set<ConfigListener>();
+const alfaiaChannel = bindAoVivoDualProfile('alfaia', DEFAULT_ALFAIA_STICKS_CONFIG, () => listeners.forEach((fn) => fn()));
+
+export const CONFIG_ALFAIA_STICKS = alfaiaChannel.live;
 
 export function subscribeAlfaiaSticksConfig(fn: ConfigListener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-function notifyConfigListeners(): void {
-  savePersistedAoVivoConfig('alfaia', CONFIG_ALFAIA_STICKS);
-  listeners.forEach((fn) => fn());
-}
-
 export function updateAlfaiaSticksConfig(patch: Partial<typeof CONFIG_ALFAIA_STICKS>): void {
   Object.assign(CONFIG_ALFAIA_STICKS, patch);
-  notifyConfigListeners();
+  alfaiaChannel.commitSave();
 }
 
 export function updateMacanetaProfile(patch: Partial<AlfaiaMacanetaProfile>): void {
   Object.assign(CONFIG_ALFAIA_STICKS.macaneta, patch);
-  notifyConfigListeners();
+  alfaiaChannel.commitSave();
 }
 
 export function updateFinaProfile(patch: Partial<AlfaiaMacanetaProfile>): void {
   Object.assign(CONFIG_ALFAIA_STICKS.fina, patch);
-  notifyConfigListeners();
+  alfaiaChannel.commitSave();
 }
 
 export function updateBacalhauProfile(patch: Partial<AlfaiaBacalhauProfile>): void {
   Object.assign(CONFIG_ALFAIA_STICKS.bacalhau, patch);
-  notifyConfigListeners();
+  alfaiaChannel.commitSave();
 }
 
 export function updateAlfaiaTransitions(patch: Partial<HandTransitionConfig>): void {
   Object.assign(CONFIG_ALFAIA_STICKS.transitions, patch);
-  notifyConfigListeners();
+  alfaiaChannel.commitSave();
 }
 
 export function resetAlfaiaSticksConfig(): void {
-  clearPersistedAoVivoConfig('alfaia');
-  Object.assign(CONFIG_ALFAIA_STICKS, {
-    ...DEFAULT_ALFAIA_STICKS_CONFIG,
-    macaneta: { ...DEFAULT_ALFAIA_STICKS_CONFIG.macaneta },
-    fina: { ...DEFAULT_ALFAIA_STICKS_CONFIG.fina },
-    bacalhau: { ...DEFAULT_ALFAIA_STICKS_CONFIG.bacalhau },
-    transitions: { ...DEFAULT_ALFAIA_STICKS_CONFIG.transitions },
-  });
-  listeners.forEach((fn) => fn());
+  alfaiaChannel.resetActive();
 }
 
 export function getProfileScale(family: AlfaiaSecondaryStickFamily): number {

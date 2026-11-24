@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useSequencer } from '../../contexts/SequencerContext';
 import {
@@ -7,6 +7,7 @@ import {
   subscribeAoVivoLabOpen,
   subscribeAoVivoLabPreview,
 } from '../../audio/animations/aoVivoConfigStorage';
+import { setActiveMobileDrumFamily } from '../../audio/animations/aoVivoMobileStrokeConfigs';
 import { useAoVivoGeometry } from './useAoVivoGeometry';
 import { useAoVivoAnimationEngine } from './useAoVivoAnimationEngine';
 import { AoVivoInstrumentRenderers } from './AoVivoInstrumentRenderers';
@@ -24,6 +25,10 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
     () => resolveActiveAoVivoContext(activeAoVivoTrackId, allTracks, isLabOpen ? labPreviewFamily : null),
     [activeAoVivoTrackId, allTracks, isLabOpen, labPreviewFamily]
   );
+
+  useEffect(() => {
+    if (family === 'caixa' || family === 'tarol') setActiveMobileDrumFamily(family);
+  }, [family]);
 
   const leftWrapperRef = useRef<HTMLDivElement>(null);
   const rightWrapperRef = useRef<HTMLDivElement>(null);

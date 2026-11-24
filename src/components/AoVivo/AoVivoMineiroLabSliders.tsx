@@ -31,7 +31,7 @@ export const AoVivoMineiroLabSliders: React.FC<{ activeTab: MineiroLabTabId; onF
 
   if (activeTab === 'push') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-1.5">
           <S label="P ↑ Pousser — Y" val={`${c.pushStrongY}px`} min={-140} max={0} step={2} v={c.pushStrongY} cb={(n) => upd({ pushStrongY: n }, 'P')} />
           <S label="P ↑ Pousser — Z" val={c.pushStrongScaleZ.toFixed(2)} min={0.65} max={1.15} step={0.01} v={c.pushStrongScaleZ} cb={(n) => upd({ pushStrongScaleZ: n }, 'P')} />
@@ -47,7 +47,7 @@ export const AoVivoMineiroLabSliders: React.FC<{ activeTab: MineiroLabTabId; onF
 
   if (activeTab === 'pull_lado') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-1.5">
           <S label="T ↓ Tirer — Y" val={`${c.pullStrongY}px`} min={0} max={140} step={2} v={c.pullStrongY} cb={(n) => upd({ pullStrongY: n }, 'T')} />
           <S label="T ↓ Tirer — Z" val={c.pullStrongScaleZ.toFixed(2)} min={0.9} max={1.45} step={0.01} v={c.pullStrongScaleZ} cb={(n) => upd({ pullStrongScaleZ: n }, 'T')} />
@@ -71,7 +71,7 @@ export const AoVivoMineiroLabSliders: React.FC<{ activeTab: MineiroLabTabId; onF
   }
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
       <S label="Fluidité organique" val={`${Math.round(c.fluidity * 100)}%`} min={0} max={1} step={0.02} v={c.fluidity} cb={(n) => upd({ fluidity: n })} />
       <div className="grid grid-cols-2 gap-2">
         <S label="Retour élastique billes" val={`${Math.round(c.recoilReturnRatio * 100)}%`} min={0} max={0.85} step={0.02} v={c.recoilReturnRatio} cb={(n) => upd({ recoilReturnRatio: n })} />

@@ -39,7 +39,7 @@ export const AoVivoGongueLabSliders: React.FC<{ activeTab: GongueLabTabId }> = (
 
   if (activeTab === 'hand') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[250px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[250px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-2">
           <LabSlider label="Décalage global X (Ext.)" displayVal={`${cfg.globalOffsetX}px`} min={-150} max={260} step={2} value={cfg.globalOffsetX} onChange={(v) => updateGongueStickConfig({ globalOffsetX: v })} />
           <LabSlider label="Décalage global Y" displayVal={`${cfg.globalOffsetY}px`} min={-160} max={160} step={2} value={cfg.globalOffsetY} onChange={(v) => updateGongueStickConfig({ globalOffsetY: v })} />
@@ -98,7 +98,7 @@ export const AoVivoGongueLabSliders: React.FC<{ activeTab: GongueLabTabId }> = (
   }
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[250px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[250px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-2">
         <LabSlider label="Durée frappe (ms)" displayVal={`${cfg.strikeDurationMs}ms`} min={25} max={350} step={5} value={cfg.strikeDurationMs} onChange={(v) => updateGongueStickConfig({ strikeDurationMs: v })} />
         <LabSlider label="Vitesse retour" displayVal={`${cfg.returnSpeedMult.toFixed(2)}x`} min={0.25} max={2.5} step={0.05} value={cfg.returnSpeedMult} onChange={(v) => updateGongueStickConfig({ returnSpeedMult: v })} />

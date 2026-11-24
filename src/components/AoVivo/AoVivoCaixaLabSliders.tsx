@@ -75,7 +75,7 @@ export const AoVivoCaixaLabSliders: React.FC<{
   }
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[250px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[250px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-2">
         <LabSlider label="Angle en V" displayVal={`${cfg.stickAngleDeg}°`} min={0} max={55} step={1} value={cfg.stickAngleDeg} onChange={(v) => updateCaixaSticksConfig({ stickAngleDeg: v })} />
         <LabSlider label="Écartement" displayVal={`${cfg.stickSpreadPx}px`} min={-40} max={360} step={2} value={cfg.stickSpreadPx} onChange={(v) => updateCaixaSticksConfig({ stickSpreadPx: v })} />

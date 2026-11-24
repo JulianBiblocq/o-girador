@@ -1,8 +1,4 @@
-import {
-  clearPersistedAoVivoConfig,
-  loadPersistedAoVivoConfig,
-  savePersistedAoVivoConfig,
-} from './aoVivoConfigStorage';
+import { bindAoVivoDualProfile } from './aoVivoMobileStrokeConfigs';
 
 export interface MineiroLabConfig {
   speedMultiplier: 1 | 0.5;
@@ -56,10 +52,11 @@ export const DEFAULT_MINEIRO_LAB_CONFIG: MineiroLabConfig = {
   barulhoFreq: 5,
 };
 
-export const CONFIG_MINEIRO_LAB: MineiroLabConfig = loadPersistedAoVivoConfig('mineiro', DEFAULT_MINEIRO_LAB_CONFIG);
-
 type MineiroListener = () => void;
 const listeners = new Set<MineiroListener>();
+const mineiroChannel = bindAoVivoDualProfile('mineiro', DEFAULT_MINEIRO_LAB_CONFIG, () => listeners.forEach((fn) => fn()));
+
+export const CONFIG_MINEIRO_LAB: MineiroLabConfig = mineiroChannel.live;
 
 export function subscribeMineiroLabConfig(fn: MineiroListener): () => void {
   listeners.add(fn);
@@ -68,13 +65,9 @@ export function subscribeMineiroLabConfig(fn: MineiroListener): () => void {
 
 export function updateMineiroLabConfig(patch: Partial<MineiroLabConfig>): void {
   Object.assign(CONFIG_MINEIRO_LAB, patch);
-  savePersistedAoVivoConfig('mineiro', CONFIG_MINEIRO_LAB);
-  listeners.forEach((fn) => fn());
+  mineiroChannel.commitSave();
 }
 
 export function resetMineiroLabConfig(): void {
-  clearPersistedAoVivoConfig('mineiro');
-  Object.assign(CONFIG_MINEIRO_LAB, DEFAULT_MINEIRO_LAB_CONFIG);
-  listeners.forEach((fn) => fn());
+  mineiroChannel.resetActive();
 }
-

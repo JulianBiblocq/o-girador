@@ -42,7 +42,7 @@ export const AoVivoSpecialStrokesSliders: React.FC<{
   };
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-3 gap-1.5">
         <S label="Clic (C) Centre X" val={`${cfg.crossClickCenterX}px`} min={-200} max={200} step={2} v={cfg.crossClickCenterX} cb={(n) => upd({ crossClickCenterX: n }, 'C')} />
         <S label="Clic (C) Haut. Y" val={`${cfg.crossClickY}px`} min={-350} max={500} step={4} v={cfg.crossClickY} cb={(n) => upd({ crossClickY: n }, 'C')} />

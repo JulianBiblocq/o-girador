@@ -5,10 +5,10 @@ import React from 'react';
 import {
   CaixaNextStrokeKind,
   CaixaStickFamily,
-  CONFIG_CAIXA_STICKS,
   generateCaixaBarulhoLoopFrames,
   generateCaixaPredictiveKeyframes,
   generateCaixaShadowKeyframes,
+  getActiveCaixaSticksConfig,
   getCaixaShadowRestTransform,
   getCaixaStickRestTransform,
   resolveCaixaActiveFamily,
@@ -26,7 +26,7 @@ function animateCaixaStick(
   nextKind: CaixaNextStrokeKind, durationMs: number, flaRole: 'none' | 'main' | 'grace' = 'none'
 ) {
   if (!stickEl) return;
-  const effectiveDuration = Math.max(80, Math.round(durationMs / CONFIG_CAIXA_STICKS.speedMultiplier));
+  const effectiveDuration = Math.max(80, Math.round(durationMs / getActiveCaixaSticksConfig(family).speedMultiplier));
   animRef.current?.cancel();
   stickEl.getAnimations?.().forEach((a) => a.cancel());
   animRef.current = stickEl.animate(
@@ -36,7 +36,7 @@ function animateCaixaStick(
   const shadowEl = stickEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
   if (shadowEl) {
     shadowEl.getAnimations().forEach((a) => a.cancel());
-    shadowEl.animate(generateCaixaShadowKeyframes(stroke, isLeftSide, nextKind), { duration: effectiveDuration, iterations: 1, fill: 'forwards' });
+    shadowEl.animate(generateCaixaShadowKeyframes(stroke, isLeftSide, nextKind, family), { duration: effectiveDuration, iterations: 1, fill: 'forwards' });
   }
 }
 
@@ -46,7 +46,7 @@ function animateCaixaStickBarulho(
   stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan, oneShotStepMode = false
 ) {
   if (!stickEl) return;
-  const c = CONFIG_CAIXA_STICKS, prof = c[family], cycleMs = Math.max(52, Math.round(82 / c.speedMultiplier));
+  const c = getActiveCaixaSticksConfig(family), prof = c[family], cycleMs = Math.max(52, Math.round(82 / c.speedMultiplier));
   const loopFrames = generateCaixaBarulhoLoopFrames(isLeftSide, family, plan.amplitude || 0.7);
   const { startTransform, endTransform } = resolveStickStartAndEndTransforms(isLeftSide, prof.scale, c.restOffsetY, getCaixaStickRestTransform(isLeftSide, family), c.transitions, plan.amplitude >= 0.85, nextKind);
   if (plan.action === 'stop') {
@@ -57,7 +57,7 @@ function animateCaixaStickBarulho(
   const shadowEl = stickEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
   if (shadowEl && (plan.action !== 'continue' || !plan.sustain || oneShotStepMode)) {
     shadowEl.getAnimations().forEach((a) => a.cancel());
-    const restSh = getCaixaShadowRestTransform(isLeftSide), restOp = +(c.shadowOpacity * 0.42).toFixed(2);
+    const restSh = getCaixaShadowRestTransform(isLeftSide, family), restOp = +(c.shadowOpacity * 0.42).toFixed(2);
     const shFrames = plan.action === 'stop'
       ? [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: c.shadowOpacity, offset: 0 }, { transform: restSh, opacity: restOp, offset: 1 }]
       : plan.sustain && !oneShotStepMode
@@ -117,6 +117,6 @@ export function resetCaixaSticksAndShadows(instId: string, leftStickEl: SVGSVGEl
     el.style.transition = 'none';
     el.style.transform = getCaixaStickRestTransform(isLeft, family);
     const sh = el.querySelector('[data-stick-shadow]') as SVGGElement | null;
-    if (sh) { sh.getAnimations().forEach((a) => a.cancel()); sh.style.transform = getCaixaShadowRestTransform(isLeft); }
+    if (sh) { sh.getAnimations().forEach((a) => a.cancel()); sh.style.transform = getCaixaShadowRestTransform(isLeft, family); }
   });
 }

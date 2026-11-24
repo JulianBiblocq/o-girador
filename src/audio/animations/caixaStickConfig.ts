@@ -1,8 +1,4 @@
-import {
-  clearPersistedAoVivoConfig,
-  loadPersistedAoVivoConfig,
-  savePersistedAoVivoConfig,
-} from './aoVivoConfigStorage';
+import { bindAoVivoDualProfile, getCaixaConfigForFamily } from './aoVivoMobileStrokeConfigs';
 import { HandTransitionConfig } from './handTransitionEngine';
 
 export type CaixaStickFamily = 'caixa' | 'tarol';
@@ -80,50 +76,42 @@ export const DEFAULT_CAIXA_STICKS_CONFIG = {
   barulhoPhaseOffset: 0.5,
 };
 
-export const CONFIG_CAIXA_STICKS = loadPersistedAoVivoConfig('caixa', DEFAULT_CAIXA_STICKS_CONFIG);
-
 type CaixaConfigListener = () => void;
 const listeners = new Set<CaixaConfigListener>();
+const caixaChannel = bindAoVivoDualProfile('caixa', DEFAULT_CAIXA_STICKS_CONFIG, () => listeners.forEach((fn) => fn()));
+
+export const CONFIG_CAIXA_STICKS = caixaChannel.live;
+
+export function getActiveCaixaSticksConfig(family: CaixaStickFamily = 'caixa'): typeof DEFAULT_CAIXA_STICKS_CONFIG {
+  return getCaixaConfigForFamily(family, CONFIG_CAIXA_STICKS);
+}
 
 export function subscribeCaixaSticksConfig(fn: CaixaConfigListener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-function notifyListeners(): void {
-  savePersistedAoVivoConfig('caixa', CONFIG_CAIXA_STICKS);
-  listeners.forEach((fn) => fn());
-}
-
 export function updateCaixaSticksConfig(patch: Partial<typeof CONFIG_CAIXA_STICKS>): void {
   Object.assign(CONFIG_CAIXA_STICKS, patch);
-  notifyListeners();
+  caixaChannel.commitSave();
 }
 
 export function updateCaixaProfile(patch: Partial<CaixaStickProfile>): void {
   Object.assign(CONFIG_CAIXA_STICKS.stick, patch);
   Object.assign(CONFIG_CAIXA_STICKS.caixa, patch);
   Object.assign(CONFIG_CAIXA_STICKS.tarol, patch);
-  notifyListeners();
+  caixaChannel.commitSave();
 }
 
 export const updateTarolProfile = updateCaixaProfile;
 
 export function updateCaixaTransitions(patch: Partial<HandTransitionConfig>): void {
   Object.assign(CONFIG_CAIXA_STICKS.transitions, patch);
-  notifyListeners();
+  caixaChannel.commitSave();
 }
 
 export function resetCaixaSticksConfig(): void {
-  clearPersistedAoVivoConfig('caixa');
-  Object.assign(CONFIG_CAIXA_STICKS, {
-    ...DEFAULT_CAIXA_STICKS_CONFIG,
-    stick: { ...UNIFIED_STICK },
-    caixa: { ...UNIFIED_STICK },
-    tarol: { ...UNIFIED_STICK },
-    transitions: { ...DEFAULT_CAIXA_STICKS_CONFIG.transitions },
-  });
-  listeners.forEach((fn) => fn());
+  caixaChannel.resetActive();
 }
 
 export function resolveCaixaActiveFamily(instId: string): CaixaStickFamily {

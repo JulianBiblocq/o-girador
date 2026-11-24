@@ -1,8 +1,4 @@
-import {
-  clearPersistedAoVivoConfig,
-  loadPersistedAoVivoConfig,
-  savePersistedAoVivoConfig,
-} from './aoVivoConfigStorage';
+import { bindAoVivoDualProfile } from './aoVivoMobileStrokeConfigs';
 import { HandTransitionConfig } from './handTransitionEngine';
 
 export type TimbalPosePreview = 'auto' | 'rest' | 'grave' | 'slap' | 'aberto';
@@ -60,51 +56,40 @@ export const DEFAULT_TIMBAL_HANDS_CONFIG = {
   shadowOpacity: 0.68,
 };
 
-export const CONFIG_TIMBAL_HANDS = loadPersistedAoVivoConfig('timbal', DEFAULT_TIMBAL_HANDS_CONFIG);
-
 type TimbalConfigListener = () => void;
 const listeners = new Set<TimbalConfigListener>();
+const timbalChannel = bindAoVivoDualProfile('timbal', DEFAULT_TIMBAL_HANDS_CONFIG, () => listeners.forEach((fn) => fn()));
+
+export const CONFIG_TIMBAL_HANDS = timbalChannel.live;
 
 export function subscribeTimbalHandsConfig(fn: TimbalConfigListener): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
-function notifyTimbalListeners(): void {
-  savePersistedAoVivoConfig('timbal', CONFIG_TIMBAL_HANDS);
-  listeners.forEach((fn) => fn());
-}
-
 export function updateTimbalHandsConfig(patch: Partial<typeof CONFIG_TIMBAL_HANDS>, autoPreview?: TimbalPosePreview): void {
   if (autoPreview) CONFIG_TIMBAL_HANDS.posePreview = autoPreview;
   Object.assign(CONFIG_TIMBAL_HANDS, patch);
-  notifyTimbalListeners();
+  timbalChannel.commitSave();
 }
 
 export function updateTimbalAnatomyConfig(patch: Partial<TimbalAnatomyConfig>, autoPreview?: TimbalPosePreview): void {
   if (autoPreview) CONFIG_TIMBAL_HANDS.posePreview = autoPreview;
   Object.assign(CONFIG_TIMBAL_HANDS.anatomy, patch);
-  notifyTimbalListeners();
+  timbalChannel.commitSave();
 }
 
 export function updateTimbalStrokesConfig(patch: Partial<TimbalStrokesConfig>, autoPreview?: TimbalPosePreview): void {
   if (autoPreview) CONFIG_TIMBAL_HANDS.posePreview = autoPreview;
   Object.assign(CONFIG_TIMBAL_HANDS.strokes, patch);
-  notifyTimbalListeners();
+  timbalChannel.commitSave();
 }
 
 export function updateTimbalTransitions(patch: Partial<TimbalTransitionConfig>): void {
   Object.assign(CONFIG_TIMBAL_HANDS.transitions, patch);
-  notifyTimbalListeners();
+  timbalChannel.commitSave();
 }
 
 export function resetTimbalHandsConfig(): void {
-  clearPersistedAoVivoConfig('timbal');
-  Object.assign(CONFIG_TIMBAL_HANDS, {
-    ...DEFAULT_TIMBAL_HANDS_CONFIG,
-    anatomy: { ...DEFAULT_TIMBAL_HANDS_CONFIG.anatomy },
-    strokes: { ...DEFAULT_TIMBAL_HANDS_CONFIG.strokes },
-    transitions: { ...DEFAULT_TIMBAL_HANDS_CONFIG.transitions },
-  });
-  listeners.forEach((fn) => fn());
+  timbalChannel.resetActive();
 }

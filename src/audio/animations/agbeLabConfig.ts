@@ -1,8 +1,4 @@
-import {
-  clearPersistedAoVivoConfig,
-  loadPersistedAoVivoConfig,
-  savePersistedAoVivoConfig,
-} from './aoVivoConfigStorage';
+import { bindAoVivoDualProfile } from './aoVivoMobileStrokeConfigs';
 
 export interface AgbeLabConfig {
   speedMultiplier: 1 | 0.5;
@@ -46,10 +42,11 @@ export const DEFAULT_AGBE_LAB_CONFIG: AgbeLabConfig = {
   barulhoFreq: 10,
 };
 
-export const CONFIG_AGBE_LAB: AgbeLabConfig = loadPersistedAoVivoConfig('agbe', DEFAULT_AGBE_LAB_CONFIG);
-
 type AgbeListener = () => void;
 const listeners = new Set<AgbeListener>();
+const agbeChannel = bindAoVivoDualProfile('agbe', DEFAULT_AGBE_LAB_CONFIG, () => listeners.forEach((fn) => fn()));
+
+export const CONFIG_AGBE_LAB: AgbeLabConfig = agbeChannel.live;
 
 export function subscribeAgbeLabConfig(fn: AgbeListener): () => void {
   listeners.add(fn);
@@ -58,13 +55,9 @@ export function subscribeAgbeLabConfig(fn: AgbeListener): () => void {
 
 export function updateAgbeLabConfig(patch: Partial<AgbeLabConfig>): void {
   Object.assign(CONFIG_AGBE_LAB, patch);
-  savePersistedAoVivoConfig('agbe', CONFIG_AGBE_LAB);
-  listeners.forEach((fn) => fn());
+  agbeChannel.commitSave();
 }
 
 export function resetAgbeLabConfig(): void {
-  clearPersistedAoVivoConfig('agbe');
-  Object.assign(CONFIG_AGBE_LAB, DEFAULT_AGBE_LAB_CONFIG);
-  listeners.forEach((fn) => fn());
+  agbeChannel.resetActive();
 }
-

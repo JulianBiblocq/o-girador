@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { CONFIG_ALFAIA_STICKS, subscribeAlfaiaSticksConfig } from '../../audio/animations/alfaiaKinematics';
 import { getEffectiveMobileOffset, subscribeMobileOffsets } from '../../audio/animations/aoVivoMobileOffsets';
-import { CONFIG_CAIXA_STICKS, subscribeCaixaSticksConfig } from '../../audio/animations/caixaKinematics';
+import { getActiveCaixaSticksConfig, subscribeCaixaSticksConfig } from '../../audio/animations/caixaKinematics';
 import { subscribeGongueStickConfig } from '../../audio/animations/gongueKinematics';
 import { CONFIG_TIMBAL_HANDS, subscribeTimbalHandsConfig } from '../../audio/animations/timbalKinematics';
 import { AoVivoResolvedFamily } from './resolveAoVivoFamily';
@@ -45,15 +45,16 @@ export function useAoVivoGeometry(
         if (!el) return;
         const sign = isLeft ? -1 : 1;
         if (isAlfaia || isDrum || isTimbal) {
+          const drumCfg = isDrum ? getActiveCaixaSticksConfig(family === 'tarol' ? 'tarol' : 'caixa') : null;
           const stickAngleDeg = isAlfaia
             ? CONFIG_ALFAIA_STICKS.stickAngleDeg
-            : isDrum
-              ? CONFIG_CAIXA_STICKS.stickAngleDeg
+            : drumCfg
+              ? drumCfg.stickAngleDeg
               : CONFIG_TIMBAL_HANDS.anatomy.vShapeAngleDeg;
           const stickSpreadPx = (isAlfaia
             ? CONFIG_ALFAIA_STICKS.stickSpreadPx
-            : isDrum
-              ? CONFIG_CAIXA_STICKS.stickSpreadPx
+            : drumCfg
+              ? drumCfg.stickSpreadPx
               : CONFIG_TIMBAL_HANDS.anatomy.handSpreadPx) + mob.spreadDeltaPx;
           const effScale = scale * mob.scaleMult;
           const originX = targetX + mob.offsetX + sign * (rodaDiameter * 0.12 + stickSpreadPx * scale);

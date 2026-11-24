@@ -45,7 +45,7 @@ export const AoVivoCaixaRimshotSliders: React.FC<{
   };
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-2">
         <RimSlider
           label="Rimshot (A/a) — Bord Y"

@@ -17,7 +17,7 @@ export const AoVivoTimbalLabSliders: React.FC<{ activeTab: TimbalLabTabId; onFoc
 
   if (activeTab === 'anatomy') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-2">
           <S label="Taille main" val={`${Math.round(a.handScale * 100)}%`} min={0.4} max={3.5} step={0.05} v={a.handScale} cb={(n) => updateTimbalAnatomyConfig({ handScale: n })} />
           <S label="Poignet noir" val={`${Math.round(a.forearmWidth * 100)}%`} min={0.3} max={3.0} step={0.05} v={a.forearmWidth} cb={(n) => updateTimbalAnatomyConfig({ forearmWidth: n })} />
@@ -44,7 +44,7 @@ export const AoVivoTimbalLabSliders: React.FC<{ activeTab: TimbalLabTabId; onFoc
 
   if (activeTab === 'grave_aberto') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-2 gap-2">
           <S label="Grave — Impact Y" val={`${s.graveImpactY}px`} min={-500} max={1400} step={4} v={s.graveImpactY} cb={(n) => updateTimbalStrokesConfig({ graveImpactY: n }, 'grave')} />
           <S label="Grave — Conv. X" val={`${s.graveConvergeX}px`} min={-250} max={350} step={4} v={s.graveConvergeX} cb={(n) => updateTimbalStrokesConfig({ graveConvergeX: n }, 'grave')} />
@@ -69,7 +69,7 @@ export const AoVivoTimbalLabSliders: React.FC<{ activeTab: TimbalLabTabId; onFoc
 
   if (activeTab === 'slap_preso') {
     return (
-      <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+      <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
         <div className="grid grid-cols-3 gap-1.5">
           <S label="Slap Imp. Y" val={`${s.slapImpactY}px`} min={-500} max={1400} step={4} v={s.slapImpactY} cb={(n) => updateTimbalStrokesConfig({ slapImpactY: n }, 'slap')} />
           <S label="Slap Conv. X" val={`${s.slapConvergeX}px`} min={-250} max={350} step={4} v={s.slapConvergeX} cb={(n) => updateTimbalStrokesConfig({ slapConvergeX: n }, 'slap')} />
@@ -102,7 +102,7 @@ export const AoVivoTimbalLabSliders: React.FC<{ activeTab: TimbalLabTabId; onFoc
   };
 
   return (
-    <div className="space-y-1.5 pt-0.5 max-h-[245px] overflow-y-auto pr-1">
+    <div className="space-y-1.5 pt-0.5 md:max-h-[245px] md:overflow-y-auto pr-1">
       <div className="grid grid-cols-2 gap-2">
         <S label="Clap (C) — Hauteur Y" val={`${s.clapImpactY}px`} min={-350} max={800} step={4} v={s.clapImpactY} cb={(n) => updClap({ clapImpactY: n })} />
         <S label="Clap (C) — Conv. X" val={`${s.clapConvergeX}px`} min={-200} max={280} step={4} v={s.clapConvergeX} cb={(n) => updClap({ clapConvergeX: n })} />
