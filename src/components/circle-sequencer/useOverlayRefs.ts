@@ -1,9 +1,10 @@
-
 import { useRef } from 'react';
 import { OverlayCacheState } from './circleSequencerTypes';
 
 export function useOverlayRefs() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const karaokeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const needleGroupRef = useRef<SVGGElement>(null);
   const measureDisplayRef = useRef<HTMLSpanElement>(null);
   const centerOverlayRef = useRef<HTMLDivElement>(null);
   const centerAfficheurRef = useRef<HTMLDivElement>(null);
@@ -19,6 +20,8 @@ export function useOverlayRefs() {
 
   return {
     canvasRef,
+    karaokeCanvasRef,
+    needleGroupRef,
     measureDisplayRef,
     centerOverlayRef,
     centerAfficheurRef,

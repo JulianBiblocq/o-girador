@@ -41,18 +41,19 @@ function animateCaixaStick(
   const isStrong = flaRole !== 'grace' && (stroke === 'D' || stroke === 'E' || sUp === 'A' || sUp === 'F' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X' || sUp === 'R');
   const effectiveDuration = computeBallisticDurationMs(isStrong, realMsUntilNext, c.speedMultiplier, customNominalMs);
   const { tImpactMs, tHoldEndMs } = computeImpactHoldTiming(effectiveDuration, flaRole === 'main' ? c.flaGraceDelayMs : 0);
+  const alignedDeltaMs = deltaMs < 0 ? deltaMs + tImpactMs : deltaMs;
 
   runClockSyncedWaapi({
     el: stickEl,
     keyframes: generateCaixaPredictiveKeyframes(stroke, isLeftSide, family, nextKind, effectiveDuration, flaRole, realMsUntilNext),
-    durationMs: effectiveDuration, deltaMs, tImpactMs, tHoldEndMs, animRef,
+    durationMs: effectiveDuration, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs, animRef,
   });
   const shadowEl = getCaixaShadowNode(stickEl);
   if (shadowEl) {
     runClockSyncedWaapi({
       el: shadowEl,
       keyframes: generateCaixaShadowKeyframes(stroke, isLeftSide, nextKind, family, effectiveDuration, isFastRepeatCompactPrep(realMsUntilNext)),
-      durationMs: effectiveDuration, deltaMs, tImpactMs, tHoldEndMs,
+      durationMs: effectiveDuration, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs,
     });
   }
 }

@@ -81,8 +81,11 @@ export interface LivePlaybackState {
   time: number;
   measureStartTime?: number;
   measureDuration?: number;
+  measureSeqId?: number;
   isPreRoll?: boolean;
   preRollBeat?: number;
+  isNavigation?: boolean;
+  isStepPreview?: boolean;
 }
 
 export interface OverlayCacheState {

@@ -1,8 +1,7 @@
 import { TrackGroup, Pattern, InstrumentConfig } from '../../types';
 import { instrumentsConfig } from '../../data';
 import { resolvePatternForMeasure } from './measurePatternHelpers';
-import { extractVoiceSteps } from './voiceStepExtraction';
-import { buildVoiceBlocks } from './voiceBlockHelpers';
+import { resolveCachedToadaStepsAndBlocks } from './rodaToadaTrackCache';
 import { drawVoiceRibbons } from './drawVoiceRibbons';
 import { drawVoicePastilles } from './drawVoicePastilles';
 
@@ -87,14 +86,12 @@ export const drawToadaTrack = (
   const stepsInFirstBeat = beatResolutions?.[0] || 4;
   const stepsInLastBeat = beatResolutions?.[beatResolutions.length - 1] || stepsInFirstBeat;
 
-  const { puxSteps, coroSteps } = extractVoiceSteps(
-    effectiveStepCount, hasSeparateVoiceTracks, puxPattern, coroPattern, nextPuxPattern, nextCoroPattern,
+  const { puxSteps, coroSteps, puxBlocks, coroBlocks } = resolveCachedToadaStepsAndBlocks({
+    trackId: track.id, effectiveStepCount, hasSeparateVoiceTracks,
+    puxPattern, coroPattern, nextPuxPattern, nextCoroPattern, prevPuxPattern, prevCoroPattern,
     activePattern, currentInst, puxPlayingSteps, coroPlayingSteps, activePlayingSteps, soloPlayId,
-    prevPuxPattern, prevCoroPattern, currentStep, stepsInFirstBeat, stepsInLastBeat
-  );
-
-  const puxBlocks = buildVoiceBlocks(puxSteps, effectiveStepCount);
-  const coroBlocks = buildVoiceBlocks(coroSteps, effectiveStepCount);
+    currentStep, stepsInFirstBeat, stepsInLastBeat,
+  });
   drawVoiceRibbons(ctx, centerX, centerY, tRad, stepAngles, effectiveStepCount, puxBlocks, coroBlocks, dynamicScale);
 
   const isPauseMeasure = !puxPattern && !coroPattern;

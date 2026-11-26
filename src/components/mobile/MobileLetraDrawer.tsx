@@ -41,8 +41,8 @@ export const MobileLetraDrawer: React.FC<Props> = ({ onClose, lang = 'pt', initi
   const globalLetras = useSequencerStore((s) => s.letras);
 
   useEffect(() => {
-    const handleTick = () => {
-      const curM = useSequencerStore.getState().currentMeasure;
+    const handleTick = (evt: any) => {
+      const curM = typeof evt?.measure === 'number' && evt.step >= 0 ? evt.measure : useSequencerStore.getState().currentMeasure;
       if (curM === lastMeasureRef.current) return;
       lastMeasureRef.current = curM;
       const rows = containerRef.current?.querySelectorAll<HTMLElement>('[data-measure-row]');

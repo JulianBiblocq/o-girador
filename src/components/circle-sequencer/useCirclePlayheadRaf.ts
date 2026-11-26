@@ -1,42 +1,46 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { audioEngine } from '../../hooks/useAudioSync';
-import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
 import { getRodaMeasureGeometry } from '../../utils/rodaTimeSigGeometry';
-import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
+import { buildVisibleRodaSignature, resolveOrderedVisibleRodaTracks } from './resolveVisibleRodaTracks';
 import { drawAlfaiaBackground } from './drawAlfaiaBackground';
-import { computeStickAngle } from './computeStickAngle';
-import { processHitTriggers, drawAndUpdateRipples } from './drawRipples';
+import { computeMonotonicMeasureProgress, createMonotonicProgressTracker } from './computeStickAngle';
 import { renderTrackStepLayer } from './renderTrackStepLayer';
-import { drawDrumstickNeedle } from './drawDrumstickNeedle';
-import { drawCenterKaraoke } from './drawCenterKaraoke';
 import { useThemeColors } from './useThemeColors';
 import { getAudioTime } from './circleAudioTime';
-import { Ripple, LivePlaybackState } from './circleSequencerTypes';
-import { createMetronomeHaloState, drawMetronomeHalo } from './drawMetronomeHalo';
+import { LivePlaybackState } from './circleSequencerTypes';
+import { createMetronomeHaloState, drawMetronomeHalo, isMetronomeHaloAnimating } from './drawMetronomeHalo';
+import { createKaraokeLayerCache, invalidateKaraokeLayerCache, syncKaraokeOverlayLayer } from './rodaKaraokeLayer';
+import { clearRodaTrackFrameCache } from './rodaTrackFrameCache';
+import { clearRodaToadaTrackCache } from './rodaToadaTrackCache';
+import { attachRodaIdleDirtyListeners } from './attachRodaIdleDirtyListeners';
 import { isDetailEditorOpen } from '../controls/vuMeterTicker';
 
+function resolveCanvasTargetPx(isMobileFlag: boolean): number {
+  const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  if (isMobileFlag || w <= 768) return 600;
+  if (w <= 1024) return 960;
+  return 1200;
+}
+
 export function useCirclePlayheadRaf(
-  canvasRef: React.RefObject<HTMLCanvasElement | null>, isActive: boolean, stateRef: React.MutableRefObject<any>,
-  livePlaybackRef: React.MutableRefObject<LivePlaybackState>, frozenStickAngleRef: React.MutableRefObject<number>,
-  pendingTargetMeasureRef: React.MutableRefObject<number | null>, getLiveActivePatternId: (t: any) => number | null,
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  karaokeCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  isActive: boolean,
+  stateRef: React.MutableRefObject<any>,
+  livePlaybackRef: React.MutableRefObject<LivePlaybackState>,
+  _frozenStickAngleRef: React.MutableRefObject<number>,
+  pendingTargetMeasureRef: React.MutableRefObject<number | null>,
+  getLiveActivePatternId: (t: any) => number | null,
   activeVariationsRef?: React.MutableRefObject<{ [trackId: number]: any }>
-) {
-  const visibleRef = useRef(isActive), loopRunningRef = useRef(false), animIdRef = useRef<number | null>(null);
-  const drawLoopRef = useRef<() => void>(() => {}), themeRef = useThemeColors();
+): () => void {
+  const visibleRef = useRef(isActive);
+  const requestRedrawRef = useRef<() => void>(() => {});
+  const themeRef = useThemeColors(() => requestRedrawRef.current());
 
   useEffect(() => {
     visibleRef.current = isActive;
-    if (isActive && !loopRunningRef.current) {
-      loopRunningRef.current = true;
-      drawLoopRef.current();
-    } else if (!isActive) {
-      loopRunningRef.current = false;
-      if (animIdRef.current !== null) {
-        cancelAnimationFrame(animIdRef.current);
-        animIdRef.current = null;
-      }
-    }
+    if (isActive) requestRedrawRef.current();
   }, [isActive]);
 
   useEffect(() => {
@@ -46,93 +50,87 @@ export function useCirclePlayheadRaf(
     if (!ctx) return;
 
     const bgCanvas = document.createElement('canvas');
-    const initMobile = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
-    const initPx = initMobile ? 600 : 1200;
+    const initPx = resolveCanvasTargetPx(Boolean(stateRef.current.isMobile));
     bgCanvas.width = initPx; bgCanvas.height = initPx;
     const bgCtx = bgCanvas.getContext('2d');
 
-    let isBgCached = false, lastTimeSig = '', lastTicks = -1, lastThemeDark: boolean | undefined = undefined, lastBgEco: boolean | undefined = undefined;
-    let ripples: Ripple[] = [];
-    const haloState = createMetronomeHaloState();
+    let isBgCached = false, lastBgSig = '', lastVisSig = '', idleRafId: number | null = null;
+    const haloState = createMetronomeHaloState(), karaokeCache = createKaraokeLayerCache();
+    const progressTracker = createMonotonicProgressTracker();
+    const clearStepCaches = () => { clearRodaTrackFrameCache(); clearRodaToadaTrackCache(); };
 
-    const drawLoop = () => {
-      if (!visibleRef.current) { loopRunningRef.current = false; animIdRef.current = null; return; }
-      if (isDetailEditorOpen()) { animIdRef.current = requestAnimationFrame(drawLoop); return; }
+    const scheduleIdleRedraw = () => {
+      if (!visibleRef.current || idleRafId !== null || typeof requestAnimationFrame !== 'function') return;
+      idleRafId = requestAnimationFrame(() => { idleRafId = null; paintRodaFrame(getAudioTime()); });
+    };
 
-      const seqState = useSequencerStore.getState();
-      const isEco = Boolean(seqState.isEcoMode);
+    const paintRodaFrame = (ctxTime: number) => {
+      if (!visibleRef.current || isDetailEditorOpen()) return;
+      const storeSt = useSequencerStore.getState(), isEco = Boolean(storeSt.isEcoMode);
       const isMobileDevice = Boolean(stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768));
-      const targetPx = isMobileDevice ? 600 : 1200;
+      const targetPx = resolveCanvasTargetPx(isMobileDevice);
 
       if (canvas.width !== targetPx || canvas.height !== targetPx || bgCanvas.width !== targetPx || bgCanvas.height !== targetPx) {
-        canvas.width = targetPx; canvas.height = targetPx;
-        bgCanvas.width = targetPx; bgCanvas.height = targetPx;
-        isBgCached = false;
+        canvas.width = targetPx; canvas.height = targetPx; bgCanvas.width = targetPx; bgCanvas.height = targetPx;
+        isBgCached = false; lastBgSig = ''; invalidateKaraokeLayerCache(karaokeCache);
       }
 
-      const scaleFactor = canvas.width / 1200;
-      const { tracks, rawTracks: localRawTracks, rodaTrackOrder: localRodaOrder, isPlaying: localPlaying, timeSig: fallbackTimeSig, measureTimeSigs, currentMeasure, hitTriggersRef } = stateRef.current;
+      const scaleFactor = canvas.width / 1200, stCur = stateRef.current;
+      const liveRawTracks = stCur.explicitTracks ?? storeSt.tracks;
+      const liveRodaOrder = stCur.explicitRodaTrackOrder ?? storeSt.rodaTrackOrder;
       const live = livePlaybackRef.current, theme = themeRef.current;
-      const liveMeasureIdx = live && live.step >= 0 ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : currentMeasure);
-      const localTimeSig = measureTimeSigs?.[liveMeasureIdx] || fallbackTimeSig || '4/4';
+      const liveMeasureIdx = live && live.step >= 0 ? live.measure : (pendingTargetMeasureRef.current ?? stCur.currentMeasure);
+      const localTimeSig = stCur.measureTimeSigs?.[liveMeasureIdx] || stCur.timeSig || '4/4';
       const localTicks = getRodaMeasureGeometry(localTimeSig).maxTicks;
 
-      const sortedTracks = sortTracksByRodaOrder(tracks, localRodaOrder);
-      const activeVisibleTracks = orderActiveVisibleRodaTracks(
-        sortedTracks.filter(isRodaDrawableTrack),
-        localRawTracks
-      );
-      const isHeavyDisabled = isEco || isMobileDevice;
+      const activeVisibleTracks = resolveOrderedVisibleRodaTracks(liveRawTracks, {
+        ...(stCur.rodaFilterProps || {}), isMobile: isMobileDevice,
+        showLinkedTracksOnRoda: stCur.explicitShowLinkedTracksOnRoda ?? storeSt.showLinkedTracksOnRoda,
+      }, liveRodaOrder);
+      const visSig = buildVisibleRodaSignature(activeVisibleTracks), isHeavyDisabled = isEco || isMobileDevice;
+      const nextBgSig = `${localTimeSig}_${localTicks}_${Boolean(theme.isDark)}_${isHeavyDisabled}_${visSig}`;
 
-      if (hitTriggersRef?.current && !isHeavyDisabled) {
-        processHitTriggers(hitTriggersRef.current, localRawTracks, activeVisibleTracks, getLiveActivePatternId, theme.skinInk, ripples);
-      }
-
-      if (lastTimeSig !== localTimeSig || lastTicks !== localTicks || lastThemeDark !== theme.isDark || lastBgEco !== isHeavyDisabled) {
-        isBgCached = false; lastTimeSig = localTimeSig; lastTicks = localTicks; lastThemeDark = theme.isDark; lastBgEco = isHeavyDisabled;
+      if (lastBgSig !== nextBgSig) {
+        isBgCached = false; lastBgSig = nextBgSig;
+        if (lastVisSig !== visSig) { lastVisSig = visSig; clearStepCaches(); }
       }
 
       if (!isBgCached && bgCtx) {
-        bgCtx.setTransform(1, 0, 0, 1, 0, 0);
-        bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+        bgCtx.setTransform(1, 0, 0, 1, 0, 0); bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
         bgCtx.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
         drawAlfaiaBackground(bgCtx, 1200, localTimeSig, localTicks, 600, 600, theme, isHeavyDisabled);
         isBgCached = true;
       }
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.globalAlpha = 1.0;
-      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1.0; ctx.globalCompositeOperation = 'source-over';
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(bgCanvas, 0, 0, canvas.width, canvas.height);
 
       ctx.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
-      const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
-      const stickAngle = computeStickAngle(live, isCurrentlyPlaying, getAudioTime(), frozenStickAngleRef);
-      const dynamicScale = activeVisibleTracks.length <= 2 ? 1.95 : (activeVisibleTracks.length > 0 ? 1 + ((10 - Math.min(activeVisibleTracks.length, 10)) * 0.08) : 1);
+      const isCurrentlyPlaying = Boolean(stCur.isPlaying || audioEngine?.getIsPlaying());
+      const interpRatio = computeMonotonicMeasureProgress(live, isCurrentlyPlaying, ctxTime, progressTracker);
+      const nVis = activeVisibleTracks.length;
+      const dynamicScale = nVis === 0 ? 1 : (nVis <= 2 ? 1.95 : 1 + ((10 - Math.min(nVis, 10)) * 0.08));
 
-      drawAndUpdateRipples(ctx, ripples);
-      renderTrackStepLayer(ctx, activeVisibleTracks, localRawTracks, theme.skinBorder, theme.skinWood, theme.skinInk, getLiveActivePatternId, livePlaybackRef, stateRef.current, pendingTargetMeasureRef, activeVariationsRef, dynamicScale, isEco, 600, 600);
-      drawDrumstickNeedle(ctx, 600, 600, stickAngle, activeVisibleTracks, theme.skinWood, theme.skinBorder, isHeavyDisabled);
-      drawMetronomeHalo(ctx, 600, 600, live, isCurrentlyPlaying, localTimeSig, getAudioTime(), Boolean(theme.isDark), isEco, haloState);
-
-      if (stateRef.current.isLetraActive) {
-        const karaokeLive = !isCurrentlyPlaying && frozenPlaybackState.active
-          ? { ...live, step: frozenPlaybackState.tick, measure: frozenPlaybackState.measure, maxTicks: localTicks, ratio: frozenPlaybackState.progress, isPreRoll: false }
-          : live;
-        drawCenterKaraoke(ctx, 600, 600, karaokeLive, stateRef.current.tracks, stateRef.current.rawTracks, stateRef.current.totalMeasures, stateRef.current.isLoopRegionActive, stateRef.current.loopStartMeasure, stateRef.current.loopEndMeasure, stateRef.current.soloPatternPlayId, dynamicScale, stateRef.current.timeSig, stateRef.current.measureTimeSigs, isHeavyDisabled);
-      }
-
+      renderTrackStepLayer(ctx, activeVisibleTracks, liveRawTracks, theme.skinBorder, theme.skinWood, theme.skinInk, getLiveActivePatternId, livePlaybackRef, stCur, pendingTargetMeasureRef, activeVariationsRef, dynamicScale, isEco, 600, 600, interpRatio);
+      drawMetronomeHalo(ctx, 600, 600, live, isCurrentlyPlaying, localTimeSig, ctxTime, Boolean(theme.isDark), isEco, haloState);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      animIdRef.current = requestAnimationFrame(drawLoop);
+
+      syncKaraokeOverlayLayer(karaokeCanvasRef.current, targetPx, isCurrentlyPlaying, localTicks, live, { ...stCur, tracks: activeVisibleTracks, rawTracks: liveRawTracks }, dynamicScale, isHeavyDisabled, karaokeCache);
+      if (!isCurrentlyPlaying && isMetronomeHaloAnimating(haloState)) scheduleIdleRedraw();
     };
 
-    drawLoopRef.current = drawLoop;
-    if (visibleRef.current) { loopRunningRef.current = true; drawLoop(); }
-    return () => {
-      if (animIdRef.current !== null) cancelAnimationFrame(animIdRef.current);
-      animIdRef.current = null;
-      loopRunningRef.current = false;
+    const invalidateAndRedraw = () => {
+      isBgCached = false; lastBgSig = ''; clearStepCaches();
+      invalidateKaraokeLayerCache(karaokeCache); scheduleIdleRedraw();
     };
+    requestRedrawRef.current = invalidateAndRedraw;
+    const detach = attachRodaIdleDirtyListeners(canvas, { paintRodaFrame, scheduleIdleRedraw, invalidateAndRedraw });
+    if (visibleRef.current) paintRodaFrame(getAudioTime());
+
+    return () => { if (idleRafId !== null) cancelAnimationFrame(idleRafId); detach(); };
   }, []);
+
+  return () => requestRedrawRef.current();
 }

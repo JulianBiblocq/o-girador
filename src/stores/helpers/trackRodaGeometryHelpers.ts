@@ -81,12 +81,9 @@ export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): Track
   const order = rodaTrackOrder && rodaTrackOrder.length > 0 ? rodaTrackOrder : list.map(t => t.id);
   const orderMap = new Map(order.map((id, index) => [id, index]));
 
-  const drawableTracks = list.filter(t => {
-    const isLinkedChild = Boolean(t.linkedToTrackId && !t.isLinkFolder);
-    return (!t.isHidden || isLinkedChild) &&
-      isSequencerVisibleTrack(t, list) &&
-      isRodaDrawableTrack({ ...t, isHidden: false });
-  });
+  const drawableTracks = list.filter(t =>
+    isSequencerVisibleTrack(t, list) && isRodaDrawableTrack(t)
+  );
 
   drawableTracks.sort((a, b) => {
     const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
@@ -99,7 +96,7 @@ export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): Track
   return list.map(t => {
     const drawableIdx = drawableTracks.findIndex(dt => dt.id === t.id);
     if (drawableIdx === -1) {
-      return t;
+      return t.radius ? { ...t, radius: 0 } : t;
     }
     const newRadius = getTrackRadius(drawableIdx, visibleCount);
     if (t.radius !== newRadius) {

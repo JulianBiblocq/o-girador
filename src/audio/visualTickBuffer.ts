@@ -1,13 +1,14 @@
 /**
- * Visual Tick & Hit Trigger Ring Buffer for High-Performance Standalone rAF Dispatch
- * Bypasses Tone.Draw to prevent dropped visual animations on mobile devices.
+ * Visual Tick & Lookahead Ring Buffer for High-Performance Unified VSync Dispatch
  */
 
 export * from './visual-buffer/visualTickTypes';
 export * from './visual-buffer/visualTickSubscribers';
+export * from './visual-buffer/visualLatencyLock';
 export {
   TICK_QUEUE_SIZE,
   HIT_QUEUE_SIZE,
+  VISUAL_LOOKAHEAD_SEC,
   setLastAudibleTick,
   getLastAudibleTick,
   getLiveMeasureSeqId,
@@ -22,5 +23,7 @@ export {
 export {
   startVisualLoop,
   stopVisualLoop,
+  wakeVisualLoop,
+  drainVisualLoopAtTime,
 } from './visual-buffer/visualLoopProcessor';
 export { areAllStudioWindowsHidden } from '../utils/detachedWindowManager';

@@ -38,6 +38,14 @@ interface TrackRodaCache {
 
 const cacheByTrackId = new Map<number, TrackRodaCache>();
 
+export function clearRodaTrackFrameCache(): void {
+  cacheByTrackId.clear();
+}
+
+export function getRodaTrackFrameCacheSize(): number {
+  return cacheByTrackId.size;
+}
+
 function getOrCreateTrackCache(trackId: number): TrackRodaCache {
   let entry = cacheByTrackId.get(trackId);
   if (!entry) {

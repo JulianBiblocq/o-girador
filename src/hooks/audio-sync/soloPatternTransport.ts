@@ -4,7 +4,7 @@ import { useAudioStore } from '../../stores/useAudioStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { vocalEngineService } from '../../audio/vocalEngineService';
 import { stopAllNativeOscillators } from '../../audio/nativeSynths';
-import { flushVisualBuffers, purgeVisualTickBuffer, setLastAudibleTick } from '../../audio/visualTickBuffer';
+import { flushVisualBuffers, lockVisualOutputLatency, purgeVisualTickBuffer, setLastAudibleTick, wakeVisualLoop } from '../../audio/visualTickBuffer';
 import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
@@ -106,9 +106,11 @@ export async function handleStartSoloPattern(patternId: number, variationId: str
   try { if (Tone.loaded) await Tone.loaded(); await new Promise((resolve) => setTimeout(resolve, 60)); } catch (_) {} finally { ctx.setIsLoading(false); }
   cancelAudioContextAutoSuspend();
   await safeResumeAudioContext();
+  lockVisualOutputLatency(activeEngine?.getAudioContext?.());
   if (Tone.Transport.state !== 'started') Tone.Transport.start();
   activeEngine?.start();
   ctx.setIsPlaying(true); ctx.isPlayingRef.current = true;
+  wakeVisualLoop();
 }
 
 export function handleStopSoloPattern(ctx: SoloTransportContext): void {

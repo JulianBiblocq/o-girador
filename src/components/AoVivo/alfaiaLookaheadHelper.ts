@@ -9,7 +9,7 @@ import { computeBallisticDurationMs, computeImpactHoldTiming, isFastRepeatCompac
 import { resolveStickStartAndEndTransforms } from '../../audio/animations/handTransitionEngine';
 import { BarulhoStepPlan, consumeBarulhoStepPlan, releaseWaapiBarulhoRoll, runWaapiBarulhoRoll, syncBarulhoStickShadow } from '../../audio/animations/barulhoWaapiRunner';
 import { triggerAoVivoShockwave } from './AoVivoShockwave';
-import { cancelTrackedElementAnimation, runClockSyncedWaapi } from './aoVivoWaapiClockSync';
+import { cancelTrackedElementAnimation, alignHitLeadToStrokeStartDeltaMs, runClockSyncedWaapi } from './aoVivoWaapiClockSync';
 import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 import { findAlfaiaCrossHandLookahead, isMufflingStickRef, releaseMufflingStickImmediately, resetAlfaiaMuffleState } from './alfaiaMuffleReleaseHelper';
 import { findSameHandLookahead } from './alfaiaSameHandLookahead';
@@ -43,27 +43,29 @@ function animateStickWithShadow(
     : computeBallisticDurationMs(isStrong, realMsUntilNext, spd);
   const wasPressed = getHandMemory(isLeftSide).posture === 'pressed_skin';
   const { tImpactMs, tHoldEndMs } = computeImpactHoldTiming(effectiveDuration, wasPressed && !isAbafado ? Math.min(12, effectiveDuration * 0.08) : 0);
+  const alignedDeltaMs = deltaMs < 0 ? deltaMs + tImpactMs : deltaMs;
 
   runClockSyncedWaapi({
     el: stickEl,
     keyframes: generateAlfaiaPredictiveKeyframes(stroke, isLeftSide, family, nextKind, effectiveDuration, autoLiftBeforeOtherHand, realMsUntilNext),
-    durationMs: effectiveDuration, deltaMs, tImpactMs, tHoldEndMs, animRef,
+    durationMs: effectiveDuration, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs, animRef,
   });
   const { tipEl, shadowEl } = getAlfaiaSubNodes(stickEl);
   if (tipEl && family === 'bacalhau' && !['C', 'X'].includes(sUp)) {
     runClockSyncedWaapi({
       el: tipEl,
       keyframes: isAbafado ? generateBacalhauAbafadoTipKeyframes(isLeftSide, autoLiftBeforeOtherHand) : generateBacalhauTipKeyframes(isLeftSide, effectiveDuration),
-      durationMs: effectiveDuration, deltaMs, tImpactMs, tHoldEndMs,
+      durationMs: effectiveDuration, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs,
     });
   }
   if (shadowEl) {
     runClockSyncedWaapi({
       el: shadowEl,
       keyframes: generateAlfaiaShadowKeyframes(stroke, isLeftSide, nextKind, wasPressed, autoLiftBeforeOtherHand, effectiveDuration, isFastRepeatCompactPrep(realMsUntilNext)),
-      durationMs: effectiveDuration, deltaMs, tImpactMs, tHoldEndMs,
+      durationMs: effectiveDuration, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs,
     });
   }
+  void alignHitLeadToStrokeStartDeltaMs;
 }
 
 function animateAlfaiaStickBarulho(

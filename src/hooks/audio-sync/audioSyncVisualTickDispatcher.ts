@@ -1,11 +1,7 @@
-
 import React from 'react';
-import * as Tone from 'tone';
 import { getBeatsPerMeasure } from '../../utils/measureHelpers';
-import { pushVisualTick } from '../../audio/visualTickBuffer';
+import { getLockedVisualDelaySec, pushVisualTick } from '../../audio/visualTickBuffer';
 import { getMeasureDurationSec } from '../../utils/meterTiming';
-
-import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 
 export interface VisualTickDispatchParams {
   time: number;
@@ -23,6 +19,9 @@ export interface VisualTickDispatchParams {
   measureSeqId?: number;
   isDocHidden: boolean;
 }
+
+let lastAnchoredSeqId = -1;
+let lastAnchoredMeasureDurSec = 0;
 
 export function dispatchVisualTick(params: VisualTickDispatchParams): void {
   const {
@@ -46,9 +45,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
   const measureForUI = isNaN(currentMeasureIdx) || currentMeasureIdx < 0 ? 0 : currentMeasureIdx;
   const ratioVal = stepForUI / safeTicks;
 
-  const rawCtx = Tone.getContext().rawContext as AudioContext;
-  const baseLatency = (typeof rawCtx?.outputLatency === 'number' && !isNaN(rawCtx.outputLatency)) ? rawCtx.outputLatency : 0.050;
-  const visualDelay = baseLatency + getBluetoothVisualOffsetSec();
+  const visualDelay = getLockedVisualDelaySec();
   const drawTime = time + visualDelay;
 
   const timeSigOfMeasure = measureTimeSigs[measureForUI % (totalMeasures || 1)] || '4/4';
@@ -58,10 +55,20 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
   const currentMeasureBpm = isNaN(currentMeasureBpmRaw) || currentMeasureBpmRaw <= 0 ? 100 : currentMeasureBpmRaw;
   const measureDurationSec = getMeasureDurationSec(timeSigOfMeasure, currentMeasureBpm);
 
-  const isNewMeasureSync = stepForUI === 0 || measureForUI !== anchoredMeasureIdxRef.current || anchoredMeasureStartSecRef.current <= 0;
+  const effSeqId = measureSeqId ?? 0;
+  const didTempoChangeInBar = lastAnchoredMeasureDurSec > 0 && Math.abs(measureDurationSec - lastAnchoredMeasureDurSec) > 1e-6;
+  const isNewMeasureSync =
+    stepForUI === 0 ||
+    measureForUI !== anchoredMeasureIdxRef.current ||
+    (effSeqId > 0 && effSeqId !== lastAnchoredSeqId) ||
+    anchoredMeasureStartSecRef.current <= 0 ||
+    didTempoChangeInBar;
+
   if (isNewMeasureSync) {
-    anchoredMeasureStartSecRef.current = drawTime - (ratioVal * measureDurationSec);
+    anchoredMeasureStartSecRef.current = drawTime - ratioVal * measureDurationSec;
     anchoredMeasureIdxRef.current = measureForUI;
+    lastAnchoredSeqId = effSeqId;
+    lastAnchoredMeasureDurSec = measureDurationSec;
   }
   const measureStartTimeSec = anchoredMeasureStartSecRef.current;
 
@@ -84,7 +91,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
       preRollMeasureIndex: 0,
       preRollTotalMeasures: 1,
       preRollBeat: currentBeatIndex,
-      measureSeqId: measureSeqId ?? 0,
+      measureSeqId: effSeqId,
     });
   }
 }

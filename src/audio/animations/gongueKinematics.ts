@@ -104,12 +104,13 @@ export function startGongueTwoNodeAnimation(
   lastPreparedPose = endPose;
   const spd = CONFIG_GONGUE_STICK.speedMultiplier;
   const totalMs = isAbafadoX ? Math.max(85, Math.round(realMsUntilNext / spd)) : computeBallisticDurationMs(isStrong, realMsUntilNext, spd);
-  const strikeMs = Math.min(18, totalMs * 0.22);
-  const holdMs = isAbafadoX ? Math.max(50, (totalMs - strikeMs) * 0.72) : Math.max(34, Math.min(CONFIG_GONGUE_STICK.metalCrushMs / spd, totalMs * 0.52 - strikeMs));
+  const strikeMs = Math.min(24, totalMs * 0.24);
+  const holdMs = isAbafadoX ? Math.max(50, (totalMs - strikeMs) * 0.72) : Math.max(16, Math.min(22, totalMs * 0.46 - strikeMs));
   const retMs = Math.max(20, totalMs - strikeMs - holdMs);
 
-  const leadWaitMs = Number.isFinite(deltaMs) && deltaMs < -1.5 ? Math.round(-deltaMs) : 0;
-  const posDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+  const adjDeltaMs = Number.isFinite(deltaMs) && deltaMs !== 0 ? deltaMs + strikeMs : 0;
+  const leadWaitMs = adjDeltaMs < -1.5 ? Math.round(-adjDeltaMs) : 0;
+  const posDelta = adjDeltaMs > 0 ? adjDeltaMs : 0;
   if (leadWaitMs === 0 && posDelta >= totalMs * 0.85) {
     lastRenderedPose = endPose;
     updateGongueStickGeometry(svgEl, endPose, isLeftHanded);

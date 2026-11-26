@@ -3,7 +3,7 @@ import {
   CaixaStickFamily,
   getActiveCaixaSticksConfig,
 } from './caixaStickConfig';
-import { computeImpactHoldTiming } from './aoVivoBallisticMath';
+import { computeElasticImpactTiming, isFastRepeatCompactPrep } from './aoVivoBallisticMath';
 import { getEffectiveMobileOffset } from './aoVivoMobileOffsets';
 import { resetHandPostureMemory, resolveStickStartAndEndTransforms } from './handTransitionEngine';
 
@@ -61,7 +61,7 @@ export function generateCaixaPredictiveKeyframes(
   const inSign = isLeftSide ? 1 : -1, c = getActiveCaixaSticksConfig(family), prof = c[family], flex = prof.flexibility;
   const sUp = stroke.toUpperCase(), mobY = getEffectiveMobileOffset(family).reachDeltaY;
   const sc = (v: number) => +(v * prof.scale).toFixed(3), convX = inSign * c.impactConvergeX;
-  const restTr = getCaixaStickRestTransform(isLeftSide, family);
+  const restY = -25 + c.restOffsetY, restTr = getCaixaStickRestTransform(isLeftSide, family);
   const isStrong = stroke === 'D' || stroke === 'E' || sUp === 'A' || sUp === 'F' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X';
   const { startTransform, endTransform, rebEasing } = resolveStickStartAndEndTransforms(isLeftSide, prof.scale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind, realMsUntilNext);
 
@@ -78,26 +78,32 @@ export function generateCaixaPredictiveKeyframes(
   }
 
   const graceMs = flaRole === 'main' ? c.flaGraceDelayMs : 0;
-  const { delayOff, impactOff, holdEndOff } = computeImpactHoldTiming(durationMs, graceMs);
+  const { delayOff, impactOff, cushionOff } = computeElasticImpactTiming(durationMs, graceMs);
+  const compact = isFastRepeatCompactPrep(realMsUntilNext);
 
   if (sUp === 'C' || sUp === 'X') {
     const impTr = getCaixaImpactPoseTransform(stroke, isLeftSide, family);
-    return [{ transform: startTransform, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }, { transform: impTr, offset: impactOff }, { transform: impTr, offset: holdEndOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
+    const cushY = (sUp === 'C' ? c.crossClickY : c.rimshotImpactY) + mobY + 14;
+    const cushTr = `translate(${Math.round(convX * 0.7)}px, ${Math.round(cushY)}px) rotateZ(${+(inSign * 2.5).toFixed(1)}deg) scale(${sc(0.96)}) skewX(0deg)`;
+    return [{ transform: startTransform, offset: 0, easing: 'cubic-bezier(0.65, 0, 0.95, 1)' }, { transform: impTr, offset: impactOff, easing: 'cubic-bezier(0.18, 0.72, 0.34, 1)' }, { transform: cushTr, offset: cushionOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
   }
   if (sUp === 'A') {
     const isSubtle = stroke === 'a', ratio = isSubtle ? c.rimshotWeakRatio : 1;
-    const wZ = sc(c.rimshotWindUpScaleZ * (isSubtle ? 0.85 + 0.15 * ratio : 1));
-    const windUpTr = `translate(${Math.round(inSign * c.rimshotSkinOffsetX * 0.45)}px, ${Math.round(c.restOffsetY + 18 * ratio)}px) rotateZ(${-inSign * +(c.wristWhipDeg * 0.9).toFixed(1)}deg) scale(${wZ}) skewX(0deg)`;
+    const wZ = sc(Math.min(1.08, c.rimshotWindUpScaleZ * (isSubtle ? 0.9 : 0.96)));
+    const windUpTr = `translate(${Math.round(inSign * c.rimshotSkinOffsetX * 0.45)}px, ${Math.round(restY + 12 * ratio)}px) rotateZ(${-inSign * +(c.wristWhipDeg * 0.75).toFixed(1)}deg) scale(${wZ}) skewX(0deg)`;
     const impTr = getCaixaImpactPoseTransform(stroke, isLeftSide, family);
-    return [{ transform: windUpTr, offset: 0, easing: 'cubic-bezier(0.78, 0, 1, 1)' }, { transform: impTr, offset: impactOff }, { transform: impTr, offset: holdEndOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
+    const rimCushY = Math.round(c.rimshotSkinImpactY * ratio + mobY + (restY - (c.rimshotSkinImpactY * ratio + mobY)) * 0.22);
+    const cushTr = `translate(${Math.round(inSign * c.rimshotSkinOffsetX * ratio * 0.75)}px, ${rimCushY}px) rotateZ(${+(inSign * c.rimshotSkinAngleDeg * 0.5).toFixed(1)}deg) scale(${sc(0.96)}) skewX(0deg)`;
+    return [{ transform: windUpTr, offset: 0, easing: 'cubic-bezier(0.68, 0, 0.96, 1)' }, { transform: impTr, offset: impactOff, easing: 'cubic-bezier(0.18, 0.72, 0.34, 1)' }, { transform: cushTr, offset: cushionOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
   }
   if (flaRole === 'grace') {
     const grImpactY = Math.round(c.impactReachY * c.ghostReachRatio) + mobY;
     const grImpTr = `translate(${convX}px, ${grImpactY}px) rotateZ(${inSign * 3}deg) scale(${sc(c.impactScaleZ + 0.03)}) skewX(${-inSign * +(flex * 1.5).toFixed(1)}deg)`;
+    const grCushY = Math.round(grImpactY + (restY - grImpactY) * 0.24);
     return [
-      { transform: `translate(${-inSign * 4}px, ${Math.round(c.transitions.stayLowAfterStrongY)}px) rotateZ(${-inSign * 2}deg) scale(${sc(c.flaGraceScaleZ)}) skewX(0deg)`, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
-      { transform: grImpTr, offset: impactOff },
-      { transform: grImpTr, offset: holdEndOff, easing: rebEasing },
+      { transform: startTransform, offset: 0, easing: 'cubic-bezier(0.62, 0, 0.94, 1)' },
+      { transform: grImpTr, offset: impactOff, easing: 'cubic-bezier(0.18, 0.72, 0.34, 1)' },
+      { transform: `translate(${Math.round(convX * 0.75)}px, ${grCushY}px) rotateZ(${inSign * 1.5}deg) scale(${sc(0.94)}) skewX(0deg)`, offset: cushionOff, easing: rebEasing },
       { transform: endTransform, offset: 1 },
     ];
   }
@@ -105,11 +111,15 @@ export function generateCaixaPredictiveKeyframes(
   const targetY = (isStrong ? c.impactReachY : Math.round(c.impactReachY * c.ghostReachRatio)) + mobY;
   const impScaleX = sc(isStrong ? c.impactScaleZ : Math.min(1.05, c.impactScaleZ + 0.05));
   const impScaleY = +(impScaleX * (0.97 - flex * 0.04)).toFixed(3);
-  const frames: Keyframe[] = [{ transform: startTransform, offset: 0, easing: delayOff > 0 ? 'linear' : 'cubic-bezier(0.75, 0, 1, 1)' }];
-  if (delayOff > 0) frames.push({ transform: startTransform, offset: delayOff, easing: 'cubic-bezier(0.8, 0, 1, 1)' });
+  const cushY = Math.round(targetY + (restY - targetY) * 0.22);
+  const frames: Keyframe[] = [{ transform: startTransform, offset: 0, easing: delayOff > 0 ? 'linear' : (isStrong && !compact ? 'ease-out' : 'cubic-bezier(0.62, 0, 0.94, 1)') }];
+  if (delayOff > 0) frames.push({ transform: startTransform, offset: delayOff, easing: 'cubic-bezier(0.68, 0, 0.96, 1)' });
+  else if (isStrong && !compact && impactOff >= 0.16) {
+    frames.push({ transform: `translate(${-inSign * 6}px, ${Math.round(restY + 10)}px) rotateZ(${-inSign * 5}deg) scale(${sc(1.05)}) skewX(0deg)`, offset: +(impactOff * 0.42).toFixed(3), easing: 'cubic-bezier(0.68, 0, 0.96, 1)' });
+  }
   frames.push(
-    { transform: `translate(${convX}px, ${targetY}px) rotateZ(${inSign * (isStrong ? 4.5 : 2.5)}deg) scale(${impScaleX}, ${impScaleY}) skewX(${-inSign * +(flex * 2.2).toFixed(1)}deg)`, offset: impactOff },
-    { transform: `translate(${convX}px, ${targetY + 3}px) rotateZ(${inSign * 3}deg) scale(${impScaleX}) skewX(0deg)`, offset: holdEndOff, easing: rebEasing },
+    { transform: `translate(${convX}px, ${targetY}px) rotateZ(${inSign * (isStrong ? 4.5 : 2.5)}deg) scale(${impScaleX}, ${impScaleY}) skewX(${-inSign * +(flex * 2.2).toFixed(1)}deg)`, offset: impactOff, easing: 'cubic-bezier(0.18, 0.72, 0.34, 1)' },
+    { transform: `translate(${Math.round(convX * 0.78)}px, ${cushY}px) rotateZ(${inSign * 2}deg) scale(${sc(0.95)}) skewX(0deg)`, offset: cushionOff, easing: rebEasing },
     { transform: endTransform, offset: 1 }
   );
   return frames;
@@ -120,13 +130,13 @@ export function generateCaixaShadowKeyframes(
   family: CaixaStickFamily = 'caixa', durationMs = 225, forceCompact = false
 ): Keyframe[] {
   const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity } = getActiveCaixaSticksConfig(family);
-  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
+  const { impactOff, cushionOff } = computeElasticImpactTiming(durationMs);
   const airY = -Math.round(shadowDepthPx * 1.5), airOp = +(shadowOpacity * 0.42).toFixed(2), sUp = stroke.toUpperCase();
   if (sUp === 'R' || sUp === 'B' || stroke === '~') {
     return [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: 0 }, { transform: 'translate(0px, -2px) scale(0.93)', opacity: +(shadowOpacity * 0.88).toFixed(2), offset: 0.5 }, { transform: getCaixaShadowRestTransform(isLeftSide, family), opacity: airOp, offset: 1 }];
   }
   const endSh = nextKind === 'weak' || nextKind === 'rufada' || (nextKind === 'strong' && forceCompact)
-    ? { transform: `translate(${inSign * 3}px, ${Math.round(airY * 0.3)}px) scale(0.92)`, opacity: +(shadowOpacity * 0.72).toFixed(2), offset: 1 }
+    ? { transform: `translate(${inSign * 5}px, ${Math.round(airY * 0.65)}px) scale(0.89)`, opacity: +(shadowOpacity * 0.58).toFixed(2), offset: 1 }
     : { transform: getCaixaShadowRestTransform(isLeftSide, family), opacity: airOp, offset: 1 };
-  return [{ transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: impactOff }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: holdEndOff }, endSh];
+  return [{ transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.65, 0, 0.95, 1)' }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: impactOff, easing: 'ease-out' }, { transform: `translate(${inSign * 2}px, ${Math.round(airY * 0.22)}px) scale(0.92)`, opacity: +(shadowOpacity * 0.8).toFixed(2), offset: cushionOff }, endSh];
 }

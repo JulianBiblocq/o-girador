@@ -12,6 +12,7 @@ import { clearFreeze, frozenPlaybackState } from './frozenPlaybackState';
 import { resolveTargetMeasureAndPreRoll } from './transportTargetMeasureResolver';
 import { bumpVariationSessionSeed } from '../../utils/deterministicVariationRng';
 import { ensureTransportPlayReady } from './transportPlayReadiness';
+import { lockVisualOutputLatency, wakeVisualLoop } from '../../audio/visualTickBuffer';
 
 export interface PlayToggleContext extends TransportPauseContext, ResumePreparationContext {
   isStartingRef: { current: boolean }; isStartingPlayRef?: { current: boolean }; isPlayingRef: { current: boolean };
@@ -64,6 +65,7 @@ export async function handleTogglePlay(
     activeEngine?.stopAllBarulho();
 
     const startTracks = await ensureTransportPlayReady(activeEngine, ctx);
+    lockVisualOutputLatency(activeEngine?.getAudioContext?.());
 
     const isResumeFromPause = Boolean(
       useTransportStore.getState().isPaused && frozenPlaybackState.active &&
@@ -76,6 +78,7 @@ export async function handleTogglePlay(
       const resumeStartTime = prepareTransportResume(ctx, activeEngine);
       activeEngine?.start(resumeStartTime);
       ctx.setIsPlaying(true); ctx.isPlayingRef.current = true;
+      wakeVisualLoop();
       requestWakeLock();
       return;
     }
@@ -124,6 +127,7 @@ export async function handleTogglePlay(
     } catch (_) {}
     activeEngine?.start(scheduledMusicStartTime);
     ctx.setIsPlaying(true); ctx.isPlayingRef.current = true;
+    wakeVisualLoop();
     requestWakeLock();
   } finally {
     ctx.isStartingRef.current = false;

@@ -2,7 +2,7 @@
  * O Girador - Gestionnaire Singleton IndexedDB & Purge du Cache PCM (`OGirador_AudioCache`) (< 105 lignes)
  */
 
-export const SAMPLE_CACHE_VERSION = 13;
+export const SAMPLE_CACHE_VERSION = 14;
 export const SAMPLE_CACHE_DB_NAME = 'OGirador_AudioCache';
 export const SAMPLE_CACHE_DB_VERSION = 1;
 export const SAMPLE_CACHE_STORE_NAME = 'audio_sample_cache';

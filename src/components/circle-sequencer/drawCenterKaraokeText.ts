@@ -1,4 +1,3 @@
-
 import { WordItem } from './circleSequencerTypes';
 
 export const drawCenterKaraokeText = (
@@ -10,9 +9,11 @@ export const drawCenterKaraokeText = (
   words: WordItem[],
   roleColor: string,
   dynamicScale: number,
-  disableShadow: boolean = false
+  _disableShadow: boolean = false
 ): void => {
-  // 7. Rendu horizontal du mot entier au centre de la Roda
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+
   if (activeWord) {
     const fontSize = Math.floor(
       Math.min(38, Math.max(20, 160 / Math.max(4, activeWord.fullWord.length))) * dynamicScale
@@ -21,7 +22,7 @@ export const drawCenterKaraokeText = (
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
 
-    const sylWidths = activeWord.syllables.map(s => ctx.measureText(s.cleanText).width);
+    const sylWidths = activeWord.syllables.map((s) => ctx.measureText(s.cleanText).width);
     const totalWordWidth = sylWidths.reduce((a, b) => a + b, 0);
     let curX = centerX - totalWordWidth / 2;
     const wordY = centerY - 6 * dynamicScale;
@@ -35,17 +36,13 @@ export const drawCenterKaraokeText = (
 
       if (isHitNow) {
         activeNote = syl.note;
-        ctx.globalAlpha = 1.0;
-        ctx.shadowColor = disableShadow ? 'transparent' : roleColor;
-        ctx.shadowBlur = disableShadow ? 0 : 14 * dynamicScale;
+        ctx.globalAlpha = 0.22;
         ctx.fillStyle = roleColor;
+        ctx.fillText(syl.cleanText, curX + 1.2 * dynamicScale, wordY + 1.2 * dynamicScale);
+        ctx.globalAlpha = 1.0;
         ctx.fillText(syl.cleanText, curX, wordY);
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
       } else {
         ctx.globalAlpha = 0.40;
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
         ctx.fillStyle = '#1a1a1a';
         ctx.fillText(syl.cleanText, curX, wordY);
       }
@@ -63,14 +60,13 @@ export const drawCenterKaraokeText = (
     }
   }
 
-  // 8. Ligne de contexte inférieure : affichage de la phrase complète de la mesure
   if (words.length > 0) {
     const contextY = centerY + 62 * dynamicScale;
     ctx.font = `bold ${Math.floor(10.5 * dynamicScale)}px "Outfit", "Inter", sans-serif`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
 
-    const wordWidths = words.map(w => ctx.measureText(w.fullWord).width);
+    const wordWidths = words.map((w) => ctx.measureText(w.fullWord).width);
     const spacing = 8 * dynamicScale;
     const totalPhraseWidth = wordWidths.reduce((a, b) => a + b, 0) + (words.length - 1) * spacing;
 

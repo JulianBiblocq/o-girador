@@ -8,12 +8,13 @@ import { createOverlayUpdater } from './useCircleOverlay';
 import { useCircleTickSync } from './useCircleTickSync';
 import { useCircleTouchInteraction } from './useCircleTouchInteraction';
 import { useCirclePlayheadRaf } from './useCirclePlayheadRaf';
+import { useCircleNeedleWaapi } from './useCircleNeedleWaapi';
 import { resolveLiveActivePatternId } from './resolveLiveActivePatternId';
 import { useRodaMeasureNavigationState } from './useRodaMeasureNavigationState';
 import { useApitoShake } from './useApitoShake';
 import { useOverlayRefs } from './useOverlayRefs';
 import { useCircleSequencerStoreData } from './useCircleSequencerStoreData';
-import { resolveVisibleRodaTracks } from './resolveVisibleRodaTracks';
+import { resolveOrderedVisibleRodaTracks } from './resolveVisibleRodaTracks';
 import { CircleSequencerProps, LivePlaybackState } from './circleSequencerTypes';
 import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
 
@@ -21,8 +22,7 @@ const EMPTY_LIST: any[] = [];
 
 export function useCircleSequencerState(props: CircleSequencerProps) {
   const { isActive = true } = props;
-  const sequencer = useSequencer();
-  const audio = useAudio();
+  const sequencer = useSequencer(), audio = useAudio();
   const storeData = useCircleSequencerStoreData(isActive);
   const [pedagogyTarget, setPedagogyTarget] = useState<StrokeInfoPopoverTarget | null>(null);
 
@@ -30,15 +30,17 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const isLeftHanded = props.isLeftHanded ?? sequencer.isLeftHanded;
   const tracksFromStore = useTracksWithCustomEquality(isActive);
   const rawTracks = props.tracks ?? tracksFromStore;
-  const tracks = resolveVisibleRodaTracks(rawTracks, {
+  const rodaTrackOrder = props.rodaTrackOrder ?? storeData.rodaTrackOrder;
+  const rodaFilterProps: CircleSequencerProps = {
     ...props,
     showLinkedTracksOnRoda: props.showLinkedTracksOnRoda ?? storeData.showLinkedTracksOnRoda,
-  });
+  };
+  const tracks = resolveOrderedVisibleRodaTracks(rawTracks, rodaFilterProps, rodaTrackOrder);
+  const visibleIdsKey = tracks.map((t) => t.id).join(',');
 
   const totalMeasures = props.totalMeasures ?? storeData.totalMeasures;
   const songSections = props.songSections ?? (storeData.songSections ?? EMPTY_LIST);
   const songMarkers = props.songMarkers ?? (storeData.songMarkers ?? EMPTY_LIST);
-  const rodaTrackOrder = props.rodaTrackOrder ?? storeData.rodaTrackOrder;
   const { isLoopRegionActive, loopStartMeasure, loopEndMeasure, measureTimeSigs, toggleLetraActive, vocalMode, setVocalMode } = storeData;
   const currentMeasure = props.currentMeasure ?? storeData.currentMeasure;
   const isMetroOn = props.isMetroOn ?? storeData.isMetroOn;
@@ -46,15 +48,13 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
   const soloPatternVariationId = storeData.soloPatternVariationId;
   const isLetraActive = props.isLetraActive ?? storeData.isLetraActive;
 
-  const bpm = props.bpm ?? sequencer.bpm;
-  const measureBpms = props.measureBpms ?? sequencer.measureBpms;
+  const bpm = props.bpm ?? sequencer.bpm, measureBpms = props.measureBpms ?? sequencer.measureBpms;
   const measureVols = props.measureVols ?? sequencer.measureVols;
   const measureSignals = props.measureSignals ?? (sequencer.measureSignals ?? EMPTY_LIST);
   const isPlaying = props.isPlaying ?? audio.isPlaying;
   const hitTriggersRef = props.hitTriggersRef ?? audio.hitTriggersRef;
 
-  const metadata = sequencer.metadata;
-  const rhythmSignals = props.rhythmSignals ?? (metadata?.rhythmSignals || []);
+  const rhythmSignals = props.rhythmSignals ?? (sequencer.metadata?.rhythmSignals || []);
   const mestreSignals = props.mestreSignals ?? [];
   const timeSig = props.timeSig ?? (measureTimeSigs?.[currentMeasure] || sequencer.timeSig || '4/4');
   const measureMaxTicks = getRodaMeasureGeometry(timeSig).maxTicks;
@@ -65,14 +65,14 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     audio.handleTimelineNavigate(mIdx, 0, getDefaultStepsForMeasure(mIdx, sequencer.timeSig, measureTimeSigs))
   );
 
-  useEffect(() => { if (!isActive) setPedagogyTarget(null); }, [isActive]);
+  useEffect(() => { setPedagogyTarget(null); }, [isActive, visibleIdsKey]);
 
   const {
-    canvasRef, measureDisplayRef, centerOverlayRef, centerAfficheurRef, centerOverlayImgRef,
-    centerOverlayTintRef, centerOverlayTextRef, lastOverlayTextRef, frozenStickAngleRef, lastOverlayStateRef,
+    canvasRef, karaokeCanvasRef, needleGroupRef, measureDisplayRef, centerOverlayRef, centerAfficheurRef,
+    centerOverlayImgRef, centerOverlayTintRef, centerOverlayTextRef, lastOverlayTextRef, frozenStickAngleRef, lastOverlayStateRef,
   } = useOverlayRefs();
 
-  const isCenterShaking = useApitoShake();
+  const isCenterShaking = useApitoShake(centerAfficheurRef);
   const {
     pendingTargetMeasure, setPendingTargetMeasure, pendingTargetMeasureRef,
     pendingTargetExpandedIndex, setPendingTargetExpandedIndex, pendingTargetExpandedIndexRef,
@@ -91,6 +91,9 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     totalMeasures, isLoopRegionActive, loopStartMeasure, loopEndMeasure, hitTriggersRef, bpm,
     measureBpms, measureVols, isMobile: props.isMobile ?? false, soloPatternPlayId, soloPatternVariationId, measureSignals,
     rhythmSignals, mestreSignals, songSections, isLeftHanded, songMarkers, measureTimeSigs, isLetraActive, vocalMode,
+    activePatternIdByTrack: props.activePatternIdByTrack, activeCircleIdByInst: props.activeCircleIdByInst,
+    explicitTracks: props.tracks, explicitRodaTrackOrder: props.rodaTrackOrder,
+    explicitShowLinkedTracksOnRoda: props.showLinkedTracksOnRoda, rodaFilterProps,
   };
 
   const updateOverlay = createOverlayUpdater(
@@ -108,10 +111,17 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     canvasRef, stateRef, livePlaybackRef, sequencer.activeVariationsRef, onTogglePlay, setPedagogyTarget, audio.isLoading
   );
 
-  useCirclePlayheadRaf(
-    canvasRef, isActive, stateRef, livePlaybackRef, frozenStickAngleRef, pendingTargetMeasureRef,
-    getLiveActivePatternId, sequencer.activeVariationsRef
+  const requestRodaRedraw = useCirclePlayheadRaf(
+    canvasRef, karaokeCanvasRef, isActive, stateRef, livePlaybackRef, frozenStickAngleRef,
+    pendingTargetMeasureRef, getLiveActivePatternId, sequencer.activeVariationsRef
   );
+  useCircleNeedleWaapi(needleGroupRef, isActive, stateRef, livePlaybackRef, frozenStickAngleRef);
+
+  useEffect(() => {
+    if (isActive && !isPlaying) requestRodaRedraw();
+  }, [isActive, isPlaying, visibleIdsKey, rawTracks, rodaTrackOrder, currentMeasure, timeSig, isLetraActive, isLeftHanded, soloPatternPlayId, soloPatternVariationId, props.activePatternIdByTrack, props.activeCircleIdByInst]);
+
+  const visibleTrackCount = tracks.length;
 
   const activeBpm = measureBpms?.[currentMeasure] ?? bpm, activeVol = measureVols?.[currentMeasure] ?? 100;
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
@@ -123,10 +133,9 @@ export function useCircleSequencerState(props: CircleSequencerProps) {
     isActive, isPlaying, lang, timeSig, activeBpm, activeVol, totalMeasures, currentMeasure,
     displayMeasure, displayTotal, expandedRef, pendingTargetMeasure, setPendingTargetMeasure,
     pendingTargetMeasureRef, pendingTargetExpandedIndex, setPendingTargetExpandedIndex,
-    pendingTargetExpandedIndexRef, canvasRef, measureDisplayRef, centerOverlayRef,
-    centerAfficheurRef, centerOverlayImgRef, centerOverlayTintRef, centerOverlayTextRef,
-    isCenterShaking, isLetraActive, toggleLetraActive, vocalMode, setVocalMode,
-    onNavigateMeasure, handleCanvasPointerDown, pedagogyTarget, setPedagogyTarget,
-    isMobile: props.isMobile ?? false,
+    pendingTargetExpandedIndexRef, canvasRef, karaokeCanvasRef, needleGroupRef, visibleTrackCount,
+    measureDisplayRef, centerOverlayRef, centerAfficheurRef, centerOverlayImgRef, centerOverlayTintRef,
+    centerOverlayTextRef, isCenterShaking, isLetraActive, toggleLetraActive, vocalMode, setVocalMode,
+    onNavigateMeasure, handleCanvasPointerDown, pedagogyTarget, setPedagogyTarget, isMobile: props.isMobile ?? false,
   };
 }

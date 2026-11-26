@@ -1,9 +1,14 @@
 /**
- * Gel, reprise et préparation pas-à-pas WAAPI pour les baguettes Ao Vivo (< 95 lignes, zéro `getAnimations()`).
+ * Gel, reprise et préparation pas-à-pas WAAPI double-slot (`active` + `queued`) pour Ao Vivo (< 115 lignes).
  */
 import React from 'react';
 import { getHandMemory } from '../../audio/animations/handTransitionEngine';
 import { resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
+import {
+  cancelTrackedElementAnimation,
+  pauseTrackedElementAnimations,
+  resumeTrackedElementAnimations,
+} from '../../audio/animations/waapiAnimTracker';
 import {
   computeMeasurePatternStepOffset,
   getRodaMeasureGeometry,
@@ -14,10 +19,24 @@ import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 import { isMufflingStickRef, releaseMufflingStickImmediately } from './alfaiaMuffleReleaseHelper';
 import { cancelAoVivoShockwave, pauseAoVivoShockwave, resumeAoVivoShockwave } from './AoVivoShockwave';
 
+function forEachAoVivoAnimatedNode(roots: (Element | null | undefined)[], fn: (node: Element) => void): void {
+  for (let i = 0; i < roots.length; i++) {
+    const root = roots[i];
+    if (!root) continue;
+    fn(root);
+    if (typeof root.querySelectorAll === 'function') {
+      const subs = root.querySelectorAll('[data-stick-shadow], [data-hand-shadow], [data-bacalhau-tip], [data-finger-mult]');
+      for (let k = 0; k < subs.length; k++) fn(subs[k]);
+    }
+  }
+}
+
 export function pauseAoVivoAnimations(
   animRefs: React.MutableRefObject<Animation | null>[],
-  haloEl: HTMLDivElement | null
+  haloEl: HTMLDivElement | null,
+  rootElements?: (Element | null | undefined)[]
 ): void {
+  if (rootElements) forEachAoVivoAnimatedNode(rootElements, pauseTrackedElementAnimations);
   for (let i = 0; i < animRefs.length; i++) {
     const anim = animRefs[i].current;
     if (anim && anim.playState === 'running') {
@@ -29,8 +48,10 @@ export function pauseAoVivoAnimations(
 
 export function resumeAoVivoAnimations(
   animRefs: React.MutableRefObject<Animation | null>[],
-  haloEl: HTMLDivElement | null
+  haloEl: HTMLDivElement | null,
+  rootElements?: (Element | null | undefined)[]
 ): void {
+  if (rootElements) forEachAoVivoAnimatedNode(rootElements, resumeTrackedElementAnimations);
   for (let i = 0; i < animRefs.length; i++) {
     const anim = animRefs[i].current;
     if (anim && anim.playState === 'paused') {
@@ -38,6 +59,10 @@ export function resumeAoVivoAnimations(
     }
   }
   resumeAoVivoShockwave(haloEl);
+}
+
+export function cancelAllAoVivoElementSlots(rootElements: (Element | null | undefined)[]): void {
+  forEachAoVivoAnimatedNode(rootElements, cancelTrackedElementAnimation);
 }
 
 export function resolveAoVivoMeasureStepInfo(

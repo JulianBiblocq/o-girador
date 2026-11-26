@@ -1,8 +1,7 @@
 /**
- * aoVivoStrokeDispatcher.ts — Dispatch Balanço-compensé des frappes et sous-pas Ao Vivo (< 132 lignes).
- * - Passe toujours le vrai `stepDurationMs` du pas entier et `lookaheadDurationsMs` (`M` + `M+1`).
+ * aoVivoStrokeDispatcher.ts — Dispatch WAAPI GPU anticipé (`85 ms`) des pas et sous-pas Ao Vivo (< 130 lignes).
+ * - Zéro `setTimeout` JS : les pas (`subPhase = 0`) et sous-pas (`subPhase = 1`) sont cadencés sur le flux `96n` anticipé.
  * - Calcule l'offset déterministe `computeAoVivoSwingAndMicroOffsetSec` (`swingJitter = 0`) même piste mutée.
- * - N'annule un sous-pas en attente que sur Stop/Pause/changement de piste ou collision réelle de la même main.
  */
 import React from 'react';
 import { isBarulhoRollActive } from '../../audio/animations/barulhoRollPlanner';
@@ -22,6 +21,9 @@ export interface PendingSubStepTimer {
 export interface AoVivoStrokeDispatchArgs {
   detail: any;
   rawVal: any;
+  subPhase?: 0 | 1 | 'both';
+  stepAnchorDrawSec?: number;
+  stepAnchorAudioSec?: number;
   family: AoVivoResolvedFamily;
   activeTrack: any;
   concreteTrack: any;
@@ -48,43 +50,28 @@ export interface AoVivoStrokeDispatchArgs {
   agbeAnimRef: React.MutableRefObject<Animation | null>;
   gongueAnimRef: React.MutableRefObject<Animation | null>;
   mineiroPoleRef: React.MutableRefObject<MineiroPole>;
-  subStepTimersRef: React.MutableRefObject<PendingSubStepTimer[]>;
+  subStepTimersRef?: React.MutableRefObject<PendingSubStepTimer[]>;
 }
 
-function resolveStrokeHandMask(family: AoVivoResolvedFamily, stroke: string): number {
-  const s = (stroke || '').trim(), up = s.toUpperCase();
-  if (!s || s === '0' || s === '-' || s === '.' || s === '/') return 0;
-  if (family === 'gongue' || family === 'agbe' || family === 'mineiro') return 3;
-  if (['C', 'X', 'B', 'F', '~'].includes(up) || (family === 'alfaia' && (up === 'R' || up === 'T')) || (family === 'timbal' && up === 'V')) return 3;
-  if (family === 'timbal') return ['G', 'A', 'S', 'T', 'D', 'P'].includes(s) ? 1 : 2;
-  if (family === 'caixa' || family === 'tarol') {
-    if (s === 'R' || s === 'A') return 1;
-    if (s === 'r' || s === 'a') return 2;
-    return up === 'D' || up === 'S' ? 1 : 2;
-  }
-  return up === 'D' || up === 'S' ? 1 : 2;
-}
-
-export function clearPendingAoVivoSubSteps(timersRef: React.MutableRefObject<PendingSubStepTimer[]>): void {
+export function clearPendingAoVivoSubSteps(timersRef?: React.MutableRefObject<PendingSubStepTimer[]>): void {
+  if (!timersRef) return;
   for (let i = 0; i < timersRef.current.length; i++) clearTimeout(timersRef.current[i].id);
   timersRef.current = [];
 }
 
-function cancelCollidingHandSubSteps(timersRef: React.MutableRefObject<PendingSubStepTimer[]>, mask: number): void {
-  if (!mask || timersRef.current.length === 0) return;
-  const kept: PendingSubStepTimer[] = [];
-  for (let i = 0; i < timersRef.current.length; i++) {
-    const entry = timersRef.current[i];
-    if ((entry.handMask & mask) !== 0) clearTimeout(entry.id);
-    else kept.push(entry);
-  }
-  timersRef.current = kept;
-}
-
 export function dispatchAoVivoStepStrokes(a: AoVivoStrokeDispatchArgs): void {
-  const { detail, rawVal, family, activeTrack, concreteTrack, effectivePattern, effectiveMicrotimings, currentSig, isLeftHanded, isStepPreview, lookaheadSteps, lookaheadDurationsMs, stepInMeasure, targetStep, stepDurationMs } = a;
+  const {
+    detail, rawVal, subPhase = 'both', stepAnchorDrawSec, stepAnchorAudioSec,
+    family, activeTrack, concreteTrack, effectivePattern, effectiveMicrotimings,
+    currentSig, isLeftHanded, isStepPreview, lookaheadSteps, lookaheadDurationsMs,
+    stepInMeasure, targetStep, stepDurationMs,
+  } = a;
+
   const stepDurSec = stepDurationMs / 1000;
-  const baseAudioSec = typeof detail.audioTime === 'number' && detail.audioTime > 0 ? detail.audioTime : undefined;
+  const anchorDetail = stepAnchorDrawSec !== undefined && stepAnchorDrawSec > 0
+    ? { ...detail, drawTime: stepAnchorDrawSec, time: stepAnchorDrawSec, audioTime: stepAnchorAudioSec ?? detail.audioTime }
+    : detail;
+  const baseAudioSec = typeof anchorDetail.audioTime === 'number' && anchorDetail.audioTime > 0 ? anchorDetail.audioTime : undefined;
 
   const computeOffsetSec = (strokeIndex: number, extraGridSec: number): number => {
     if (isStepPreview) return extraGridSec;
@@ -96,13 +83,12 @@ export function dispatchAoVivoStepStrokes(a: AoVivoStrokeDispatchArgs): void {
     return extraGridSec + swingMicro;
   };
 
-  const triggerStroke = (stroke: string, isSubStep: boolean, totalOffsetSec: number) => {
+  const triggerStroke = (stroke: string, isSubStep: boolean, totalOffsetSec: number, explicitPreviewDelayMs = 0) => {
     const tok = (stroke || '').trim(), isSilent = !tok || tok === '0' || tok === '-';
     if (isSilent && !isBarulhoRollActive(family)) return;
     const effStroke = isSilent ? '.' : tok, isVibrate = effStroke === '~';
-    cancelCollidingHandSubSteps(a.subStepTimersRef, resolveStrokeHandMask(family, effStroke));
-    const signedLeadMs = isStepPreview ? 0 : computeAoVivoSignedDeltaMs(detail, totalOffsetSec);
-    const oneShot = Boolean(isStepPreview);
+    const signedLeadMs = isStepPreview ? explicitPreviewDelayMs : computeAoVivoSignedDeltaMs(anchorDetail, totalOffsetSec);
+    const oneShot = Boolean(isStepPreview && explicitPreviewDelayMs === 0);
 
     if (family === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, effStroke, isVibrate, isSubStep, isLeftHanded, lookaheadSteps, stepInMeasure, stepDurationMs, a.leftStickEl, a.rightStickEl, a.haloEl, a.leftAnimRef, a.rightAnimRef, a.geometry, signedLeadMs, oneShot, lookaheadDurationsMs);
     else if (family === 'caixa' || family === 'tarol') dispatchCaixaPredictiveStroke(family, effStroke, isVibrate, isSubStep, isLeftHanded, lookaheadSteps, stepInMeasure, stepDurationMs, a.leftStickEl, a.rightStickEl, a.haloEl, a.leftAnimRef, a.rightAnimRef, a.geometry, signedLeadMs, oneShot, lookaheadDurationsMs);
@@ -115,24 +101,20 @@ export function dispatchAoVivoStepStrokes(a: AoVivoStrokeDispatchArgs): void {
   };
 
   if (Array.isArray(rawVal)) {
-    triggerStroke(String(rawVal[0] ?? ''), false, computeOffsetSec(0, 0));
-    const subTok = String(rawVal[1] ?? '');
-    const subOffsetSec = computeOffsetSec(1, stepDurSec * 0.5);
-    const waitMs = isStepPreview ? Math.max(15, Math.round(stepDurationMs * 0.48)) : computeAoVivoSignedDeltaMs(detail, subOffsetSec);
-    if (!isStepPreview && waitMs <= 4) {
-      triggerStroke(subTok, true, subOffsetSec);
-    } else {
-      const entry: PendingSubStepTimer = { id: 0 as unknown as ReturnType<typeof setTimeout>, handMask: resolveStrokeHandMask(family, subTok) };
-      entry.id = setTimeout(() => {
-        a.subStepTimersRef.current = a.subStepTimersRef.current.filter((item) => item !== entry);
-        triggerStroke(subTok, true, subOffsetSec);
-      }, Math.max(4, Math.round(waitMs)));
-      a.subStepTimersRef.current.push(entry);
+    if (subPhase === 0 || subPhase === 'both') {
+      triggerStroke(String(rawVal[0] ?? ''), false, computeOffsetSec(0, 0), 0);
     }
-  } else if (typeof rawVal === 'object' && Array.isArray(rawVal.sim)) {
-    const off0 = computeOffsetSec(0, 0);
-    rawVal.sim.forEach((s: string) => triggerStroke(String(s), false, off0));
-  } else {
-    triggerStroke(String(rawVal ?? ''), false, computeOffsetSec(0, 0));
+    if (subPhase === 1 || subPhase === 'both') {
+      const subTok = String(rawVal[1] ?? '');
+      const previewSubDelay = isStepPreview ? Math.max(24, Math.round(stepDurationMs * 0.5)) : 0;
+      triggerStroke(subTok, true, computeOffsetSec(1, stepDurSec * 0.5), previewSubDelay);
+    }
+  } else if (subPhase !== 1) {
+    if (typeof rawVal === 'object' && Array.isArray(rawVal.sim)) {
+      const off0 = computeOffsetSec(0, 0);
+      rawVal.sim.forEach((s: string) => triggerStroke(String(s), false, off0, 0));
+    } else {
+      triggerStroke(String(rawVal ?? ''), false, computeOffsetSec(0, 0), 0);
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { CONFIG_AGBE_LAB } from './agbeLabConfig';
-import { computeImpactHoldTiming } from './aoVivoBallisticMath';
+import { computeElasticImpactTiming } from './aoVivoBallisticMath';
 
 export * from './agbeLabConfig';
 
@@ -20,25 +20,21 @@ function resolveAgbeHandDir(stroke: string, isLeftHanded = false): number {
 
 export function getAgbeImpactPoseTransform(stroke: string, isLeftHanded = false): string {
   const c = CONFIG_AGBE_LAB;
-  const s = (stroke || 'D').trim();
-  const sUp = s.toUpperCase();
+  const s = (stroke || 'D').trim(), sUp = s.toUpperCase();
   if (sUp === 'B' || s === '~') {
     return `translate(${-c.barulhoJitterPx}px, 0px) rotateZ(${-Math.round(c.barulhoJitterPx * 0.4)}deg) scale(0.99, 1.01)`;
   }
   if (sUp === 'S') {
-    const mult = s === 'S' ? 1 : 0.65;
-    const ty = Math.round(c.saltoJumpY * mult);
+    const mult = s === 'S' ? 1 : 0.65, ty = Math.round(c.saltoJumpY * mult);
     const sx = +(1 + (c.saltoSquash - 1) * mult).toFixed(3);
     return `translate(0px, ${ty}px) rotateZ(0deg) scale(${sx}, ${+(2 - sx).toFixed(3)})`;
   }
   if (sUp === 'V') {
-    const mult = s === 'V' ? 1 : 0.65;
-    const ty = Math.round(c.voltaDropY * mult);
+    const mult = s === 'V' ? 1 : 0.65, ty = Math.round(c.voltaDropY * mult);
     const sq = 1 + (c.voltaSquash - 1) * mult, sz = 1 + (c.voltaScaleZ - 1) * mult;
     return `translate(0px, ${ty}px) rotateZ(${+(c.voltaRotationDeg * mult).toFixed(1)}deg) scale(${+(sq * sz).toFixed(3)}, ${+((2 - sq) * sz).toFixed(3)})`;
   }
-  const isStrong = s === 'D' || s === 'E';
-  const dir = resolveAgbeHandDir(s, isLeftHanded);
+  const isStrong = s === 'D' || s === 'E', dir = resolveAgbeHandDir(s, isLeftHanded);
   const tx = (isStrong ? c.strongTranslateX : c.weakTranslateX) * dir;
   const rz = (isStrong ? c.strongRotateZ : c.weakRotateZ) * dir;
   return `translate(${tx}px, 0px) rotateZ(${rz}deg) scale(1, 1)`;
@@ -77,7 +73,7 @@ export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: s
   const c = CONFIG_AGBE_LAB, s = (stroke || 'D').trim(), sUp = s.toUpperCase();
   if (sUp === 'B' || s === '~') return buildAgbeBarulhoFrames(s === 'b' ? 0.6 : 1, nextStroke, true, isLeftHanded).loopFrames;
 
-  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
+  const { impactOff, cushionOff } = computeElasticImpactTiming(durationMs);
   const highEntryY = Math.round(Math.min(-18, c.saltoJumpY * 0.55));
   const voltaHighTr = `translate(0px, ${highEntryY}px) rotateZ(0deg) scale(0.96, 1.04)`;
   const endTr = resolveAgbeNextTransform(nextStroke, isLeftHanded);
@@ -86,18 +82,23 @@ export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: s
   const impTr = getAgbeImpactPoseTransform(s, isLeftHanded);
 
   if (sUp === 'V') {
+    const mult = s === 'V' ? 1 : 0.65;
+    const cushY = Math.round(c.voltaDropY * mult * 0.72);
+    const cushTr = `translate(0px, ${cushY}px) rotateZ(${+(c.voltaRotationDeg * mult * 0.55).toFixed(1)}deg) scale(1.01, 0.99)`;
     return [
       { transform: startTr, offset: 0, easing: 'cubic-bezier(0.35, 0, 0.85, 0.5)' },
-      { transform: impTr, offset: impactOff },
-      { transform: impTr, offset: holdEndOff, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      { transform: impTr, offset: impactOff, easing: 'ease-out' },
+      { transform: cushTr, offset: cushionOff, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
       { transform: endTr, offset: 1 },
     ];
   }
   if (sUp === 'S') {
+    const mult = s === 'S' ? 1 : 0.65;
+    const cushY = Math.round(c.saltoJumpY * mult * 0.76);
     return [
       { transform: startTr, offset: 0, easing: 'cubic-bezier(0.2, 0, 0.35, 1)' },
-      { transform: impTr, offset: impactOff },
-      { transform: impTr, offset: holdEndOff, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+      { transform: impTr, offset: impactOff, easing: 'ease-out' },
+      { transform: `translate(0px, ${cushY}px) rotateZ(0deg) scale(0.99, 1.01)`, offset: cushionOff, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
       { transform: endTr, offset: 1 },
     ];
   }
@@ -105,11 +106,12 @@ export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: s
   const isStrong = s === 'D' || s === 'E', dir = resolveAgbeHandDir(s, isLeftHanded);
   const tx = (isStrong ? c.strongTranslateX : c.weakTranslateX) * dir;
   const rz = (isStrong ? c.strongRotateZ : c.weakRotateZ) * dir;
-  const microX = c.beadInertiaPx * dir, microZ = +(c.beadInertiaPx * 0.45 * dir).toFixed(1);
+  const cushX = Math.round(tx * 0.72 - c.beadInertiaPx * dir * 0.5);
+  const cushZ = +(rz * 0.72 - c.beadInertiaPx * 0.35 * dir).toFixed(1);
   return [
-    { transform: startTr, offset: 0, easing: 'cubic-bezier(0.2, 0, 0.35, 1)' },
-    { transform: impTr, offset: impactOff, easing: 'linear' },
-    { transform: `translate(${tx - microX}px, 0px) rotateZ(${rz - microZ}deg) scale(1, 1)`, offset: holdEndOff, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+    { transform: startTr, offset: 0, easing: 'cubic-bezier(0.22, 0, 0.38, 1)' },
+    { transform: impTr, offset: impactOff, easing: 'ease-out' },
+    { transform: `translate(${cushX}px, 0px) rotateZ(${cushZ}deg) scale(1, 1)`, offset: cushionOff, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
     { transform: endTr, offset: 1 },
   ];
 }

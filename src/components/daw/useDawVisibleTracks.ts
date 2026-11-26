@@ -6,6 +6,9 @@ import { instrumentsConfig } from '../../data';
 export function useDawVisibleTracks() {
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const rodaTrackOrder = useSequencerStore(state => state.rodaTrackOrder);
+  const rodaHideSignature = useSequencerStore(state =>
+    state.tracks.map(t => `${t.id}:${t.isHidden ? 1 : 0}`).join('|')
+  );
 
   const visibleTracks = useMemo(() => {
     const tracks = useSequencerStore.getState().tracks;
@@ -26,7 +29,7 @@ export function useDawVisibleTracks() {
     }
 
     return topLevelList;
-  }, [tracksMeta, rodaTrackOrder]);
+  }, [tracksMeta, rodaTrackOrder, rodaHideSignature]);
 
   const sortableTrackIds = useMemo(() => visibleTracks.map(t => `track-${t.id}`), [visibleTracks]);
   const visibleTrackIds = useMemo(() => visibleTracks.map(t => t.id).join('-'), [visibleTracks]);

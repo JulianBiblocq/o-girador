@@ -32,7 +32,7 @@ describe('Ao Vivo — Balistique Invariante, Anti-Aliasing LTPO, Swing & Sous-Pa
     resetHandPostureMemory();
   });
 
-  it('maintient une durée balistique invariante (225ms/160ms), un maintien peau >= 34ms et une pose compacte sous 115ms', () => {
+  it('maintient une durée balistique invariante (225ms/160ms), un rebond élastique immédiat sans plateau figé et une pose compacte sous 115ms', () => {
     expect(computeBallisticDurationMs(true, 180)).toBe(172);
     expect(computeBallisticDurationMs(true, 300)).toBe(225);
     expect(computeBallisticDurationMs(true, 750)).toBe(225);
@@ -40,8 +40,8 @@ describe('Ao Vivo — Balistique Invariante, Anti-Aliasing LTPO, Swing & Sous-Pa
     expect(computeBallisticDurationMs(true, 75)).toBe(67);
 
     const timing225 = computeImpactHoldTiming(225);
-    expect(timing225.tImpactMs).toBe(18);
-    expect(timing225.tHoldEndMs - timing225.tImpactMs).toBe(34);
+    expect(timing225.tImpactMs).toBe(24);
+    expect(timing225.tCushionMs - timing225.tImpactMs).toBe(22);
 
     // Sous 115ms (sous-pas / double-croche ultra-rapide), force `low_tucked` même avant un coup fort
     generateAlfaiaPredictiveKeyframes('D', false, 'macaneta', 'strong', 80, false, 90);

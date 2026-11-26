@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react';
-import * as Tone from 'tone';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../../hooks/useAudioSync';
 import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
-import { getLastAudibleTick } from '../../audio/visualTickBuffer';
-import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
+import { getLastAudibleTick, getLockedVisualDelaySec } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getAudioTime } from '../circle-sequencer/circleAudioTime';
 import {
@@ -88,9 +86,7 @@ export function useFocusBalancoRaf(params: FocusDomRefsBundle & {
       lastDrawMs = nowMs;
 
       const ctxTime = getAudioTime();
-      const rawCtx = Tone.getContext().rawContext as AudioContext;
-      const baseLat = typeof rawCtx?.outputLatency === 'number' && !isNaN(rawCtx.outputLatency) ? rawCtx.outputLatency : 0.05;
-      const audibleAudioSec = Math.max(0, ctxTime - (baseLat + getBluetoothVisualOffsetSec()));
+      const audibleAudioSec = Math.max(0, ctxTime - getLockedVisualDelaySec());
       const isPlaying = st.isPlaying || Boolean(audioEngine?.getIsPlaying());
       const live = liveRef.current;
 

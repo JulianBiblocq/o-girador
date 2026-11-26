@@ -3,9 +3,9 @@
  * - Calcule l'offset déterministe de chaque note via `computePercussionNoteSwing` (`swingJitter = 0`) + `computeStepMicrotiming`,
  *   afin qu'Ao Vivo chaloupe avec le Balanço même piste mutée, en Tocar Junto ou son coupé.
  */
-import * as Tone from 'tone';
 import { getAudioEngine } from '../../hooks/audio-sync/audioEngineNodes';
 import { computePercussionNoteSwing, resolveStepBeatInfo } from '../../hooks/audio-sync/percussionSwingHelper';
+import { getLockedOutputLatencySec } from '../../audio/visualTickBuffer';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 import { computeStepMicrotiming } from '../../workers/compiler/stepNotePacker';
@@ -25,12 +25,7 @@ export function computeAoVivoSignedDeltaMs(
   const ctxTime = overrideCtxSec ?? getAudioTime();
   if (!(ctxTime > 0)) return 0;
 
-  const rawCtx = Tone.getContext().rawContext as AudioContext | undefined;
-  const outLat = overrideOutLatencySec !== undefined
-    ? overrideOutLatencySec
-    : typeof rawCtx?.outputLatency === 'number' && !Number.isNaN(rawCtx.outputLatency)
-      ? rawCtx.outputLatency
-      : 0.05;
+  const outLat = overrideOutLatencySec !== undefined ? overrideOutLatencySec : getLockedOutputLatencySec();
   const btSec = overrideBtOffsetSec !== undefined ? overrideBtOffsetSec : getBluetoothVisualOffsetSec();
   const totalLatSec = Math.max(0, outLat + btSec);
   const hasExplicitLatOverride = overrideOutLatencySec !== undefined || overrideBtOffsetSec !== undefined;

@@ -1,4 +1,4 @@
-import { computeImpactHoldTiming } from './aoVivoBallisticMath';
+import { computeElasticImpactTiming } from './aoVivoBallisticMath';
 import { MineiroPole } from './configMineiro';
 import { CONFIG_MINEIRO_LAB } from './mineiroLabConfig';
 
@@ -23,6 +23,17 @@ function formatMineiroPose(p: MineiroPose): string {
   return `translate3d(${+p.x.toFixed(1)}px, ${+p.y.toFixed(1)}px, 0) rotateZ(${+p.rot.toFixed(2)}deg) skewY(${+p.skewY.toFixed(2)}deg) skewX(${+p.skewX.toFixed(2)}deg) scale(${+p.scale.toFixed(3)})`;
 }
 
+function lerpPose(a: MineiroPose, b: MineiroPose, t: number): MineiroPose {
+  return {
+    x: a.x + (b.x - a.x) * t,
+    y: a.y + (b.y - a.y) * t,
+    scale: a.scale + (b.scale - a.scale) * t,
+    rot: a.rot + (b.rot - a.rot) * t,
+    skewX: a.skewX + (b.skewX - a.skewX) * t,
+    skewY: a.skewY + (b.skewY - a.skewY) * t,
+  };
+}
+
 function getMineiroPolePose(pole: MineiroPole): MineiroPose {
   const c = CONFIG_MINEIRO_LAB;
   if (pole === 'frontStrong') return { x: 0, y: c.pushStrongY, scale: c.pushStrongScaleZ, rot: c.pushStrongTiltDeg, skewX: 0, skewY: 0 };
@@ -33,16 +44,12 @@ function getMineiroPolePose(pole: MineiroPole): MineiroPose {
 
 function getMineiroLadoPose(isStrong: boolean, isLeftHanded = false): MineiroPose {
   const c = CONFIG_MINEIRO_LAB;
-  const sign = isLeftHanded ? -1 : 1;
-  const mult = isStrong ? 1 : 0.65;
+  const sign = isLeftHanded ? -1 : 1, mult = isStrong ? 1 : 0.65;
   const twist = c.ladoTwistSkewDeg * mult * sign;
   return {
-    x: c.ladoOffsetX * mult * sign,
-    y: c.ladoOffsetY * mult,
-    scale: 1 + (c.ladoScaleZ - 1) * mult,
-    rot: c.ladoAngleDeg * mult * sign,
-    skewY: twist,
-    skewX: -twist * 0.4,
+    x: c.ladoOffsetX * mult * sign, y: c.ladoOffsetY * mult,
+    scale: 1 + (c.ladoScaleZ - 1) * mult, rot: c.ladoAngleDeg * mult * sign,
+    skewY: twist, skewX: -twist * 0.4,
   };
 }
 
@@ -55,8 +62,7 @@ export function getMineiroRestTransform(): string {
 }
 
 function resolveMineiroPeakPose(stroke: string, isLeftHanded = false): MineiroPose {
-  const c = CONFIG_MINEIRO_LAB;
-  const s = (stroke || 'P').trim();
+  const c = CONFIG_MINEIRO_LAB, s = (stroke || 'P').trim();
   const norm = s === 'D' || s === 'F' ? 'P' : s === 'd' || s === 'f' ? 'p' : s === 'E' ? 'T' : s === 'e' ? 't' : s;
   if (norm === 'P') return getMineiroPolePose('frontStrong');
   if (norm === 'p') return getMineiroPolePose('frontWeak');
@@ -90,33 +96,32 @@ export function buildMineiroBarulhoFrames(currentPole: MineiroPole = 'backWeak',
 }
 
 export function generateMineiroKeyframes(stroke: string, currentPole: MineiroPole = 'backWeak', isLeftHanded = false, durationMs = 200): Keyframe[] {
-  const c = CONFIG_MINEIRO_LAB;
-  const s = (stroke || 'P').trim();
+  const c = CONFIG_MINEIRO_LAB, s = (stroke || 'P').trim();
   const startPose: MineiroPose = lastMineiroPose || getMineiroPolePose(currentPole);
 
   if (s.toUpperCase() === 'B' || s === '~') {
     return buildMineiroBarulhoFrames(currentPole, s === 'b' ? 0.6 : 1, true).loopFrames;
   }
 
-  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
+  const { impactOff, cushionOff } = computeElasticImpactTiming(durationMs);
   const f = Math.max(0, Math.min(1, c.fluidity));
   const d = Math.max(0.1, Math.min(1, c.dampingSoftness));
   const keep = 1 - Math.max(0, Math.min(0.85, c.recoilReturnRatio));
-  const attackEase = `cubic-bezier(${+(0.12 + (1 - f) * 0.25).toFixed(2)}, ${+(0.55 + f * 0.4).toFixed(2)}, ${+(0.25 + (1 - f) * 0.35).toFixed(2)}, 1)`;
-  const settleEase = `cubic-bezier(${+(0.25 * (1 - d * 0.5)).toFixed(2)}, ${+(0.7 + d * 0.3).toFixed(2)}, ${+(0.35 + d * 0.25).toFixed(2)}, 1)`;
+  const attackEase = `cubic-bezier(${+(0.16 + (1 - f) * 0.22).toFixed(2)}, ${+(0.58 + f * 0.36).toFixed(2)}, ${+(0.28 + (1 - f) * 0.3).toFixed(2)}, 1)`;
+  const settleEase = `cubic-bezier(${+(0.22 * (1 - d * 0.4)).toFixed(2)}, ${+(0.72 + d * 0.26).toFixed(2)}, ${+(0.36 + d * 0.2).toFixed(2)}, 1)`;
 
   const peakPose = resolveMineiroPeakPose(s, isLeftHanded);
   const settlePose: MineiroPose = {
     x: peakPose.x * keep, y: peakPose.y * keep, scale: 1 + (peakPose.scale - 1) * keep,
     rot: peakPose.rot * keep, skewX: peakPose.skewX * keep, skewY: peakPose.skewY * keep,
   };
+  const cushionPose = lerpPose(peakPose, settlePose, 0.34);
   lastMineiroPose = settlePose;
-  const peakTr = formatMineiroPose(peakPose);
 
   return [
     { transform: formatMineiroPose(startPose), offset: 0, easing: attackEase },
-    { transform: peakTr, offset: impactOff },
-    { transform: peakTr, offset: holdEndOff, easing: settleEase },
+    { transform: formatMineiroPose(peakPose), offset: impactOff, easing: 'ease-out' },
+    { transform: formatMineiroPose(cushionPose), offset: cushionOff, easing: settleEase },
     { transform: formatMineiroPose(settlePose), offset: 1 },
   ];
 }

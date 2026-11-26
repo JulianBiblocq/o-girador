@@ -36,7 +36,8 @@ export function dispatchMineiro(
   const availMs = isSubStep ? stepDurationMs * 0.5 : stepDurationMs;
   const duration = computeBallisticDurationMs(isStrong, availMs, spd);
   const { tImpactMs, tHoldEndMs } = computeImpactHoldTiming(duration);
-  runClockSyncedWaapi({ el: mineiroStickEl, keyframes: generateMineiroKeyframes(norm, poleRef.current, isLeftHanded, duration), durationMs: duration, deltaMs: -leadMs, tImpactMs, tHoldEndMs, animRef });
+  const alignedMineiroDelta = leadMs > 0 ? -leadMs + tImpactMs : -leadMs;
+  runClockSyncedWaapi({ el: mineiroStickEl, keyframes: generateMineiroKeyframes(norm, poleRef.current, isLeftHanded, duration), durationMs: duration, deltaMs: alignedMineiroDelta, tImpactMs, tHoldEndMs, animRef });
   poleRef.current = getNextMineiroPole(norm, poleRef.current);
 }
 
@@ -62,7 +63,8 @@ export function dispatchAgbe(
   const availMs = isSubStep ? stepDurationMs * 0.5 : stepDurationMs;
   const duration = computeBallisticDurationMs(isStrong, availMs, spd);
   const { tImpactMs, tHoldEndMs } = computeImpactHoldTiming(duration);
-  runClockSyncedWaapi({ el: agbeWholeEl, keyframes: generateAgbeKeyframes(norm, bpm, nextStroke, isLeftHanded, duration), durationMs: duration, deltaMs: -leadMs, tImpactMs, tHoldEndMs, animRef });
+  const alignedAgbeDelta = leadMs > 0 ? -leadMs + tImpactMs : -leadMs;
+  runClockSyncedWaapi({ el: agbeWholeEl, keyframes: generateAgbeKeyframes(norm, bpm, nextStroke, isLeftHanded, duration), durationMs: duration, deltaMs: alignedAgbeDelta, tImpactMs, tHoldEndMs, animRef });
 }
 
 export function dispatchGongue(

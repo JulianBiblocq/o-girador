@@ -1,10 +1,10 @@
 import { VisualTickEvent, VisualHitTriggerEvent } from './visualTickTypes';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
 import { areAllStudioWindowsHidden } from '../../utils/detachedWindowManager';
 
 export const TICK_QUEUE_SIZE = 512;
 export const HIT_QUEUE_SIZE = 512;
+export const VISUAL_LOOKAHEAD_SEC = 0.085;
 
 export const tickQueue: VisualTickEvent[] = Array.from({ length: TICK_QUEUE_SIZE }, () => ({
   drawTime: 0, step: 0, measure: 0, maxTicks: 96, ratio: 0, visualStep16: 0, visualStep12: 0,
@@ -18,11 +18,18 @@ export const hitQueue: VisualHitTriggerEvent[] = Array.from({ length: HIT_QUEUE_
 
 export let tickWriteIdx = 0;
 export let tickReadIdx = 0;
+export let lookaheadTickReadIdx = 0;
 export function setTickReadIdx(idx: number) { tickReadIdx = idx; }
+export function setLookaheadTickReadIdx(idx: number) { lookaheadTickReadIdx = idx; }
 
 export let hitWriteIdx = 0;
 export let hitReadIdx = 0;
 export function setHitReadIdx(idx: number) { hitReadIdx = idx; }
+
+let onTickPushedWakeHook: (() => void) | null = null;
+export function setOnTickPushedWakeHook(cb: (() => void) | null): void {
+  onTickPushedWakeHook = cb;
+}
 
 const lastAudibleTickSnapshot: VisualTickEvent = {
   drawTime: 0, step: 0, measure: 0, maxTicks: 96, ratio: 0, visualStep16: 0, visualStep12: 0,
@@ -68,29 +75,24 @@ export function pushVisualTick(event: VisualTickEvent): void {
   if (areAllStudioWindowsHidden()) return;
   const nextWriteIdx = (tickWriteIdx + 1) % TICK_QUEUE_SIZE;
   if (nextWriteIdx === tickReadIdx) tickReadIdx = (tickReadIdx + 1) % TICK_QUEUE_SIZE;
+  if (nextWriteIdx === lookaheadTickReadIdx) lookaheadTickReadIdx = (lookaheadTickReadIdx + 1) % TICK_QUEUE_SIZE;
   copyTickEvent(tickQueue[tickWriteIdx], event);
   tickWriteIdx = nextWriteIdx;
+  onTickPushedWakeHook?.();
 }
 
 export function purgeVisualTickBuffer(): void {
-  tickReadIdx = tickWriteIdx; hitReadIdx = hitWriteIdx; hasLastAudibleTick = false;
+  tickReadIdx = tickWriteIdx; lookaheadTickReadIdx = tickWriteIdx; hitReadIdx = hitWriteIdx; hasLastAudibleTick = false;
 }
 
 export function resetVisualTickBuffer(): void {
-  tickReadIdx = tickWriteIdx; hitReadIdx = hitWriteIdx; hasLastAudibleTick = false;
+  tickReadIdx = tickWriteIdx; lookaheadTickReadIdx = tickWriteIdx; hitReadIdx = hitWriteIdx; hasLastAudibleTick = false;
 }
 
-export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCode: number, triggerTime: number): void {
-  if (areAllStudioWindowsHidden()) return;
-  if (useSequencerStore.getState().isPreRolling) return;
-  const nextWriteIdx = (hitWriteIdx + 1) % HIT_QUEUE_SIZE;
-  if (nextWriteIdx === hitReadIdx) hitReadIdx = (hitReadIdx + 1) % HIT_QUEUE_SIZE;
-  const slot = hitQueue[hitWriteIdx];
-  slot.triggerTime = triggerTime + getBluetoothVisualOffsetSec();
-  slot.trackId = trackId; slot.stepIdx = stepIdx; slot.strokeCode = strokeCode;
-  hitWriteIdx = nextWriteIdx;
+export function pushVisualHitTrigger(_trackId: number, _stepIdx: number, _strokeCode: number, _triggerTime: number): void {
+  // No-op : le rebond facetté de la Roda remplace l'ancien pool de ripples (`drawRipples`).
 }
 
 export function flushVisualBuffers(): void {
-  tickReadIdx = 0; tickWriteIdx = 0; hitReadIdx = 0; hitWriteIdx = 0; hasLastAudibleTick = false;
+  tickReadIdx = 0; lookaheadTickReadIdx = 0; tickWriteIdx = 0; hitReadIdx = 0; hitWriteIdx = 0; hasLastAudibleTick = false;
 }

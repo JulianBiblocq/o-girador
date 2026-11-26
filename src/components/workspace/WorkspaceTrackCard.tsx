@@ -30,10 +30,14 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; left: number } | null>(null);
 
   const isToada = Boolean(track.isBusFolder && (track.customName === 'Toada' || String(track.id) === 'toada'));
+  const isHidden = useSequencerStore((s) => Boolean(s.tracks.find((t) => t.id === track.id)?.isHidden ?? track.isHidden));
+  const isMute = useSequencerStore((s) => Boolean(s.tracks.find((t) => t.id === track.id)?.isMute ?? track.isMute));
+  const isSolo = useSequencerStore((s) => Boolean(s.tracks.find((t) => t.id === track.id)?.isSolo ?? track.isSolo));
+  const volumeVal = useSequencerStore((s) => s.tracks.find((t) => t.id === track.id)?.volumeVal ?? track.volumeVal);
   const inst = instrumentsConfig[track.instrumentIdx] || (isToada ? instrumentsConfig.find((i) => i.id === 'puxador' || i.type === 'voice') : null);
   const isFocusEligible = !track.isBusFolder && !track.isLinkFolder && !isToada && !!inst && inst.id !== 'apito' && inst.id !== 'puxador' && inst.id !== 'coro' && inst.type !== 'voice';
   const isCurrentFocus = isFocusActive && focusTrackId === track.id;
-  const isCardDimmed = !isPistasOpen && isFocusActive && Boolean(track.isHidden) && !isCurrentFocus;
+  const isCardDimmed = !isPistasOpen && isFocusActive && isHidden && !isCurrentFocus;
 
   const displayName = useMemo(() => isToada ? 'Toada' : (!inst ? 'Instrument' : useNomenclatureStore.getState().getInstrumentLabel(track)), [isToada, inst, track]);
   const groupVisual = useMemo(() => getTrackGroupVisual(track, tracks), [track, tracks]);
@@ -110,12 +114,12 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
           )}
         </div>
         <div className="flex gap-1 items-center shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleRodaTrackMuteToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${(track.isMute && !track.isSolo) ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : idleBtn}`}>M</button>
-          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleRodaTrackSoloToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${track.isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : idleBtn}`}>S</button>
+          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleRodaTrackMuteToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${(isMute && !isSolo) ? 'bg-[var(--cordel-wood)] text-[var(--cordel-on-accent)]' : idleBtn}`}>M</button>
+          <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleRodaTrackSoloToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${isSolo ? 'bg-[var(--cordel-gold)] text-[var(--cordel-ink-dark)]' : idleBtn}`}>S</button>
           {inst.id !== 'apito' ? (
             <>
-              <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackHideToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button text-[9px] font-bold transition-all flex items-center justify-center cursor-pointer ${track.isHidden ? 'bg-[var(--cordel-ink-dark)] text-[var(--cordel-parchment-bg)]' : idleBtn}`}>
-                {track.isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              <button onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackHideToggle(track.id); }} className={`w-5 h-5 cordel-border-sm cordel-button text-[9px] font-bold transition-all flex items-center justify-center cursor-pointer ${isHidden ? 'bg-[var(--cordel-ink-dark)] text-[var(--cordel-parchment-bg)]' : idleBtn}`}>
+                {isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
               </button>
               <button onClick={(e) => { e.stopPropagation(); if (!isPistasOpen) { (inst.type === 'voice' || isToada) ? toggleLetraActive() : toggleAoVivo(); } }} className={`w-5 h-5 cordel-border-sm cordel-button font-bold transition-all flex items-center justify-center ${isPistasOpen ? 'opacity-30 pointer-events-none' : 'cursor-pointer'} ${(inst.type === 'voice' || isToada) ? (isLetraActive ? 'bg-[var(--cordel-accent)] text-[var(--cordel-on-accent)]' : idleBtn) : (isAoVivo ? 'bg-[var(--cordel-status-success)] text-[var(--cordel-on-accent)]' : idleBtn)}`}>
                 {(inst.type === 'voice' || isToada) ? <Mic className="w-3 h-3" /> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M11 22 L5 6" /><circle cx="4" cy="3" r="2.5" fill="currentColor" /><path d="M13 22 L19 6" /><circle cx="20" cy="3" r="2.5" fill="currentColor" /></svg>}
@@ -125,7 +129,7 @@ export const WorkspaceTrackCard: React.FC<WorkspaceTrackCardProps> = ({
         </div>
       </div>
       <div className="h-[14px] min-h-[14px] max-h-[14px] w-full flex items-center relative">
-        <TrackInkVolumeSlider trackId={track.id} volumeVal={track.volumeVal} />
+        <TrackInkVolumeSlider trackId={track.id} volumeVal={volumeVal} />
       </div>
       {menuAnchor && <RodaTrackPatternMenu track={track} tracks={tracks} anchorPos={menuAnchor} onClose={() => setMenuAnchor(null)} />}
     </div>

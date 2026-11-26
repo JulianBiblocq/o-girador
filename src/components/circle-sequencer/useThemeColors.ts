@@ -1,8 +1,10 @@
-
 import { useRef, useEffect } from 'react';
 import { ThemeColors } from './circleSequencerTypes';
 
-export function useThemeColors(): React.MutableRefObject<ThemeColors> {
+export function useThemeColors(onThemeChange?: () => void): React.MutableRefObject<ThemeColors> {
+  const onChangeRef = useRef(onThemeChange);
+  onChangeRef.current = onThemeChange;
+
   const themeRef = useRef<ThemeColors>({
     themeBg: '#f4ecd8',
     themeText: '#1a1a1a',
@@ -16,7 +18,7 @@ export function useThemeColors(): React.MutableRefObject<ThemeColors> {
   });
 
   useEffect(() => {
-    const updateTheme = () => {
+    const updateTheme = (notify: boolean) => {
       const doc = document.documentElement;
       const isDark = doc.classList.contains('dark') || doc.getAttribute('data-theme') === 'dark';
       const s = getComputedStyle(doc);
@@ -31,11 +33,14 @@ export function useThemeColors(): React.MutableRefObject<ThemeColors> {
         skinWood: s.getPropertyValue('--roda-skin-wood').trim() || '#8b2a1a',
         isDark,
       };
+      if (notify) onChangeRef.current?.();
     };
-    updateTheme();
+    updateTheme(false);
 
     const obs = new MutationObserver((muts) => {
-      if (muts.some(m => m.attributeName === 'data-theme' || m.attributeName === 'class')) updateTheme();
+      if (muts.some((m) => m.attributeName === 'data-theme' || m.attributeName === 'class')) {
+        updateTheme(true);
+      }
     });
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
     return () => obs.disconnect();

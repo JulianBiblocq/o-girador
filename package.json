@@ -2,7 +2,7 @@
   "name": "ogirador",
   "private": true,
   "license": "UNLICENSED",
-  "version": "1.4.14",
+  "version": "1.4.15",
   "type": "module",
   "scripts": {
     "predev": "node scripts/updatePresets.js && node scripts/copyAudio.js",

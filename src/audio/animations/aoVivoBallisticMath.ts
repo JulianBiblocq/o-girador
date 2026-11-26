@@ -1,20 +1,22 @@
 /**
- * aoVivoBallisticMath.ts — Primitives physiques invariantes & anti-aliasing LTPO (< 95 lignes).
- * - Découple la vélocité balistique du geste (`225 ms` fort / `160 ms` faible) de `realMsUntilNext`.
- * - Garantit un maintien peau incompressible de `34 ms` (>= 1 trame 30 Hz LTPO complète).
- * - Force une préparation compacte de poignet lorsque `realMsUntilNext < 115 ms`.
+ * aoVivoBallisticMath.ts — Cinématique balistique continue à rebond élastique immédiat (< 90 lignes).
+ * - Zéro plateau figé à vitesse nulle (`0 px/s`) : décollement courbe immédiat dès `impactOff`,
+ *   avec coussin d'amorti près de la peau (`tCushionMs`) garantissant lisibilité 30 Hz LTPO et fluidité 120 Hz.
+ * - Préparation compacte de poignet lorsque `realMsUntilNext < 115 ms`.
  */
 
 export const NOMINAL_STRONG_STROKE_MS = 225;
 export const NOMINAL_WEAK_STROKE_MS = 160;
 export const FAST_REPEAT_COMPACT_THRESHOLD_MS = 115;
-export const MIN_SKIN_HOLD_MS = 34;
+export const ELASTIC_CUSHION_SPAN_MS = 22;
 
 export interface ImpactHoldTiming {
   delayOff: number;
   impactOff: number;
+  cushionOff: number;
   holdEndOff: number;
   tImpactMs: number;
+  tCushionMs: number;
   tHoldEndMs: number;
 }
 
@@ -36,21 +38,26 @@ export function computeBallisticDurationMs(
   return Math.min(nominalMs, availMs);
 }
 
-export function computeImpactHoldTiming(durationMs: number, extraDelayMs = 0): ImpactHoldTiming {
+export function computeElasticImpactTiming(durationMs: number, extraDelayMs = 0): ImpactHoldTiming {
   const safeDur = Math.max(48, durationMs);
   const safeExtra = extraDelayMs > 0 ? Math.min(extraDelayMs, safeDur * 0.16) : 0;
-  const baseImpactMs = Math.min(18, safeDur * 0.22);
-  const tImpactMs = safeExtra > 0 ? Math.min(safeExtra + baseImpactMs, safeDur * 0.34) : baseImpactMs;
-  const maxHoldFrac = safeExtra > 0 ? 0.62 : 0.52;
-  const tHoldEndMs = Math.max(tImpactMs + 4, Math.min(tImpactMs + MIN_SKIN_HOLD_MS, safeDur * maxHoldFrac));
+  const baseImpactMs = Math.min(24, safeDur * 0.24);
+  const tImpactMs = safeExtra > 0 ? Math.min(safeExtra + baseImpactMs, safeDur * 0.36) : baseImpactMs;
+  const maxCushionFrac = safeExtra > 0 ? 0.58 : 0.48;
+  const tCushionMs = Math.max(tImpactMs + 8, Math.min(tImpactMs + ELASTIC_CUSHION_SPAN_MS, safeDur * maxCushionFrac));
+  const cushionOff = +(tCushionMs / safeDur).toFixed(3);
   return {
     delayOff: +(safeExtra / safeDur).toFixed(3),
     impactOff: +(tImpactMs / safeDur).toFixed(3),
-    holdEndOff: +(tHoldEndMs / safeDur).toFixed(3),
+    cushionOff,
+    holdEndOff: cushionOff,
     tImpactMs,
-    tHoldEndMs,
+    tCushionMs,
+    tHoldEndMs: tCushionMs,
   };
 }
+
+export const computeImpactHoldTiming = computeElasticImpactTiming;
 
 export function sumLookaheadDurationMs(
   currentStep: number,

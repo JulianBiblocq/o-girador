@@ -5,7 +5,7 @@
 import * as Tone from 'tone';
 import { getMaxTicks } from '../../data';
 import { getMeasureDurationSec } from '../../utils/meterTiming';
-import { getBluetoothVisualOffsetSec } from '../../utils/bluetoothLatencyStore';
+import { getLockedVisualDelaySec, lockVisualOutputLatency } from '../../audio/visualTickBuffer';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { getMeasureStartTick } from './audioParamsCache';
@@ -57,10 +57,10 @@ export function prepareTransportResume(
   );
 
   const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+  lockVisualOutputLatency(rawCtx);
   const nowAudio = activeEngine ? activeEngine.getCurrentTime() : (rawCtx?.currentTime || Tone.context.currentTime);
   const resumeAudioStartTime = nowAudio + 0.035;
-  const baseLatency = typeof rawCtx?.outputLatency === 'number' && !isNaN(rawCtx.outputLatency) ? rawCtx.outputLatency : 0.05;
-  const visualDelay = baseLatency + getBluetoothVisualOffsetSec();
+  const visualDelay = getLockedVisualDelaySec();
   const resumeDrawTime = resumeAudioStartTime + visualDelay;
   const newVisualAnchor = resumeDrawTime - frozenProgress * measureDurationSec;
 

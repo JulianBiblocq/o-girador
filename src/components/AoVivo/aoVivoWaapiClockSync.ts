@@ -1,19 +1,28 @@
 /**
- * aoVivoWaapiClockSync.ts — Asservissement horloge Web Audio sans `el.getAnimations()` (< 120 lignes).
- * - `deltaMs = (nowCtxSec - targetHitDrawSec) * 1000` :
- *   * `deltaMs < -1.5` (swing futur) : `delay = -deltaMs`, `fill = 'both'` (ou `'none'` pour halo).
- *   * `0 <= deltaMs <= tHoldEndMs + 12` : `anim.currentTime = Math.min(deltaMs, tImpactMs + 6)` (zéro saut d'impact).
- *   * `tHoldEndMs + 12 < deltaMs < durationMs * 0.85` : `anim.currentTime = deltaMs`.
- *   * `deltaMs >= durationMs * 0.85` : ignore la frame expirée et applique `endTransform`.
+ * aoVivoWaapiClockSync.ts — Asservissement horloge Web Audio double-slot WAAPI sans fuite (< 125 lignes).
+ * - Si `rawDelta < -1.5` (pré-programmation GPU `delay` anticipée) :
+ *   * Si une animation est déjà en cours sur `el` : `fill: 'forwards'` + slot `queued` (ne coupe jamais le rebond précédent).
+ *   * Sinon (départ depuis le repos) : `fill: 'both'`.
+ * - Si `rawDelta >= -1.5` (déclenchement immédiat) : annule l'ancien slot et borne `currentTime` avant/proche du pic d'impact.
  */
-
 import {
   cancelTrackedElementAnimation,
   getTrackedElementAnimation,
+  getTrackedSlotCount,
+  hasRunningActiveAnimation,
+  pauseTrackedElementAnimations,
+  resumeTrackedElementAnimations,
   trackElementAnimation,
 } from '../../audio/animations/waapiAnimTracker';
 
-export { cancelTrackedElementAnimation, getTrackedElementAnimation, trackElementAnimation };
+export {
+  cancelTrackedElementAnimation,
+  getTrackedElementAnimation,
+  getTrackedSlotCount,
+  pauseTrackedElementAnimations,
+  resumeTrackedElementAnimations,
+  trackElementAnimation,
+};
 
 export interface ClockSyncedWaapiOptions {
   el: Element | null | undefined;
@@ -29,6 +38,11 @@ export interface ClockSyncedWaapiOptions {
   iterations?: number;
   animRef?: { current: Animation | null };
   onExpire?: () => void;
+}
+
+export function alignHitLeadToStrokeStartDeltaMs(signedHitLeadMs: number, tImpactMs: number, isOneShotPreview = false): number {
+  if (isOneShotPreview || !Number.isFinite(signedHitLeadMs)) return 0;
+  return -signedHitLeadMs + Math.max(0, tImpactMs);
 }
 
 export function extractLagAndLeadMs(deltaMs = 0, explicitLagMs = 0): { leadMs: number; lagMs: number } {
@@ -53,20 +67,11 @@ export function runClockSyncedWaapi(opts: ClockSyncedWaapiOptions): Animation | 
   } = opts;
   if (!el || keyframes.length === 0) return null;
 
-  const refAnim = animRef?.current;
-  if (animRef) animRef.current = null;
-  const trackedAnim = getTrackedElementAnimation(el);
-  cancelTrackedElementAnimation(el);
-  if (refAnim && refAnim !== trackedAnim) {
-    try { refAnim.cancel(); } catch (_) {}
-  }
-
   const safeDur = Math.max(16, Math.round(durationMs));
   const safeIters = Number.isFinite(iterations) && iterations > 0 ? iterations : 1;
   const totalSpanMs = safeDur * safeIters;
-
-  const effImpactMs = tImpactMs ?? Math.min(18, safeDur * 0.22);
-  const effHoldEndMs = tHoldEndMs ?? Math.min(effImpactMs + 34, safeDur * 0.52);
+  const effImpactMs = tImpactMs ?? Math.min(24, safeDur * 0.24);
+  const effHoldEndMs = tHoldEndMs ?? Math.min(effImpactMs + 22, safeDur * 0.48);
 
   const rawDelta = typeof deltaMs === 'number' && Number.isFinite(deltaMs)
     ? deltaMs
@@ -74,14 +79,25 @@ export function runClockSyncedWaapi(opts: ClockSyncedWaapiOptions): Animation | 
       ? -delayMs
       : Math.max(0, lagMs);
 
+  const hasActive = hasRunningActiveAnimation(el);
   let effectiveDelay = 0;
   let effectiveFill: FillMode = fill;
   let seekTimeMs = 0;
 
   if (rawDelta < -1.5) {
     effectiveDelay = Math.round(-rawDelta);
-    if (fill !== 'none') effectiveFill = 'both';
+    if (fill !== 'none') {
+      effectiveFill = hasActive ? 'forwards' : 'both';
+    }
   } else {
+    const refAnim = animRef?.current;
+    if (animRef) animRef.current = null;
+    const tracked = getTrackedElementAnimation(el);
+    cancelTrackedElementAnimation(el);
+    if (refAnim && refAnim !== tracked) {
+      try { refAnim.cancel(); } catch (_) {}
+    }
+
     const posDelta = Math.max(0, rawDelta);
     if (Number.isFinite(totalSpanMs) && posDelta >= totalSpanMs * 0.85) {
       applyFinalPoseOnExpire(el, keyframes, fill);
@@ -97,8 +113,19 @@ export function runClockSyncedWaapi(opts: ClockSyncedWaapiOptions): Animation | 
   if (effectiveDelay > 0) animOpts.delay = effectiveDelay;
   if (easing) animOpts.easing = easing;
 
+  const lastKf = keyframes[keyframes.length - 1];
+  const finalTransform = fill !== 'none' && typeof lastKf?.transform === 'string' ? lastKf.transform : undefined;
+  const finalOpacity = lastKf?.opacity !== undefined ? String(lastKf.opacity) : undefined;
+
   const anim = el.animate(keyframes, animOpts);
-  trackElementAnimation(el, anim);
+  trackElementAnimation(el, anim, {
+    isQueued: effectiveDelay > 0 && hasActive,
+    delayMs: effectiveDelay,
+    finalTransform,
+    finalOpacity,
+    isInfinite: !Number.isFinite(iterations),
+  });
+
   if (effectiveDelay === 0 && Number.isFinite(seekTimeMs) && seekTimeMs > 0.5) {
     try {
       anim.currentTime = Number.isFinite(totalSpanMs) ? seekTimeMs : seekTimeMs % safeDur;

@@ -22,7 +22,7 @@ export function renderTrackStepLayer(
   getLiveActivePatternId: (t: TrackGroup) => number | null, livePlaybackRef: React.MutableRefObject<any>,
   stateVal: any, pendingTargetMeasureRef: React.MutableRefObject<number | null>,
   activeVariationsRef: React.MutableRefObject<{ [trackId: number]: any }> | undefined,
-  dynamicScale: number, isEco: boolean, centerX: number, centerY: number
+  dynamicScale: number, isEco: boolean, centerX: number, centerY: number, interpolatedRatio?: number
 ): void {
   const live = livePlaybackRef.current, localStep = live ? live.step : -1;
   const isPlaying = Boolean(stateVal.isPlaying && (live as any)?.isPlaying !== false && !live?.isPreRoll && localStep >= 0);
@@ -35,18 +35,22 @@ export function renderTrackStepLayer(
   const activeTimeSig = stateVal.measureTimeSigs ? stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4' : stateVal.timeSig || '4/4';
   const measureGeom = getRodaMeasureGeometry(String(activeTimeSig));
   const localTicks = isPlaying && live.maxTicks > 0 ? live.maxTicks : measureGeom.maxTicks;
-  const playheadRatio = isFrozen ? frozenPlaybackState.progress : isPlaying ? (live.ratio !== undefined ? live.ratio : (localTicks > 0 ? localStep / localTicks : 0)) : -1;
+  const fallbackRatio = live?.ratio !== undefined ? live.ratio : (localTicks > 0 ? localStep / localTicks : 0);
+  const playheadRatio = isFrozen
+    ? frozenPlaybackState.progress
+    : isPlaying
+      ? (typeof interpolatedRatio === 'number' ? interpolatedRatio : fallbackRatio)
+      : -1;
 
   const liveSeqId = isPlaying && typeof live?.measureSeqId === 'number' ? live.measureSeqId : 0;
   syncLiveVariationRodaVisualFrame(isPlayheadActive, measureIdx, Math.max(0, playheadRatio), activeVariationsRef, liveSeqId);
 
+  const rodaTracks = activeVisibleTracks.filter(isRodaDrawableTrack), totalRings = rodaTracks.length;
   const rodaSweepMode = useSequencerStore.getState().rodaSweepMode || 'sweep6h';
-  if (rodaSweepMode === 'sweep6h' && isPlayheadActive) {
+  if (totalRings > 0 && rodaSweepMode === 'sweep6h' && isPlayheadActive) {
     const sweepRatio = computeContinuousSweepRatio(isPlayheadActive, playheadRatio, rodaSweepMode, measureIdx, undefined, stateVal.measureTimeSigs, stateVal.timeSig);
     drawRodaSweepWave(ctx, centerX, centerY, 130, 512, sweepRatio, isEco);
   }
-
-  const rodaTracks = activeVisibleTracks.filter(isRodaDrawableTrack), totalRings = rodaTracks.length;
   const soloId = stateVal.soloPatternPlayId ?? null;
 
   rodaTracks.forEach((track, ringIndex) => {

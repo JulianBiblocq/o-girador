@@ -3,6 +3,7 @@ import { ASSETS_BASE_URL } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { CircleInfoBadges } from './CircleInfoBadges';
 import { CircleCenterOverlay } from './CircleCenterOverlay';
+import { CircleDrumstickOverlay } from './CircleDrumstickOverlay';
 import { CircleVocalToolbar } from './CircleVocalToolbar';
 import { AoVivoOverlay } from '../AoVivoOverlay';
 import { BluetoothListeningBadge } from '../bluetooth/BluetoothListeningBadge';
@@ -15,8 +16,8 @@ interface CircleSequencerViewProps {
 export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state }) => {
   const {
     isActive, lang, timeSig, activeBpm, activeVol,
-    canvasRef, centerOverlayRef,
-    centerAfficheurRef, centerOverlayImgRef, centerOverlayTintRef, centerOverlayTextRef,
+    canvasRef, karaokeCanvasRef, needleGroupRef, visibleTrackCount,
+    centerOverlayRef, centerAfficheurRef, centerOverlayImgRef, centerOverlayTintRef, centerOverlayTextRef,
     isCenterShaking, isLetraActive, toggleLetraActive, vocalMode, setVocalMode,
     handleCanvasPointerDown, pedagogyTarget, setPedagogyTarget, isMobile,
   } = state;
@@ -59,6 +60,7 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
             maxHeight: '100%',
           }}
         >
+          {/* z-0 : Orbites, pastilles, peau d'Alfaia et balai 6h */}
           <canvas
             ref={canvasRef}
             data-tour-id="roda-canvas"
@@ -69,12 +71,29 @@ export const CircleSequencerView: React.FC<CircleSequencerViewProps> = ({ state 
               e.stopPropagation();
             }}
             onPointerDown={handleCanvasPointerDown}
-            className="w-full h-full block aspect-square cursor-pointer select-none"
+            className="w-full h-full block aspect-square cursor-pointer select-none relative z-0"
             style={{ touchAction: 'none' }}
             role="application"
             aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — séquenceur circulaire'}
           />
 
+          {/* z-[5] : Aiguille vectorielle WAAPI GPU (au-dessus des pastilles, sous le médaillon central) */}
+          <CircleDrumstickOverlay
+            needleGroupRef={needleGroupRef}
+            visibleTrackCount={visibleTrackCount ?? 0}
+          />
+
+          {/* z-[8] : Médaillon central Karaoké mis en cache (au-dessus du pivot de l'aiguille, sous AoVivo) */}
+          <canvas
+            ref={karaokeCanvasRef}
+            width={isMobile ? 600 : 1200}
+            height={isMobile ? 600 : 1200}
+            className="absolute inset-0 w-full h-full block aspect-square pointer-events-none select-none z-[8]"
+            style={{ display: isLetraActive ? 'block' : 'none' }}
+            aria-hidden="true"
+          />
+
+          {/* z-10 : Signaux Mestre / Précompte / Marqueurs */}
           <CircleCenterOverlay
             centerOverlayRef={centerOverlayRef}
             centerAfficheurRef={centerAfficheurRef}

@@ -49,10 +49,13 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
       const first = expanded.findIndex((item) => item.baseMeasure === m);
       return first !== -1 ? first : m;
     };
+    let lastM = -1, lastIter = -1, lastQ: number | null | undefined = undefined;
     const updateDom = (m: number, iter: number) => {
+      const qIdx = useSequencerStore.getState().queuedExpandedMeasureIdx;
+      if (m === lastM && iter === lastIter && qIdx === lastQ) return;
+      lastM = m; lastIter = iter; lastQ = qIdx;
       const idx = resolveExpIdx(m, iter);
       liveExpandedIdxRef.current = idx;
-      const qIdx = useSequencerStore.getState().queuedExpandedMeasureIdx;
       const shownIdx = qIdx !== null ? qIdx : idx;
       if (labelSpanRef.current) {
         const nextText = `${shownIdx + 1} / ${displayTotal}`;

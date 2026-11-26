@@ -22,10 +22,8 @@ export const drawDrumstickNeedle = (
   ctx.rotate(stickAngle);
 
   if (!isHeavyEffectsDisabled) {
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
   }
 
   // Corps de la baguette (+25 % d'épaisseur sur fût et col)

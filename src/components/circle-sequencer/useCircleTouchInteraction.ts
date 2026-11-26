@@ -1,7 +1,7 @@
 import React from 'react';
-import { isSequencerVisibleTrack } from '../../stores/useSequencerStore';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { getTone } from '../../ToneLoader';
-import { sortTracksByRodaOrder, orderActiveVisibleRodaTracks, isRodaDrawableTrack } from './sortTracksByRodaOrder';
+import { resolveOrderedVisibleRodaTracks } from './resolveVisibleRodaTracks';
 import { resolveRodaPedagogicalHit } from './resolveRodaPedagogicalHit';
 import { LivePlaybackState } from './circleSequencerTypes';
 import { StrokeInfoPopoverTarget } from '../pedagogy/strokeInfoTypes';
@@ -46,15 +46,14 @@ export function useCircleTouchInteraction(
       return;
     }
 
-    const currentTracks = stateRef.current.tracks || [];
-    const currentRawTracks = stateRef.current.rawTracks || currentTracks;
-    const currentRodaOrder = stateRef.current.rodaTrackOrder;
-    const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
-
-    const activeVisibleTracksToDraw = orderActiveVisibleRodaTracks(
-      sortedCurrentTracks.filter((t) => isRodaDrawableTrack(t) && isSequencerVisibleTrack(t, currentTracks)),
-      currentRawTracks
-    );
+    const storeSt = useSequencerStore.getState();
+    const currentRawTracks = stateRef.current.explicitTracks ?? stateRef.current.rawTracks ?? storeSt.tracks ?? [];
+    const currentRodaOrder = stateRef.current.explicitRodaTrackOrder ?? stateRef.current.rodaTrackOrder ?? storeSt.rodaTrackOrder;
+    const activeVisibleTracksToDraw = resolveOrderedVisibleRodaTracks(currentRawTracks, {
+      ...(stateRef.current.rodaFilterProps || {}),
+      isMobile: stateRef.current.isMobile,
+      showLinkedTracksOnRoda: stateRef.current.explicitShowLinkedTracksOnRoda ?? storeSt.showLinkedTracksOnRoda,
+    }, currentRodaOrder);
 
     const hitTarget = resolveRodaPedagogicalHit({
       clientX: e.clientX,

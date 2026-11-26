@@ -14,10 +14,13 @@ export const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]): 
     if (
       p.id !== n.id ||
       p.instrumentIdx !== n.instrumentIdx ||
+      p.customName !== n.customName ||
       p.isHidden !== n.isHidden ||
       p.isMute !== n.isMute ||
       p.isSolo !== n.isSolo ||
       p.radius !== n.radius ||
+      p.linkedToTrackId !== n.linkedToTrackId ||
+      p.isLinkMaster !== n.isLinkMaster ||
       p.patternOverrides !== n.patternOverrides
     ) {
       return false;

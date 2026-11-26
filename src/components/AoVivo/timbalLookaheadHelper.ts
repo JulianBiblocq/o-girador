@@ -37,11 +37,12 @@ function animateTimbalHand(
   const customNom = sUp === 'P' ? Math.max(225, 18 + strokes.presoHoldMs + 90) : undefined;
   const dur = computeBallisticDurationMs(isStrong, look.msUntilNext, speedMultiplier, customNom);
   const { impactOff, holdEndOff, tImpactMs, tHoldEndMs } = computeImpactHoldTiming(dur, flaRole === 'main' ? strokes.flaGraceDelayMs : 0);
+  const alignedDeltaMs = deltaMs < 0 ? deltaMs + tImpactMs : deltaMs;
 
   runClockSyncedWaapi({
     el: handEl,
     keyframes: generateTimbalPredictiveKeyframes(stroke, isLeftSide, look.nextKind, dur, flaRole, look.nextSymbol, look.isNextWeak, look.msUntilNext),
-    durationMs: dur, deltaMs, tImpactMs, tHoldEndMs, animRef,
+    durationMs: dur, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs, animRef,
   });
   applyTimbalSlapBiomechanics(handEl, sUp === 'S' || sUp === 'T' || sUp === 'C' || sUp === 'X');
   const { fingers, shEl } = getTimbalSubNodes(handEl);
@@ -49,7 +50,8 @@ function animateTimbalHand(
     for (let i = 0; i < fingers.length; i++) {
       const fEl = fingers[i], m = Number(fEl.getAttribute('data-finger-mult') || 0);
       const tr = `translateY(${+(-m * strokes.slapThumbLift * 11).toFixed(1)}px) rotate(${+(m * strokes.slapFingerSplayDeg).toFixed(2)}deg)`;
-      runClockSyncedWaapi({ el: fEl, keyframes: [{ transform: tr }, { transform: tr, offset: holdEndOff }, { transform: 'translateY(0px) rotate(0deg)' }], durationMs: dur, deltaMs, tImpactMs, tHoldEndMs });
+      const fCush = `translateY(${+(-m * strokes.slapThumbLift * 5).toFixed(1)}px) rotate(${+(m * strokes.slapFingerSplayDeg * 0.45).toFixed(2)}deg)`;
+      runClockSyncedWaapi({ el: fEl, keyframes: [{ transform: tr, offset: 0 }, { transform: tr, offset: impactOff }, { transform: fCush, offset: holdEndOff }, { transform: 'translateY(0px) rotate(0deg)', offset: 1 }], durationMs: dur, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs });
     }
   }
   if (shEl) {
@@ -57,14 +59,17 @@ function animateTimbalHand(
     const mid = isClap
       ? { transform: `translate3d(${sign * 26}px, ${Math.round(shadowDepthPx * 1.9)}px, 0) scale(1.22)`, opacity: +(shadowOpacity * 0.22).toFixed(2) }
       : { transform: `translate3d(${sign * 2}px, 3px, 0) scale(0.98)`, opacity: +shadowOpacity.toFixed(2) };
+    const cush = isClap
+      ? { transform: `translate3d(${sign * 20}px, ${Math.round(shadowDepthPx * 1.55)}px, 0) scale(1.15)`, opacity: +(shadowOpacity * 0.3).toFixed(2) }
+      : { transform: `translate3d(${sign * 5}px, ${Math.round(shadowDepthPx * 0.35)}px, 0) scale(1.01)`, opacity: +(shadowOpacity * 0.78).toFixed(2) };
     runClockSyncedWaapi({
       el: shEl,
       keyframes: [
-        { transform: `translate3d(${sign * 18}px, ${Math.round(shadowDepthPx * 1.45)}px, 0) scale(1.13)`, opacity: +(shadowOpacity * 0.32).toFixed(2), offset: 0 },
-        { ...mid, offset: impactOff }, { ...mid, offset: holdEndOff },
+        { transform: `translate3d(${sign * 14}px, ${Math.round(shadowDepthPx * 1.25)}px, 0) scale(1.08)`, opacity: +(shadowOpacity * 0.38).toFixed(2), offset: 0 },
+        { ...mid, offset: impactOff, easing: 'ease-out' }, { ...cush, offset: holdEndOff },
         { transform: getTimbalShadowRestTransform(isLeftSide, true), opacity: +(shadowOpacity * 0.45).toFixed(2), offset: 1 },
       ],
-      durationMs: dur, deltaMs, tImpactMs, tHoldEndMs,
+      durationMs: dur, deltaMs: alignedDeltaMs, tImpactMs, tHoldEndMs,
     });
   }
 }

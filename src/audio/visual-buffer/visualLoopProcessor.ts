@@ -1,41 +1,66 @@
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { detachedWindowManager } from '../../utils/detachedWindowManager';
 import { syncAudibleTickVariationRef } from '../../hooks/audio-sync/liveVariationSnapshotStore';
-import { tickSubscribers, syncAudioEngine } from './visualTickSubscribers';
 import {
-  tickQueue,
-  hitQueue,
-  TICK_QUEUE_SIZE,
-  HIT_QUEUE_SIZE,
-  tickWriteIdx,
-  tickReadIdx,
-  setTickReadIdx,
-  hitWriteIdx,
-  hitReadIdx,
-  setHitReadIdx,
-  setLastAudibleTick,
+  lookaheadTickSubscribers,
+  syncAudioEngine,
+  tickSubscribers,
+  visualFrameSubscribers,
+} from './visualTickSubscribers';
+import {
   flushVisualBuffers,
+  lookaheadTickReadIdx,
+  setLastAudibleTick,
+  setLookaheadTickReadIdx,
+  setOnTickPushedWakeHook,
+  setTickReadIdx,
+  TICK_QUEUE_SIZE,
+  tickQueue,
+  tickReadIdx,
+  tickWriteIdx,
+  VISUAL_LOOKAHEAD_SEC,
 } from './visualTickRingBuffer';
 
 let rafId: number | null = null;
 let rafHostWin: Window | null = null;
 let audioContextRef: AudioContext | null = null;
-let hitTriggersPoolRef: { current: { push: (trackId: number, stepIdx: number, strokeCode: number) => void } } | null = null;
 
 function scheduleNextVisualFrame(): void {
+  if (typeof window === 'undefined' || rafId !== null) return;
   const satWin = typeof document !== 'undefined' && document.hidden ? detachedWindowManager.getWindow('satellite') : null;
   const hostWin = (satWin && !satWin.closed && !satWin.document?.hidden ? satWin : null) || window;
   rafHostWin = hostWin;
   rafId = hostWin.requestAnimationFrame(processVisualLoop);
 }
 
+export function wakeVisualLoop(): void {
+  if (audioContextRef && rafId === null) {
+    scheduleNextVisualFrame();
+  }
+}
+
+setOnTickPushedWakeHook(wakeVisualLoop);
+
 /**
- * Boucle visuelle unique : distribue 100 % des ticks echus (zero decimation, quel que soit
- * le palier Eco) afin que Roda, Playhead Timeline et karaoke restent synchronises a 60 FPS.
+ * Dépile dans un ordre déterministe strict au sein de la même trame VSync :
+ * 1) Canal anticipé `85 ms` (`lookaheadTickSubscribers` — Ao Vivo WAAPI GPU `delay`),
+ * 2) Canal synchrone `0 ms` (`tickSubscribers` — Roda, Timeline, Karaoké, Conducteur),
+ * 3) Rendu unifié post-ticks (`visualFrameSubscribers` — Roda `<canvas>` & Aiguille).
  */
-function processVisualLoop(): void {
-  if (!audioContextRef) return;
-  const currentTime = audioContextRef.currentTime;
+export function drainVisualLoopAtTime(currentTime: number): void {
+  const lookaheadHorizon = currentTime + VISUAL_LOOKAHEAD_SEC;
+  let curLookahead = lookaheadTickReadIdx;
+  while (curLookahead !== tickWriteIdx) {
+    const evt = tickQueue[curLookahead];
+    if (evt.drawTime > lookaheadHorizon) break;
+    if (!evt.isPreRoll && lookaheadTickSubscribers.size > 0) {
+      lookaheadTickSubscribers.forEach((cb) => {
+        try { cb(evt); } catch (err) { console.error('Error in lookahead tick subscriber:', err); }
+      });
+    }
+    curLookahead = (curLookahead + 1) % TICK_QUEUE_SIZE;
+  }
+  setLookaheadTickReadIdx(curLookahead);
 
   let currentTickRead = tickReadIdx;
   while (currentTickRead !== tickWriteIdx) {
@@ -51,7 +76,6 @@ function processVisualLoop(): void {
     if (!evt.isPreRoll && st.isPreRolling) {
       st.setIsPreRolling(false);
     }
-
     if (st.queuedMeasure !== null && evt.step === 0 && evt.measure === st.queuedMeasure) {
       st.clearQueuedMeasure(st.queuedMeasureSeq);
     }
@@ -61,42 +85,34 @@ function processVisualLoop(): void {
       syncAudibleTickVariationRef(evt.measureSeqId, evt.measure);
     }
     tickSubscribers.forEach((cb) => {
-      try {
-        cb(evt);
-      } catch (err) {
-        console.error('Error in tick subscriber callback:', err);
-      }
+      try { cb(evt); } catch (err) { console.error('Error in tick subscriber callback:', err); }
     });
 
     currentTickRead = (currentTickRead + 1) % TICK_QUEUE_SIZE;
   }
   setTickReadIdx(currentTickRead);
 
-  if (hitTriggersPoolRef?.current) {
-    let currentHitRead = hitReadIdx;
-    while (currentHitRead !== hitWriteIdx) {
-      const hit = hitQueue[currentHitRead];
-      if (hit.triggerTime > currentTime) break;
-      hitTriggersPoolRef.current.push(hit.trackId, hit.stepIdx, hit.strokeCode);
-      currentHitRead = (currentHitRead + 1) % HIT_QUEUE_SIZE;
-    }
-    setHitReadIdx(currentHitRead);
-  }
-
-  scheduleNextVisualFrame();
+  visualFrameSubscribers.forEach((cb) => {
+    try { cb(currentTime); } catch (err) { console.error('Error in visual frame subscriber:', err); }
+  });
 }
 
-export function startVisualLoop(
-  ctx: AudioContext,
-  hitTriggersRef?: { current: { push: (trackId: number, stepIdx: number, strokeCode: number) => void } }
-): void {
-  audioContextRef = ctx;
-  if (hitTriggersRef) {
-    hitTriggersPoolRef = hitTriggersRef;
-  }
-  if (rafId === null) {
+function processVisualLoop(): void {
+  rafId = null;
+  if (!audioContextRef) return;
+  const currentTime = audioContextRef.currentTime;
+  drainVisualLoopAtTime(currentTime);
+
+  const st = useSequencerStore.getState();
+  const hasPendingTicks = tickReadIdx !== tickWriteIdx || lookaheadTickReadIdx !== tickWriteIdx;
+  if (st.isPlaying || st.isPreRolling || hasPendingTicks) {
     scheduleNextVisualFrame();
   }
+}
+
+export function startVisualLoop(ctx: AudioContext, _hitTriggersRef?: unknown): void {
+  audioContextRef = ctx;
+  scheduleNextVisualFrame();
 }
 
 export function stopVisualLoop(): void {
