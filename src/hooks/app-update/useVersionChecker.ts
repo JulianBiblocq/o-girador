@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { applyServiceWorkerReload } from './swReloadHelper';
 
-export const CURRENT_VERSION = "1.4.15";
+export const CURRENT_VERSION = "1.4.16";
 export const HAS_SEEN_UPDATE_KEY = `has_seen_update_${CURRENT_VERSION}`;
 
 interface UseVersionCheckerParams {
