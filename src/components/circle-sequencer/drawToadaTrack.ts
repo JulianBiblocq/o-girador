@@ -1,5 +1,6 @@
 import { TrackGroup, Pattern, InstrumentConfig } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { useSequencerStore } from '../../stores/useSequencerStore';
 import { resolvePatternForMeasure } from './measurePatternHelpers';
 import { resolveCachedToadaStepsAndBlocks } from './rodaToadaTrackCache';
 import { drawVoiceRibbons } from './drawVoiceRibbons';
@@ -31,7 +32,8 @@ export const drawToadaTrack = (
   themeWood: string,
   themeBorder: string,
   themeText: string,
-  beatResolutions?: readonly number[]
+  beatResolutions?: readonly number[],
+  opts?: { skipLabel?: boolean; skipCurrentRing?: boolean }
 ): void => {
   ctx.save();
   ctx.globalAlpha = 1.0;
@@ -54,8 +56,11 @@ export const drawToadaTrack = (
   }
 
   const totalM = totalMeasures || 1;
+  const queuedM = useSequencerStore.getState().queuedMeasure;
   let nextMeasureIdx: number;
-  if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {
+  if (queuedM !== null && queuedM !== undefined) {
+    nextMeasureIdx = queuedM;
+  } else if (isLoopRegionActive && loopEndMeasure !== null && loopEndMeasure !== undefined && measureIdx === loopEndMeasure) {
     nextMeasureIdx = loopStartMeasure !== null && loopStartMeasure !== undefined ? loopStartMeasure : 0;
   } else {
     nextMeasureIdx = (measureIdx + 1) % totalM;
@@ -98,7 +103,7 @@ export const drawToadaTrack = (
   const trackLabel = isPauseMeasure ? 'Baque' : (track.customName || currentInst.name || (isToada ? 'Toada' : 'Voix'));
   drawVoicePastilles(
     ctx, centerX, centerY, tRad, stepAngles, effectiveStepCount, currentStep,
-    puxSteps, coroSteps, dynamicScale, isEco, themeWood, themeBorder, themeText, trackLabel
+    puxSteps, coroSteps, dynamicScale, isEco, themeWood, themeBorder, themeText, trackLabel, opts
   );
 
   ctx.setLineDash([]);

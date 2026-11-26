@@ -25,8 +25,9 @@ export class EngineVoiceAttack {
       if (typeof window !== 'undefined') {
         const win = window as any;
         win.__LAST_VOICE_ATTACK__ = { pitch, duration, time, velocity, targetTrackId, melismaGlides, timestamp: Date.now() };
-        win.__VOICE_ATTACK_HISTORY__ = win.__VOICE_ATTACK_HISTORY__ || [];
-        win.__VOICE_ATTACK_HISTORY__.push({ pitch, duration, time, velocity, targetTrackId, melismaGlides });
+        if (Array.isArray(win.__VOICE_ATTACK_HISTORY__) && win.__VOICE_ATTACK_HISTORY__.length < 64) {
+          win.__VOICE_ATTACK_HISTORY__.push({ pitch, duration, time, velocity, targetTrackId, melismaGlides });
+        }
       }
 
       const Tone = getTone();

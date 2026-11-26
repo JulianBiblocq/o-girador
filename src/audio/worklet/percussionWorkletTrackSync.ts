@@ -1,6 +1,5 @@
 /**
- * O Girador - Synchronisation Différentielle des Pistes & Escouades Spatiales vers AudioWorklet (< 140 lignes)
- * - SSOT Accordage (`EngineTuning`), Tempérament de Section, Escouades Spatiales `(x, y)` et Mute.
+ * O Girador - Synchronisation Différentielle des Pistes & Escouades Spatiales vers AudioWorklet (< 132 lignes)
  */
 import { instrumentsConfig } from '../../data';
 import { InstrumentAudioConfig } from '../../data/audioConfig';
@@ -30,14 +29,18 @@ export class PercussionWorkletTrackSync {
   private readonly trackPitchRatio = new Map<number, number>();
   private readonly trackInstrumentId = new Map<number, string>();
   private readonly trackSpatialProfile = new Map<number, SectionSpatialProfile>();
+  private lastSyncedTracksRef: TrackGroup[] | null = null;
+  private lastSyncGlobalKey = '';
 
   public resetDiffCache(): void {
     this.lastTrackId.fill(-1); this.lastMuted.fill(-1);
     this.lastPitchRatio.fill(-1); this.lastDecayNorm.fill(-1);
     this.lastSpatialHash.fill('');
+    this.lastSyncedTracksRef = null; this.lastSyncGlobalKey = '';
   }
 
   public invalidateSlot(slot: number): void {
+    this.lastSyncedTracksRef = null; this.lastSyncGlobalKey = '';
     if (slot >= 0 && slot < MAX_WORKLET_OUTPUTS) {
       this.lastTrackId[slot] = -1; this.lastMuted[slot] = -1;
       this.lastPitchRatio[slot] = -1; this.lastDecayNorm[slot] = -1;
@@ -54,6 +57,11 @@ export class PercussionWorkletTrackSync {
     const effBpm = liveBpm && liveBpm > 0 ? liveBpm : (seqState.bpm || 100);
     const chorusAmount = getEffectiveSkinChorusAmount(seqState);
     const isStrictAudioEco = Boolean(seqState.ecoConfig?.disableFx);
+    const b = seqState.globalAutomationBypass;
+    const globalKey = `${seqState.tracksVersion}|${effBpm.toFixed(2)}|${soloPatternPlayId ?? ''}|${chorusAmount.toFixed(3)}|${isStrictAudioEco ? 1 : 0}|${seqState.tocarJuntoActive ? 1 : 0}:${seqState.tocarJuntoIsMuted ? 1 : 0}:${seqState.tocarJuntoTrackId ?? ''}:${seqState.isRestOfEnsembleMuted ? 1 : 0}:${seqState.isFocusActive ? 1 : 0}:${seqState.focusTrackId ?? ''}:${seqState.referenceTrackId ?? ''}|${b?.all ? 1 : 0}${b?.pan ? 1 : 0}|${port ? 1 : 0}`;
+    if (this.lastSyncedTracksRef === tracks && this.lastSyncGlobalKey === globalKey) return;
+    this.lastSyncedTracksRef = tracks; this.lastSyncGlobalKey = globalKey;
+
     const familyCache = new Set<string>();
     const temperamentMap = computeSectionTemperamentMap(tracks);
 
@@ -63,8 +71,7 @@ export class PercussionWorkletTrackSync {
       const trackId = Number(track.id);
       if (!Number.isFinite(trackId)) continue;
 
-      const inst = instrumentsConfig[track.instrumentIdx];
-      const instrumentId = inst ? inst.id : '';
+      const instrumentId = instrumentsConfig[track.instrumentIdx]?.id || '';
       this.trackInstrumentId.set(trackId, instrumentId);
       const temp = temperamentMap.get(trackId) ?? NEUTRAL_SECTION_TEMPERAMENT;
       this.trackUnisonDelaySec.set(trackId, temp.attackSpreadSec);
@@ -87,25 +94,15 @@ export class PercussionWorkletTrackSync {
       const isMuted = (soloPatternPlayId !== null ? false : getEffectiveMuteState(tracks, trackId)) || isPracticeMuted;
       const mutedFlag = isMuted ? 1 : 0;
 
-      const gainL: number[] = new Array(MAX_WORKLET_PLAYERS_PER_SLOT).fill(1);
-      const gainR: number[] = new Array(MAX_WORKLET_PLAYERS_PER_SLOT).fill(1);
-      const pitchMul: number[] = new Array(MAX_WORKLET_PLAYERS_PER_SLOT).fill(1);
+      const gainL = new Array(MAX_WORKLET_PLAYERS_PER_SLOT).fill(1), gainR = new Array(MAX_WORKLET_PLAYERS_PER_SLOT).fill(1), pitchMul = new Array(MAX_WORKLET_PLAYERS_PER_SLOT).fill(1);
       for (let k = 0; k < spatial.players.length && k < MAX_WORKLET_PLAYERS_PER_SLOT; k++) {
-        gainL[k] = spatial.players[k].gainL;
-        gainR[k] = spatial.players[k].gainR;
-        pitchMul[k] = spatial.players[k].pitchMul;
+        gainL[k] = spatial.players[k].gainL; gainR[k] = spatial.players[k].gainR; pitchMul[k] = spatial.players[k].pitchMul;
       }
       const spHash = spatial.isNeutralSolo ? 'solo' : `${spatial.synthesizedCount}:${gainL.map((v) => v.toFixed(4)).join(',')}:${gainR.map((v) => v.toFixed(4)).join(',')}:${pitchMul.map((v) => v.toFixed(4)).join(',')}`;
 
-      if (
-        this.lastTrackId[slot] !== trackId || this.lastMuted[slot] !== mutedFlag ||
-        Math.abs(this.lastPitchRatio[slot] - pitchRatio) > 1e-5 ||
-        Math.abs(this.lastDecayNorm[slot] - decayNorm) > 1e-5 ||
-        this.lastSpatialHash[slot] !== spHash
-      ) {
+      if (this.lastTrackId[slot] !== trackId || this.lastMuted[slot] !== mutedFlag || Math.abs(this.lastPitchRatio[slot] - pitchRatio) > 1e-5 || Math.abs(this.lastDecayNorm[slot] - decayNorm) > 1e-5 || this.lastSpatialHash[slot] !== spHash) {
         this.lastTrackId[slot] = trackId; this.lastMuted[slot] = mutedFlag;
-        this.lastPitchRatio[slot] = pitchRatio; this.lastDecayNorm[slot] = decayNorm;
-        this.lastSpatialHash[slot] = spHash;
+        this.lastPitchRatio[slot] = pitchRatio; this.lastDecayNorm[slot] = decayNorm; this.lastSpatialHash[slot] = spHash;
         if (port) {
           const msg: UpdateTrackSlotMessage = { type: 'UPDATE_TRACK_SLOT', slot, trackId, isMuted, pitchRatio, decayNorm, playerGainL: gainL, playerGainR: gainR, playerPitchMul: pitchMul };
           try { port.postMessage(msg); } catch (_) {}
@@ -122,16 +119,13 @@ export class PercussionWorkletTrackSync {
   public getTrackSpatialProfile(trackId: number | string): SectionSpatialProfile | undefined { return this.trackSpatialProfile.get(Number(trackId)); }
 
   public releaseTrack(trackId: number | string): void {
-    const numId = Number(trackId);
+    const numId = Number(trackId); this.lastSyncedTracksRef = null;
     this.trackUnisonDelaySec.delete(numId); this.trackBalancoAdherence.delete(numId); this.trackPartnerRank.delete(numId);
-    this.trackPitchRatio.delete(numId); this.trackInstrumentId.delete(numId);
-    this.trackSpatialProfile.delete(numId);
+    this.trackPitchRatio.delete(numId); this.trackInstrumentId.delete(numId); this.trackSpatialProfile.delete(numId);
   }
-
   public dispose(): void {
     this.resetDiffCache();
     this.trackUnisonDelaySec.clear(); this.trackBalancoAdherence.clear(); this.trackPartnerRank.clear();
-    this.trackPitchRatio.clear(); this.trackInstrumentId.clear();
-    this.trackSpatialProfile.clear();
+    this.trackPitchRatio.clear(); this.trackInstrumentId.clear(); this.trackSpatialProfile.clear();
   }
 }

@@ -6,7 +6,10 @@ import * as Tone from 'tone';
 import { AudioEngine } from '../../AudioEngine';
 import { safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
 import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
+import { prewarmVocalGraphForTracks } from '../../audio/vocal/vocalGraphPrewarmer';
 import { vocalEngineService } from '../../audio/vocalEngineService';
+import { resolveOrderedVisibleRodaTracks } from '../../components/circle-sequencer/resolveVisibleRodaTracks';
+import { prewarmRodaSpritesForMeasuresSync, scheduleIdleRodaSpritePrewarm } from '../../components/circle-sequencer/rodaSpritePrewarmer';
 import { instrumentsConfig } from '../../data';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { Track } from '../../types';
@@ -100,6 +103,15 @@ export async function ensureTransportPlayReady(
 
     if (vocalEngineService.getRehydratingPromise() || vocalEngineService.needsRehydration(startTracks)) {
       try { await vocalEngineService.rehydrateVocalBuffers(startTracks); } catch (_) {}
+    }
+
+    if (startTracks && startTracks.length > 0) {
+      prewarmVocalGraphForTracks(startTracks, activeEngine);
+      const st = useSequencerStore.getState(), totalM = deps.totalMeasuresRef.current || st.totalMeasures || 1;
+      const startM = Math.max(0, Math.min(totalM - 1, st.currentMeasure || 0));
+      const visTracks = resolveOrderedVisibleRodaTracks(startTracks, { showLinkedTracksOnRoda: st.showLinkedTracksOnRoda }, st.rodaTrackOrder);
+      prewarmRodaSpritesForMeasuresSync(visTracks, startTracks, [startM, (startM + 1) % totalM], Boolean(st.isLeftHanded), st.timeSig, deps.measureTimeSigsRef.current);
+      scheduleIdleRodaSpritePrewarm(visTracks, startTracks, Boolean(st.isLeftHanded), st.timeSig, deps.measureTimeSigsRef.current);
     }
 
     if (activeEngine && String((activeEngine.getAudioContext?.() as any)?.state) !== 'running') {

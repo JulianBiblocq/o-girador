@@ -24,7 +24,7 @@ interface ToadaCacheEntry {
   coroPlayingSteps: any;
   activePlayingSteps: any;
   soloPlayId: number | null | undefined;
-  currentStepBucket: number;
+  inTailWindow: boolean;
   stepsInFirstBeat: number;
   stepsInLastBeat: number;
   result: CachedToadaGeometry;
@@ -57,7 +57,8 @@ export function resolveCachedToadaStepsAndBlocks(params: {
   stepsInLastBeat: number;
 }): CachedToadaGeometry {
   const { trackId, effectiveStepCount, currentStep } = params;
-  const currentStepBucket = currentStep < 0 ? -1 : currentStep;
+  const tailWindow = Math.max(1, params.stepsInFirstBeat);
+  const inTailWindow = currentStep >= 0 && currentStep < tailWindow && (params.soloPlayId === undefined || params.soloPlayId === null);
   const prev = toadaCacheByTrack.get(trackId);
 
   if (
@@ -76,7 +77,7 @@ export function resolveCachedToadaStepsAndBlocks(params: {
     prev.coroPlayingSteps === params.coroPlayingSteps &&
     prev.activePlayingSteps === params.activePlayingSteps &&
     prev.soloPlayId === params.soloPlayId &&
-    prev.currentStepBucket === currentStepBucket &&
+    prev.inTailWindow === inTailWindow &&
     prev.stepsInFirstBeat === params.stepsInFirstBeat &&
     prev.stepsInLastBeat === params.stepsInLastBeat
   ) {
@@ -104,7 +105,7 @@ export function resolveCachedToadaStepsAndBlocks(params: {
     activePattern: params.activePattern, instId: params.currentInst.id,
     puxPlayingSteps: params.puxPlayingSteps, coroPlayingSteps: params.coroPlayingSteps,
     activePlayingSteps: params.activePlayingSteps, soloPlayId: params.soloPlayId,
-    currentStepBucket, stepsInFirstBeat: params.stepsInFirstBeat, stepsInLastBeat: params.stepsInLastBeat,
+    inTailWindow, stepsInFirstBeat: params.stepsInFirstBeat, stepsInLastBeat: params.stepsInLastBeat,
     result,
   });
   return result;

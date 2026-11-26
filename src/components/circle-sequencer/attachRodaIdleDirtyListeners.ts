@@ -56,7 +56,17 @@ export function attachRodaIdleDirtyListeners(
       invalidateAndRedraw();
     }
   });
-  const unsubTr = useTransportStore.subscribe(() => invalidateAndRedraw());
+  const unsubTr = useTransportStore.subscribe((tr, prevTr) => {
+    if (
+      !useSequencerStore.getState().isPlaying ||
+      tr.soloPatternPlayId !== prevTr.soloPatternPlayId ||
+      tr.soloPatternVariationId !== prevTr.soloPatternVariationId ||
+      tr.isPaused !== prevTr.isPaused ||
+      tr.isVisualMetronomeActive !== prevTr.isVisualMetronomeActive
+    ) {
+      invalidateAndRedraw();
+    }
+  });
 
   subscribeToVisualFrame(paintRodaFrame);
   subscribeToTick(onTick);

@@ -53,7 +53,7 @@ export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = 
     return () => ro?.disconnect();
   }, [macroSections, compact, isActive, applyStripTransform]);
 
-  useEffect(() => { setWheelIndex(null); }, [activeSecIdx, isPlaying]);
+  useEffect(() => { setWheelIndex((prev) => (prev !== null ? null : prev)); }, [activeSecIdx, isPlaying]);
   useEffect(() => { applyStripTransform(targetIdx, true); }, [targetIdx, applyStripTransform]);
   useEffect(() => {
     const el = containerRef.current, prevent = (e: WheelEvent) => e.preventDefault();
@@ -103,7 +103,7 @@ export const RodaSectionRibbon: React.FC<RodaSectionRibbonProps> = ({ compact = 
             ? 'border-2 border-[var(--cordel-ink-dark)] bg-[var(--cordel-wood)] text-[var(--cordel-parchment-bg)] ring-1 ring-[var(--cordel-parchment-bg)] shadow-[2px_2px_0px_var(--cordel-shadow-color)]'
             : isCurrent
               ? 'border-2 border-[var(--cordel-ink-dark)] bg-[var(--cordel-ink-dark)] text-[var(--cordel-parchment-bg)] shadow-[2px_2px_0px_var(--cordel-shadow-color)]'
-              : 'border border-[var(--cordel-ink-dark)]/80 border-b-[3px] bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:opacity-100 opacity-90';
+              : 'border-2 border-[var(--cordel-ink-dark)]/80 bg-[var(--cordel-parchment-bg)] text-[var(--cordel-ink-dark)] hover:opacity-100 opacity-90';
           return (
             <button
               key={s.id}

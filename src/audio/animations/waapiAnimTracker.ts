@@ -1,7 +1,8 @@
 /**
- * waapiAnimTracker.ts — Double-slot WAAPI `[active, queued]` sans fuite `fill: 'forwards'` (< 115 lignes).
+ * waapiAnimTracker.ts — Double-slot WAAPI `[active, queued]` sans fuite `fill: 'forwards'` (< 128 lignes).
  * - Plafond strict `<= 2` instances `Animation` par élément DOM/SVG, `0` appel `el.getAnimations()`.
- * - Auto-nettoyage `onfinish` + rotation synchrone des slots + Pause / Resume / Cancel des 2 slots.
+ * - Garde `if (slot.active !== finishedAnim) return` dans `onfinish` + promotion atomique `queued -> active`
+ *   sans toucher à `el.style.transform` lorsqu'un successeur `queued` prend le relais.
  */
 
 export interface TrackAnimMetadata {
@@ -38,104 +39,88 @@ function safeCancel(anim: Animation | null | undefined): void {
 }
 
 export function hasRunningActiveAnimation(el: Element | null | undefined): boolean {
-  if (!el) return false;
-  const s = slotsByEl.get(el);
-  if (!s) return false;
-  return Boolean((s.active && s.active.playState === 'running') || (s.queued && s.queued.playState === 'running'));
+  const s = el ? slotsByEl.get(el) : undefined;
+  return Boolean(s && ((s.active && s.active.playState === 'running') || (s.queued && s.queued.playState === 'running')));
 }
 
 export function getTrackedSlotCount(el: Element | null | undefined): number {
-  if (!el) return 0;
-  const s = slotsByEl.get(el);
-  if (!s) return 0;
-  return (s.active ? 1 : 0) + (s.queued ? 1 : 0);
+  const s = el ? slotsByEl.get(el) : undefined;
+  return s ? (s.active ? 1 : 0) + (s.queued ? 1 : 0) : 0;
 }
 
 export function getTrackedElementAnimation(el: Element | null | undefined): Animation | null {
-  if (!el) return null;
-  const s = slotsByEl.get(el);
+  const s = el ? slotsByEl.get(el) : undefined;
   return s ? (s.queued ?? s.active) : null;
 }
 
 export function trackElementAnimation(el: Element, anim: Animation, meta?: TrackAnimMetadata): void {
   let s = slotsByEl.get(el);
-  if (!s) {
-    s = { active: null, queued: null, queuedDelayMs: 0 };
-    slotsByEl.set(el, s);
-  }
+  if (!s) { s = { active: null, queued: null, queuedDelayMs: 0 }; slotsByEl.set(el, s); }
 
   const isQueued = Boolean(meta?.isQueued && (meta?.delayMs ?? 0) > 0);
   if (!isQueued) {
-    safeCancel(s.queued);
-    safeCancel(s.active);
+    safeCancel(s.queued); safeCancel(s.active);
     s.queued = null; s.queuedDelayMs = 0;
-    s.active = anim;
-    s.activeFinalTransform = meta?.finalTransform;
-    s.activeFinalOpacity = meta?.finalOpacity;
+    s.active = anim; s.activeFinalTransform = meta?.finalTransform; s.activeFinalOpacity = meta?.finalOpacity;
   } else {
     if (s.queued) {
       const qCurMs = typeof s.queued.currentTime === 'number' ? s.queued.currentTime : 0;
       if (qCurMs >= s.queuedDelayMs) {
         safeCancel(s.active);
-        s.active = s.queued;
-        s.activeFinalTransform = s.queuedFinalTransform;
-        s.activeFinalOpacity = s.queuedFinalOpacity;
-      } else {
-        safeCancel(s.queued);
-      }
+        s.active = s.queued; s.activeFinalTransform = s.queuedFinalTransform; s.activeFinalOpacity = s.queuedFinalOpacity;
+      } else safeCancel(s.queued);
       s.queued = null; s.queuedDelayMs = 0;
     }
     if (s.active && s.active.playState === 'finished') {
       commitStylePose(el, s.activeFinalTransform, s.activeFinalOpacity);
-      safeCancel(s.active);
-      s.active = null;
+      safeCancel(s.active); s.active = null;
     }
     if (!s.active) {
-      s.active = anim;
-      s.activeFinalTransform = meta?.finalTransform;
-      s.activeFinalOpacity = meta?.finalOpacity;
+      s.active = anim; s.activeFinalTransform = meta?.finalTransform; s.activeFinalOpacity = meta?.finalOpacity;
     } else {
-      s.queued = anim;
-      s.queuedDelayMs = meta?.delayMs ?? 0;
-      s.queuedFinalTransform = meta?.finalTransform;
-      s.queuedFinalOpacity = meta?.finalOpacity;
+      s.queued = anim; s.queuedDelayMs = meta?.delayMs ?? 0;
+      s.queuedFinalTransform = meta?.finalTransform; s.queuedFinalOpacity = meta?.finalOpacity;
     }
   }
 
   if (!meta?.isInfinite) {
+    const finishedAnim = anim;
     try {
-      anim.onfinish = () => {
-        const cur = slotsByEl.get(el);
-        commitStylePose(el, meta?.finalTransform, meta?.finalOpacity);
-        safeCancel(anim);
-        if (!cur) return;
-        if (cur.active === anim) cur.active = null;
-        if (cur.queued === anim) { cur.queued = null; cur.queuedDelayMs = 0; }
+      finishedAnim.onfinish = () => {
+        const slot = slotsByEl.get(el);
+        if (!slot || slot.active !== finishedAnim) return;
+        if (slot.queued) {
+          slot.active = slot.queued;
+          slot.activeFinalTransform = slot.queuedFinalTransform;
+          slot.activeFinalOpacity = slot.queuedFinalOpacity;
+          slot.queued = null; slot.queuedDelayMs = 0;
+          slot.queuedFinalTransform = undefined; slot.queuedFinalOpacity = undefined;
+          safeCancel(finishedAnim);
+          return;
+        }
+        commitStylePose(el, slot.activeFinalTransform ?? meta?.finalTransform, slot.activeFinalOpacity ?? meta?.finalOpacity);
+        safeCancel(finishedAnim);
+        slot.active = null;
       };
     } catch (_) {}
   }
 }
 
 export function cancelTrackedElementAnimation(el: Element | null | undefined): void {
-  if (!el) return;
-  const s = slotsByEl.get(el);
-  if (!s) return;
-  safeCancel(s.queued);
-  safeCancel(s.active);
-  slotsByEl.delete(el);
+  const s = el ? slotsByEl.get(el) : undefined;
+  if (!el || !s) return;
+  safeCancel(s.queued); safeCancel(s.active); slotsByEl.delete(el);
 }
 
 export function pauseTrackedElementAnimations(el: Element | null | undefined): void {
-  if (!el) return;
-  const s = slotsByEl.get(el);
+  const s = el ? slotsByEl.get(el) : undefined;
   if (!s) return;
   if (s.active?.playState === 'running') { try { s.active.pause(); } catch (_) {} }
   if (s.queued?.playState === 'running') { try { s.queued.pause(); } catch (_) {} }
 }
 
 export function resumeTrackedElementAnimations(el: Element | null | undefined): void {
-  if (!el) return;
-  const s = slotsByEl.get(el);
+  const s = el ? slotsByEl.get(el) : undefined;
   if (!s) return;
   if (s.active?.playState === 'paused') { try { s.active.play(); } catch (_) {} }
   if (s.queued?.playState === 'paused') { try { s.queued.play(); } catch (_) {} }

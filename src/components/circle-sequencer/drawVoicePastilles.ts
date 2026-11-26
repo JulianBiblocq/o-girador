@@ -17,7 +17,8 @@ export const drawVoicePastilles = (
   themeWood: string,
   themeBorder: string,
   themeText: string,
-  trackLabel: string
+  trackLabel: string,
+  opts?: { skipLabel?: boolean; skipCurrentRing?: boolean }
 ): void => {
   ctx.setLineDash([]);
   ctx.globalAlpha = 1.0;
@@ -35,7 +36,7 @@ export const drawVoicePastilles = (
 
     if (!showPux && !showCoro) continue;
 
-    if (!isEco && i === currentStep) {
+    if (!isEco && !opts?.skipCurrentRing && i === currentStep) {
       ctx.beginPath();
       ctx.arc(x, y, voicePastilleRadius + 5, 0, Math.PI * 2);
       ctx.strokeStyle = (pStep.isAnacrusis || cStep.isAnacrusis) ? '#f59e0b' : themeWood;
@@ -46,7 +47,7 @@ export const drawVoicePastilles = (
     drawSingleVoicePastille(ctx, x, y, voicePastilleRadius, pStep, cStep, dynamicScale, themeBorder);
   }
 
-  if (!isEco) {
+  if (!isEco && !opts?.skipLabel) {
     const x0 = centerX + Math.cos(stepAngles[0]) * tRad;
     const y0 = centerY + Math.sin(stepAngles[0]) * tRad;
     ctx.save();

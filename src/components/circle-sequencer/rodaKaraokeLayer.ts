@@ -85,7 +85,7 @@ export function syncKaraokeOverlayLayer(
   drawCenterKaraoke(
     kCtx, 600, 600, karaokeLive, stateVal.tracks, stateVal.rawTracks, stateVal.totalMeasures,
     stateVal.isLoopRegionActive, stateVal.loopStartMeasure, stateVal.loopEndMeasure,
-    stateVal.soloPatternPlayId, dynamicScale, stateVal.timeSig, stateVal.measureTimeSigs, isHeavyDisabled
+    stateVal.soloPatternPlayId, dynamicScale, stateVal.timeSig, stateVal.measureTimeSigs, isHeavyDisabled, voiceState
   );
   kCtx.setTransform(1, 0, 0, 1, 0, 0);
 }

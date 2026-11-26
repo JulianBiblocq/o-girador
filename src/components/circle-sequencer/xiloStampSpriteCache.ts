@@ -1,8 +1,12 @@
 import { applyCordelInkedPatina } from '../../utils/cordelPatina';
 
-const MAX_CACHE_ENTRIES = 256;
+const MAX_CACHE_ENTRIES = 512;
 const SPRITE_DPR = 2;
 const stampCache = new Map<string, HTMLCanvasElement>();
+
+export function getXiloStampCacheSize(): number {
+  return stampCache.size;
+}
 
 function hashString(str: string): number {
   let h = 2166136261;
@@ -33,27 +37,21 @@ function traceStraightFacetedPolygon(ctx: CanvasRenderingContext2D, pts: Array<{
 export interface XiloStampSprite { canvas: HTMLCanvasElement; logicalSize: number; }
 
 export function getOrCreateXiloStampSprite(
-  fillColor: string, txtColor: string, text: string,
-  radiusSize: number, dynamicScale: number, isAccentRing: boolean = false
+  fillColor: string, txtColor: string, text: string, radiusSize: number, dynamicScale: number, isAccentRing = false
 ): XiloStampSprite | null {
   if (typeof document === 'undefined') return null;
-
   const inkedFill = applyCordelInkedPatina(fillColor || '#1a1a1a');
-  const qRadius = Math.max(4, Math.round(radiusSize * 2) / 2);
-  const qScale = Math.round(dynamicScale * 20) / 20;
+  const qRadius = Math.max(4, Math.round(radiusSize * 2) / 2), qScale = Math.round(dynamicScale * 20) / 20;
   const key = `v4_${inkedFill}_${txtColor}_${text}_${qRadius}_${qScale}_${isAccentRing ? 1 : 0}`;
   const logicalSize = Math.ceil((qRadius + 6) * 2);
-
   const existing = stampCache.get(key);
   if (existing) return { canvas: existing, logicalSize };
   if (stampCache.size >= MAX_CACHE_ENTRIES) {
     const oldestKey = stampCache.keys().next().value;
     if (oldestKey) stampCache.delete(oldestKey);
   }
-
   const canvas = document.createElement('canvas');
-  canvas.width = logicalSize * SPRITE_DPR;
-  canvas.height = logicalSize * SPRITE_DPR;
+  canvas.width = logicalSize * SPRITE_DPR; canvas.height = logicalSize * SPRITE_DPR;
   const sCtx = canvas.getContext('2d');
   if (!sCtx) return null;
 

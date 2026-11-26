@@ -33,6 +33,6 @@ export class EngineDisposer {
     s.scheduledHits.clear();
     s.activeGainNodes.clear();
     s.channels.dispose();
-    s.voiceSynthManager.releaseAllVoices();
+    s.voiceSynthManager.disposeAllVoices();
   }
 }

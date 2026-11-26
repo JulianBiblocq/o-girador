@@ -45,6 +45,9 @@ export function evaluateVocalTracks(p: VocalEvaluatorParams): void {
     trackInputs, channels, busChannels, masterVolumeNode
   } = p;
 
+  const isOffVocalGrid = stepIdx > 0 && stepIdx !== 4 && (stepIdx % 6 !== 0) && (stepIdx % 8 !== 0);
+  if (isOffVocalGrid && (currentTicks - stepIdx) > 24) return;
+
   const seqState = useSequencerStore.getState();
   const numTracks = tracks.length;
   for (let trackIdx = 0; trackIdx < numTracks; trackIdx++) {

@@ -2,7 +2,7 @@
 import { TrackGroup } from '../../types';
 import { getPatternWords } from './karaokeHelpers';
 import { drawCenterKaraokeText } from './drawCenterKaraokeText';
-import { resolveActiveVoiceState } from './resolveActiveVoiceState';
+import { resolveActiveVoiceState, ActiveVoiceState } from './resolveActiveVoiceState';
 import { WordItem } from './circleSequencerTypes';
 import { applyCordelInkedPatina } from '../../utils/colorHelpers';
 
@@ -11,7 +11,7 @@ export const drawCenterKaraoke = (
   centerX: number,
   centerY: number,
   live: { step: number; measure: number; maxTicks: number; ratio: number; isPreRoll?: boolean },
-  tracks: TrackGroup[],
+  _tracks: TrackGroup[],
   rawTracks: TrackGroup[],
   totalMeasures: number,
   isLoopRegionActive?: boolean,
@@ -21,20 +21,13 @@ export const drawCenterKaraoke = (
   dynamicScale: number = 1,
   timeSig?: string,
   measureTimeSigs?: Record<number, string> | string[],
-  disableShadow: boolean = false
+  disableShadow: boolean = false,
+  preResolvedVoiceState?: ActiveVoiceState
 ): void => {
   ctx.save();
   try {
-    const { activePattern, activeRole, isAnacrusis, currentStep, totalSteps } = resolveActiveVoiceState(
-      live,
-      rawTracks,
-      totalMeasures,
-      isLoopRegionActive,
-      loopStartMeasure,
-      loopEndMeasure,
-      soloPlayId,
-      timeSig,
-      measureTimeSigs
+    const { activePattern, activeRole, isAnacrusis, currentStep, totalSteps } = preResolvedVoiceState ?? resolveActiveVoiceState(
+      live, rawTracks, totalMeasures, isLoopRegionActive, loopStartMeasure, loopEndMeasure, soloPlayId, timeSig, measureTimeSigs
     );
 
     if (activeRole === 'none') return;

@@ -27,16 +27,20 @@ export function useRightSidebarKaraoke(
     }
 
     let lastStepKey = '';
+    let lastCoarseBucket = -999;
 
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; isPreRoll?: boolean; preRollBeat?: number }) => {
       const container = karaokeContainerRef.current;
       if (!container) {
         if (activeTokensRef.current.length > 0) clearActiveTokens();
-        lastStepKey = '';
+        lastStepKey = ''; lastCoarseBucket = -999;
         return;
       }
 
       const { step, maxTicks } = detail;
+      const coarseBucket = step >= 0 && maxTicks > 0 && !detail.isPreRoll ? (detail.measure * 64 + Math.floor((step / maxTicks) * 48)) : -1;
+      if (coarseBucket >= 0 && coarseBucket === lastCoarseBucket) return;
+      lastCoarseBucket = coarseBucket;
       const st = useSequencerStore.getState();
       const totalMeasures = st.totalMeasures || 1;
       const rawMeasure = typeof detail.measure === 'number' ? detail.measure : st.currentMeasure;

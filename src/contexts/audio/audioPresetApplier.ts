@@ -11,6 +11,8 @@ import { restoreMasterFxFromPreset } from './audioMasterFxRestorer';
 import { restorePresetLoopState } from './audioPresetLoopRestorer';
 import { resolvePresetVocalTransposeSteps, restorePresetAutomationsAndVocal, restorePresetVigilancePoints } from './presetSerializationHelpers';
 import { markAutosaveBaselineClean } from '../../hooks/app-audio/autosavePayloadBuilder';
+import { resolveOrderedVisibleRodaTracks } from '../../components/circle-sequencer/resolveVisibleRodaTracks';
+import { scheduleIdleRodaSpritePrewarm } from '../../components/circle-sequencer/rodaSpritePrewarmer';
 
 export async function executeApplyPreset(
   rawPreset: any, sequencer: any, audioSync: any,
@@ -57,11 +59,7 @@ export async function executeApplyPreset(
   );
   if (hasRecordedVocal) useAudioStore.getState().setVocalMode('voice');
 
-  try {
-    await vocalEngineService.rehydrateVocalBuffers(loadedTracks);
-  } catch (err) {
-    console.error('[VOCAL REHYDRATE] Error during applyPreset:', err);
-  }
+  try { await vocalEngineService.rehydrateVocalBuffers(loadedTracks); } catch (err) { console.error('[VOCAL REHYDRATE] Error during applyPreset:', err); }
 
   const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs) ? p.measureTimeSigs : Array(loadedMeasures).fill(defaultTimeSig);
   const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions) ? p.measureBpmTransitions : Array(loadedMeasures).fill('immediate');
@@ -128,10 +126,9 @@ export async function executeApplyPreset(
   restorePresetAutomationsAndVocal(p);
   restorePresetVigilancePoints(p);
 
-  sequencer.measureCountRef.current = 0;
-  sequencer.tracksRef.current = loadedTracks;
-  invalidateAudioParamsCache();
-  markAutosaveBaselineClean();
-  audioSync.setCurrentMeasure(0);
-  audioSync.setIsLoading(false);
+  sequencer.measureCountRef.current = 0; sequencer.tracksRef.current = loadedTracks;
+  invalidateAudioParamsCache(); markAutosaveBaselineClean();
+  const stAfter = useSequencerStore.getState();
+  scheduleIdleRodaSpritePrewarm(resolveOrderedVisibleRodaTracks(loadedTracks, { showLinkedTracksOnRoda: stAfter.showLinkedTracksOnRoda }, finalRodaOrder), loadedTracks, Boolean(stAfter.isLeftHanded), defaultTimeSig, loadedTimeSigs as any);
+  audioSync.setCurrentMeasure(0); audioSync.setIsLoading(false);
 }

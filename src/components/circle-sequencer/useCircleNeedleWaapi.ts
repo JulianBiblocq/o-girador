@@ -1,3 +1,8 @@
+/**
+ * useCircleNeedleWaapi.ts — Rotation WAAPI GPU `iterations: Infinity` continue à travers 12h (< 130 lignes).
+ * - Zéro `.cancel()` / `el.animate()` à la frontière de mesure tant que `measureDuration` est constante.
+ * - Vérification discrète de phase en milieu de mesure (`[0.25, 0.75]`) : recale `anim.startTime` uniquement si dérive > 12 ms.
+ */
 import React, { useEffect, useRef } from 'react';
 import { audioEngine, subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { frozenPlaybackState } from '../../hooks/audio-sync/frozenPlaybackState';
@@ -8,10 +13,21 @@ import { getAudioTime } from './circleAudioTime';
 import { computeMonotonicMeasureProgress, createMonotonicProgressTracker } from './computeStickAngle';
 import { LivePlaybackState } from './circleSequencerTypes';
 
-/**
- * Pilotage WAAPI linéaire sur le compositeur GPU de l'aiguille `<svg>` de la Roda (< 125 lignes).
- * Couvre sans saut : 1) BPM live mi-mesure, 2) Hard Freeze Pause, 3) Stop 12h, 4) Seek / Exploration.
- */
+export function computeNeedlePhaseDriftMs(
+  curAnimTimeMs: number,
+  durMs: number,
+  progress: number,
+  thresholdMs = 12
+): number {
+  if (!Number.isFinite(curAnimTimeMs) || durMs <= 0) return 0;
+  const targetPhaseMs = ((progress % 1) + 1) % 1 * durMs;
+  const animCycleMs = ((curAnimTimeMs % durMs) + durMs) % durMs;
+  let diffMs = targetPhaseMs - animCycleMs;
+  if (diffMs > durMs * 0.5) diffMs -= durMs;
+  if (diffMs < -durMs * 0.5) diffMs += durMs;
+  return Math.abs(diffMs) > thresholdMs ? diffMs : 0;
+}
+
 export function useCircleNeedleWaapi(
   needleGroupRef: React.RefObject<SVGGElement | null>,
   isActive: boolean,
@@ -21,7 +37,7 @@ export function useCircleNeedleWaapi(
 ): void {
   const animRef = useRef<Animation | null>(null);
   const trackerRef = useRef(createMonotonicProgressTracker());
-  const specRef = useRef({ seqKey: '', startSec: 0, durSec: 0, startProgress: 0 });
+  const runningDurSecRef = useRef(0);
 
   useEffect(() => {
     const cancelNeedle = () => {
@@ -29,7 +45,7 @@ export function useCircleNeedleWaapi(
         try { animRef.current.cancel(); } catch (_) {}
         animRef.current = null;
       }
-      specRef.current.seqKey = '';
+      runningDurSecRef.current = 0;
     };
 
     const setStaticProgress = (progress: number) => {
@@ -60,40 +76,41 @@ export function useCircleNeedleWaapi(
 
       const progress = computeMonotonicMeasureProgress(live, true, ctxNow, trackerRef.current);
       frozenStickAngleRef.current = -Math.PI / 2 + progress * Math.PI * 2;
-      const seqKey = `${live.measureSeqId ?? 0}:${live.measure}:${live.iteration ?? 1}`;
-      const sp = specRef.current;
-      const sameSpec = sp.seqKey === seqKey && Math.abs(sp.durSec - live.measureDuration) <= 1e-4 && Math.abs(sp.startSec - (live.measureStartTime ?? 0)) <= 0.008;
+      const durSec = live.measureDuration;
+      const durMs = Math.max(50, durSec * 1000);
+      const curAnim = animRef.current;
 
-      if (!forceRestart && animRef.current?.playState === 'running' && sameSpec) {
-        const curMs = typeof animRef.current.currentTime === 'number' ? animRef.current.currentTime : 0;
-        const animProg = sp.startProgress + (curMs / 1000) / Math.max(0.05, sp.durSec);
-        if (Math.abs(animProg - progress) <= 0.008) return;
+      if (!forceRestart && curAnim?.playState === 'running' && Math.abs(runningDurSecRef.current - durSec) <= 1e-4) {
+        if (progress >= 0.25 && progress <= 0.75 && typeof curAnim.currentTime === 'number') {
+          const driftMs = computeNeedlePhaseDriftMs(curAnim.currentTime, durMs, progress, 12);
+          if (driftMs !== 0) {
+            try {
+              if (typeof curAnim.startTime === 'number') curAnim.startTime -= driftMs;
+              else curAnim.currentTime = curAnim.currentTime + driftMs;
+            } catch (_) {}
+          }
+        }
+        return;
       }
 
       cancelNeedle();
-      const startDeg = -90 + progress * 360;
-      const remainingMs = Math.max(8, (1 - progress) * live.measureDuration * 1000);
       el.style.transition = 'none';
-      el.style.transform = `rotate(${startDeg.toFixed(3)}deg)`;
-
       if (typeof el.animate === 'function') {
         const anim = el.animate(
-          [{ transform: `rotate(${startDeg.toFixed(3)}deg)` }, { transform: 'rotate(270deg)' }],
-          { duration: remainingMs, easing: 'linear', fill: 'forwards' }
+          [{ transform: 'rotate(-90deg)' }, { transform: 'rotate(270deg)' }],
+          { duration: durMs, iterations: Infinity, easing: 'linear' }
         );
-        anim.onfinish = () => {
-          if (animRef.current === anim) {
-            el.style.transform = 'rotate(270deg)';
-            try { anim.cancel(); } catch (_) {}
-            animRef.current = null;
-          }
-        };
+        try { anim.currentTime = progress * durMs; } catch (_) {}
         animRef.current = anim;
+        runningDurSecRef.current = durSec;
+      } else {
+        el.style.transform = `rotate(${(-90 + progress * 360).toFixed(3)}deg)`;
       }
-      specRef.current = { seqKey, startSec: live.measureStartTime ?? 0, durSec: live.measureDuration, startProgress: progress };
     };
 
-    const onTick = (d: any) => syncNeedle(getAudioTime(), Boolean(d?.isNavigation || d?.isPaused || d?.isStepPreview || d?.step <= 0));
+    const onTick = (d: any) => {
+      if (d?.isNavigation || d?.isPaused || d?.isStepPreview || d?.step < 0) syncNeedle(getAudioTime(), true);
+    };
     const onVisualFrame = (ctxTime: number) => syncNeedle(ctxTime, false);
     const unsubStore = useSequencerStore.subscribe((st, prev) => {
       if (st.bpm === prev.bpm && st.measureBpms === prev.measureBpms && st.isPlaying === prev.isPlaying) return;

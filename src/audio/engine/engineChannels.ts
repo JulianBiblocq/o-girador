@@ -67,10 +67,12 @@ export class EngineChannels {
       try { if (typeof channel.disconnect === 'function') channel.disconnect(); } catch (_) {}
       this.instrumentChannels.delete(normalizedId);
     }
-    const voiceSynth = voiceSynths.get(normalizedId);
-    if (voiceSynth) {
-      try { voiceSynth.releaseAll(); voiceSynth.disconnect(); voiceSynth.dispose(); } catch (_) {}
-      voiceSynths.delete(normalizedId);
+    for (const k of [normalizedId, `legato:${normalizedId}`]) {
+      const s = voiceSynths.get(k);
+      if (s) {
+        try { if (typeof s.releaseAll === 'function') s.releaseAll(); else s.triggerRelease?.(); s.disconnect(); s.dispose(); } catch (_) {}
+        voiceSynths.delete(k);
+      }
     }
   }
 
