@@ -42,7 +42,7 @@ function runDsp(nBlocks: number, startFrame: number, q: WorkletEventQueue, p: Wo
 
 // 1. Préservation Legacy `Caixa` + `Tarol` + Cache v9 + Boucles Studio + `r_min` nominal 1.0 sur Caixa & Tarol
 {
-  assert.equal(SAMPLE_CACHE_VERSION, 14);
+  assert.equal(SAMPLE_CACHE_VERSION, 15);
   const mixDir = path.resolve(process.cwd(), 'public/Mixdown');
   const legacyFiles = [
     'Caixa B.ogg', 'Caixa C 1.ogg', 'Caixa C 2.ogg', 'Caixa F 1.ogg', 'Caixa F 2.ogg', 'Caixa F 3.ogg', 'Caixa F 4.ogg',

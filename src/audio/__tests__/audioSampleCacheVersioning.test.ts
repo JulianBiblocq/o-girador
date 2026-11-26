@@ -93,14 +93,14 @@ function installMockBrowserCaches() {
   const sampleBufV1 = ctx.createBuffer(1, 320, 48000);
   sampleBufV1.getChannelData(0).fill(0.42);
 
-  // 1. Ouverture singleton concurrente + purge SW unique + suppression des clés IDB != v14_
+  // 1. Ouverture singleton concurrente + purge SW unique + suppression des clés IDB != v15_
   await Promise.all([
     saveCachedPcmSample('Mixdown/Alfaia meiao B.m4a', sampleBufV1),
     getCachedPcmSample('Mixdown/Alfaia meiao B.ogg', 48000),
   ]);
   await new Promise((r) => setTimeout(r, 20));
 
-  assert.equal(SAMPLE_CACHE_VERSION, 14);
+  assert.equal(SAMPLE_CACHE_VERSION, 15);
   assert.ok(Boolean(getSampleRevisionTag('Mixdown/Alfaia meiao B.ogg')), 'Generated manifest revision tag must be hydrated');
   assert.equal(env.getIdbOpenCalls(), 1, 'Singleton promise must open IndexedDB only once');
   assert.deepEqual(env.deletedSwCaches, ['audio-samples-cache'], 'Must purge Workbox audio-samples-cache once on version bump');
