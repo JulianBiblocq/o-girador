@@ -25,10 +25,12 @@ export const MobileRemoteRouter: React.FC<Props> = ({
 }) => {
   const onToggleStudio = () => useSequencerStore.getState().setMobileViewMode('complet');
 
+  const effectiveLoading = Boolean(audio.isLoading || audio.isPresetLoading);
+
   if (mobileViewMode === 'percussion') {
     return (
       <MobilePercussionMode
-        isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
+        isPlaying={audio.isPlaying} isLoading={effectiveLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
         masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
         onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName} onToggleStudio={onToggleStudio}
         onOpenPaperWorkshop={onOpenPaperWorkshop} isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}
@@ -50,7 +52,7 @@ export const MobileRemoteRouter: React.FC<Props> = ({
 
   return (
     <MobileRehearsalRemote
-      isPlaying={audio.isPlaying} isLoading={audio.isLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
+      isPlaying={audio.isPlaying} isLoading={effectiveLoading} onTogglePlay={audio.handleTogglePlay} onStop={audio.handleStop}
       masterEQ={audio.masterEQ} setMasterEQ={audio.setMasterEQ} cloudPresets={cloudPresets} localPresets={localPresets}
       onPresetChange={audio.handlePresetSelect} activePreset={audio.activePresetName} onToggleStudio={onToggleStudio}
       onOpenPaperWorkshop={onOpenPaperWorkshop} isDarkMode={theme.isDarkMode} onToggleDarkMode={theme.toggleDarkMode}

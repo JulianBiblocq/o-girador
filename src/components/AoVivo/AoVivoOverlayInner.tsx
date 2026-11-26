@@ -17,13 +17,13 @@ import { resolveActiveAoVivoContext } from './resolveAoVivoFamily';
 
 export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number | null }> = ({ activeAoVivoTrackId }) => {
   const { isLeftHanded } = useSequencer();
-  const allTracks = useSequencerStore((state) => state.tracks);
+  const tracksVersion = useSequencerStore((state) => state.tracksVersion);
   const isLabOpen = useSyncExternalStore(subscribeAoVivoLabOpen, getIsAoVivoLabOpen);
   const labPreviewFamily = useSyncExternalStore(subscribeAoVivoLabPreview, getAoVivoLabPreviewFamily);
 
   const { resolvedTrack, family, instId, isSyntheticPreview } = useMemo(
-    () => resolveActiveAoVivoContext(activeAoVivoTrackId, allTracks, isLabOpen ? labPreviewFamily : null),
-    [activeAoVivoTrackId, allTracks, isLabOpen, labPreviewFamily]
+    () => resolveActiveAoVivoContext(activeAoVivoTrackId, useSequencerStore.getState().tracks, isLabOpen ? labPreviewFamily : null),
+    [activeAoVivoTrackId, tracksVersion, isLabOpen, labPreviewFamily]
   );
 
   useEffect(() => {
@@ -96,13 +96,6 @@ export const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number
 
   return (
     <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none perspective-[1000px]">
-      <div
-        ref={flashRef}
-        className="absolute pointer-events-none opacity-0 mix-blend-screen"
-        style={{ transform: 'translate(-50%, -50%)', zIndex: 4 }}
-      >
-        <div className="w-[120px] h-[120px] sm:w-[200px] sm:h-[200px] rounded-full blur-xl" style={{ backgroundColor: 'var(--cordel-accent)' }} />
-      </div>
       <AoVivoInstrumentRenderers
         family={family}
         instId={instId}

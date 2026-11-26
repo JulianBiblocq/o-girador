@@ -4,7 +4,8 @@ import { GlobalSwing, Track, HitTriggerPool } from '../../types';
 
 export function useAudioSyncRefs(props: UseAudioSyncProps) {
   const isPlayingRef = props.isPlayingRef || useRef(false);
-  const isStartingRef = useRef(false);
+  const isStartingPlayRef = useRef(false);
+  const isStartingRef = isStartingPlayRef;
   const currentStepIndexRef = props.currentStepIndexRef || useRef(-1);
   const measureCountRef = props.measureCountRef || useRef(0);
   const maxTicksRef = useRef(16);
@@ -88,7 +89,7 @@ export function useAudioSyncRefs(props: UseAudioSyncProps) {
   });
 
   return {
-    isPlayingRef, isStartingRef, currentStepIndexRef, measureCountRef, maxTicksRef,
+    isPlayingRef, isStartingRef, isStartingPlayRef, currentStepIndexRef, measureCountRef, maxTicksRef,
     absoluteTickCountRef, currentMeasureStartTickRef, totalMeasuresRef, tracksRef,
     measureTimeSigsRef, measureBpmsRef, isMetroOnRef, metroVolumeRef, metroSoundRef,
     metroChannelRef, globalSwingRef, soloPatternPlayIdRef, soloPatternVariationIdRef,

@@ -54,7 +54,7 @@ export function isTrackMutedByPracticeMode(
   const numId = Number(trackId);
   if (!Number.isFinite(numId)) return false;
 
-  const isRestMutedMode = state.mobileViewMode === 'percussion' && Boolean(state.isRestOfEnsembleMuted);
+  const isRestMutedMode = Boolean(state.isRestOfEnsembleMuted) && (state.mobileViewMode === 'percussion' || state.mobileViewMode === 'complet' || !state.mobileViewMode);
   const effectiveFocusId = isRestMutedMode
     ? (state.focusTrackId ?? getPlayableFocusTracks(tracks as TrackGroup[])[0]?.id ?? tracks[0]?.id ?? null)
     : null;

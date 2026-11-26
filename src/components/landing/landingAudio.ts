@@ -3,7 +3,7 @@ import {
   AlfaiaCordelIcon, CaixaCordelIcon, GongueCordelIcon, AgbeCordelIcon,
   MineiroCordelIcon, TimbalCordelIcon,
 } from './LandingCordelIcons';
-import { getRawAudioContext, safeResumeAudioContext, scheduleAudioContextAutoSuspend } from '../../audio/audioContextSuspendManager';
+import { getRawAudioContext, safeResumeAudioContext, scheduleAudioContextAutoSuspend, unlockAudioOnUserGestureSync } from '../../audio/audioContextSuspendManager';
 import { fetchAndDecodeAudioSample } from '../../audio/engine/sampleFetchUtils';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { getTone } from '@/src/ToneLoader';
@@ -104,6 +104,7 @@ export function preloadLandingSamples() {
 }
 
 export async function playLandingInstrumentSample(instId: string, strokeSymbol: string, strokeFile: string): Promise<void> {
+  unlockAudioOnUserGestureSync();
   try {
     await safeResumeAudioContext();
     const ctx = getLandingAudioContext();
@@ -127,10 +128,7 @@ export async function playLandingInstrumentSample(instId: string, strokeSymbol: 
       const gainNode = ctx.createGain();
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
-      source.onended = () => {
-        source.disconnect();
-        gainNode.disconnect();
-      };
+      source.onended = () => { source.disconnect(); gainNode.disconnect(); };
       source.start(0);
       scheduleAudioContextAutoSuspend(500);
     }

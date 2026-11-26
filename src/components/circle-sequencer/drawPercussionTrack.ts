@@ -7,34 +7,17 @@ import { getStepAngularSpan, normalizeTimeSig } from '../../utils/rodaTimeSigGeo
 import { resolveStepPastilleData } from './resolveStepPastilleData';
 import { drawSplitStepPastille } from './drawSplitStepPastille';
 import { drawRasSubStep } from './drawRasSubStep';
-import { resolveTrackStepsForMeasure, buildCandidateAnglesForSweep, resolveStepSweepBlend } from './rodaSweepMath';
+import { resolveStepSweepBlend } from './rodaSweepMath';
+import { getCachedCandidateAnglesForSweep, resolveCachedTrackStepsForMeasure } from './rodaTrackFrameCache';
 
 export const drawPercussionTrack = (
-  ctx: CanvasRenderingContext2D,
-  track: TrackGroup,
-  currentInst: InstrumentConfig,
-  activePattern: Pattern | null | undefined,
-  activePlayingSteps: any,
-  stepAngles: number[],
-  effectiveStepCount: number,
-  currentStep: number,
-  tRad: number,
-  centerX: number,
-  centerY: number,
-  dynamicScale: number,
-  isEco: boolean,
-  measureIdx: number,
-  rawTracks: TrackGroup[],
+  ctx: CanvasRenderingContext2D, track: TrackGroup, currentInst: InstrumentConfig,
+  activePattern: Pattern | null | undefined, activePlayingSteps: any, stepAngles: number[],
+  effectiveStepCount: number, currentStep: number, tRad: number, centerX: number, centerY: number,
+  dynamicScale: number, isEco: boolean, measureIdx: number, rawTracks: TrackGroup[],
   activeVariationsRef: React.MutableRefObject<{ [trackId: number]: any }> | undefined,
-  localLeftHanded: boolean,
-  themeWood: string,
-  themeBorder: string,
-  themeText: string,
-  isPlaying: boolean = false,
-  playheadRatio: number = 0,
-  soloPatternPlayId: number | null = null,
-  totalTracks: number = 7,
-  stepOffset: number = 0
+  localLeftHanded: boolean, themeWood: string, themeBorder: string, themeText: string,
+  isPlaying = false, playheadRatio = 0, soloPatternPlayId: number | null = null, totalTracks = 7, stepOffset = 0
 ): void => {
   const st = useSequencerStore.getState();
   const focusCtx: SlaveFocusContext = {
@@ -49,9 +32,9 @@ export const drawPercussionTrack = (
   const snapshots = getLiveVariationRodaSnapshots(nextMeasureIdx);
   const currTimeSig = normalizeTimeSig(st.measureTimeSigs?.[measureIdx] || st.timeSig || '4/4');
 
-  const nextResolved = resolveTrackStepsForMeasure(track, rawTracks, nextMeasureIdx, soloPatternPlayId, isPlaying ? snapshots.nextStepsByTrackId : null, st.measureTimeSigs, st.timeSig);
+  const nextResolved = resolveCachedTrackStepsForMeasure(0, track, rawTracks, nextMeasureIdx, soloPatternPlayId, isPlaying ? snapshots.nextStepsByTrackId : null, st.measureTimeSigs, st.timeSig);
   const prevResolved = isPlaying && snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null
-    ? resolveTrackStepsForMeasure(track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId, st.measureTimeSigs, st.timeSig)
+    ? resolveCachedTrackStepsForMeasure(1, track, rawTracks, snapshots.prevMeasureIdx, soloPatternPlayId, snapshots.prevStepsByTrackId, st.measureTimeSigs, st.timeSig)
     : { activeSteps: [], baseSteps: [], pattern: null, stepAngles: [], stepCount: effectiveStepCount, timeSig: currTimeSig };
 
   const rawBaseCurr = activePattern?.activeSteps || [];
@@ -113,7 +96,7 @@ export const drawPercussionTrack = (
 
   const canSweepNext = currTimeSig === nextResolved.timeSig;
   const canSweepPrev = Boolean(isPlaying && snapshots.hasPrevMeasure && snapshots.prevMeasureIdx !== null && currTimeSig === prevResolved.timeSig);
-  const candidates = buildCandidateAnglesForSweep(stepAngles, nextResolved.stepAngles, prevResolved.stepAngles, isPlaying, st.rodaSweepMode, canSweepNext, canSweepPrev);
+  const candidates = getCachedCandidateAnglesForSweep(track.id, stepAngles, nextResolved.stepAngles, prevResolved.stepAngles, isPlaying, st.rodaSweepMode, canSweepNext, canSweepPrev);
   for (let i = 0; i < candidates.length; i++) {
     const { p, angle: stepAngle } = candidates[i];
     const x = centerX + Math.cos(stepAngle) * tRad, y = centerY + Math.sin(stepAngle) * tRad;

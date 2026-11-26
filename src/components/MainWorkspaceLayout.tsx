@@ -65,26 +65,30 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = (props) =
           />
         )}
 
-        <MainWorkspaceConsoleView
-          viewMode={props.viewMode}
-          renderedView={props.renderedView}
-          isFadingIn={props.isFadingIn}
-          isMobile={props.isMobile}
-          onStepTouchStart={props.onStepTouchStart}
-        />
+        {(!props.isMobile || props.viewMode === 'console') && (
+          <MainWorkspaceConsoleView
+            viewMode={props.viewMode}
+            renderedView={props.renderedView}
+            isFadingIn={props.isFadingIn}
+            isMobile={props.isMobile}
+            onStepTouchStart={props.onStepTouchStart}
+          />
+        )}
 
-        <MainWorkspaceTimelineView
-          viewMode={props.viewMode}
-          renderedView={props.renderedView}
-          isFadingIn={props.isFadingIn}
-          isMobile={props.isMobile}
-          measureWidth={props.measureWidth}
-          setMeasureWidth={props.setMeasureWidth}
-          setSectionToSave={props.setSectionToSave}
-          setLoadSectionInsertMeasure={props.setLoadSectionInsertMeasure}
-          filteredMestreSignals={props.filteredMestreSignals}
-          onStepTouchStart={props.onStepTouchStart}
-        />
+        {(!props.isMobile || props.viewMode === 'timeline') && (
+          <MainWorkspaceTimelineView
+            viewMode={props.viewMode}
+            renderedView={props.renderedView}
+            isFadingIn={props.isFadingIn}
+            isMobile={props.isMobile}
+            measureWidth={props.measureWidth}
+            setMeasureWidth={props.setMeasureWidth}
+            setSectionToSave={props.setSectionToSave}
+            setLoadSectionInsertMeasure={props.setLoadSectionInsertMeasure}
+            filteredMestreSignals={props.filteredMestreSignals}
+            onStepTouchStart={props.onStepTouchStart}
+          />
+        )}
 
         {props.viewMode === 'admin' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">

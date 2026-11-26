@@ -7,6 +7,7 @@ import {
   resolveCaixaActiveFamily,
   subscribeCaixaSticksConfig,
 } from '../../audio/animations/caixaKinematics';
+import { cancelTrackedElementAnimation, getTrackedElementAnimation } from '../../audio/animations/waapiAnimTracker';
 
 export interface CaixaStickSvgProps {
   style?: React.CSSProperties;
@@ -102,12 +103,12 @@ export const CaixaSticksOverlay: React.FC<CaixaSticksOverlayProps> = ({ instId, 
         const famNow = resolveCaixaActiveFamily(instId);
         [leftStickRef.current, rightStickRef.current].forEach((el, idx) => {
           if (!el) return;
-          const activeAnims = el.getAnimations();
-          if (activeAnims.every((a) => a.playState !== 'running')) {
-            activeAnims.forEach((a) => a.cancel());
+          const tracked = getTrackedElementAnimation(el);
+          if (!tracked || tracked.playState !== 'running') {
+            cancelTrackedElementAnimation(el);
             el.style.transform = getCaixaStickRestTransform(idx === 0, famNow);
             const sh = el.querySelector('[data-stick-shadow]') as SVGGElement | null;
-            if (sh) sh.getAnimations().forEach((a) => a.cancel());
+            if (sh) cancelTrackedElementAnimation(sh);
           }
         });
       }),

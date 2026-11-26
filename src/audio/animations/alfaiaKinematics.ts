@@ -5,6 +5,7 @@ import {
   getProfileFlexibility,
   getProfileScale,
 } from './alfaiaStickConfig';
+import { computeImpactHoldTiming } from './aoVivoBallisticMath';
 import { getEffectiveMobileOffset } from './aoVivoMobileOffsets';
 import { getHandMemory, resetHandPostureMemory, resolveStickStartAndEndTransforms } from './handTransitionEngine';
 import {
@@ -65,28 +66,29 @@ export function generateAlfaiaBarulhoLoopFrames(
 
 export function generateAlfaiaPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, familyOrIsMac: AlfaiaSecondaryStickFamily | boolean,
-  nextKind: AlfaiaNextStrokeKind, durationMs: number = 220, autoLiftBeforeOtherHand = false
+  nextKind: AlfaiaNextStrokeKind, durationMs: number = 225, autoLiftBeforeOtherHand = false, realMsUntilNext?: number
 ): Keyframe[] {
   const fam = normFam(familyOrIsMac), sUp = stroke.toUpperCase();
   if (sUp === 'A') return generateAlfaiaAbafadoStickKeyframes(isLeftSide, fam, autoLiftBeforeOtherHand);
+  if (stroke === '~' || sUp === 'B') return generateAlfaiaBarulhoLoopFrames(isLeftSide, fam, stroke === 'b' ? 0.6 : 1);
+
   const inSign = isLeftSide ? 1 : -1, profScale = getProfileScale(fam), flex = getProfileFlexibility(fam);
   const c = CONFIG_ALFAIA_STICKS, mobY = getEffectiveMobileOffset('alfaia').reachDeltaY;
   const sc = (v: number) => +(v * profScale).toFixed(3);
-  const atkOff = Math.min(0.45, Math.max(0.06, c.attackSpeed));
   const restTr = getAlfaiaStickRestTransform(isLeftSide, fam);
-
-  if (stroke === '~' || sUp === 'B') return generateAlfaiaBarulhoLoopFrames(isLeftSide, fam, stroke === 'b' ? 0.6 : 1);
-
   const isStrong = stroke === 'D' || stroke === 'E' || stroke === 'I' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X';
   const { startTransform, endTransform, rebEasing, wasPressedOnSkin, pressedTransform } =
-    resolveStickStartAndEndTransforms(isLeftSide, profScale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind);
-  const effAtk = wasPressedOnSkin ? Math.min(0.5, +(atkOff + 0.08).toFixed(2)) : atkOff;
+    resolveStickStartAndEndTransforms(isLeftSide, profScale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind, realMsUntilNext);
+
+  const liftMs = wasPressedOnSkin ? Math.min(12, durationMs * 0.08) : 0;
+  const { delayOff, impactOff, holdEndOff } = computeImpactHoldTiming(durationMs, liftMs);
   const startFrames: Keyframe[] = wasPressedOnSkin && pressedTransform
-    ? [{ transform: pressedTransform, offset: 0, easing: 'ease-out' }, { transform: buildPostAbafadoLiftFrame(isLeftSide, fam, isStrong), offset: 0.07, easing: 'cubic-bezier(0.7, 0, 1, 1)' }]
+    ? [{ transform: pressedTransform, offset: 0, easing: 'ease-out' }, { transform: buildPostAbafadoLiftFrame(isLeftSide, fam, isStrong), offset: delayOff, easing: 'cubic-bezier(0.7, 0, 1, 1)' }]
     : [{ transform: startTransform, offset: 0, easing: isStrong ? 'cubic-bezier(0.75, 0, 1, 1)' : 'cubic-bezier(0.65, 0, 0.95, 1)' }];
 
   if (sUp === 'C' || sUp === 'X') {
-    return [...startFrames, { transform: getAlfaiaImpactPoseTransform(sUp, isLeftSide, fam), offset: effAtk, easing: rebEasing }, { transform: endTransform, offset: 1 }];
+    const impTr = getAlfaiaImpactPoseTransform(sUp, isLeftSide, fam);
+    return [...startFrames, { transform: impTr, offset: impactOff }, { transform: impTr, offset: holdEndOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
   }
 
   const isBac = fam === 'bacalhau', reachY = c.impactReachY + mobY, convX = inSign * c.impactConvergeX;
@@ -94,43 +96,45 @@ export function generateAlfaiaPredictiveKeyframes(
   const impScaleY = isBac ? sc(c.impactScaleZ) : +(impScaleX * (0.97 - flex * 0.04)).toFixed(3);
   const impAngle = inSign * (isBac ? 4 + c.wristWhipDeg * 0.6 : isStrong ? 4.5 : 3);
   const impSkew = +(isBac ? -inSign * c.bacalhau.impactBendDeg * 0.25 : -inSign * flex * 2.4).toFixed(1);
-  const holdOff = isBac ? Math.min(0.88, +(effAtk + c.bacalhau.bendSnapMs / Math.max(120, durationMs)).toFixed(2)) : Math.min(0.88, +(effAtk + 0.03 + flex * 0.04).toFixed(2));
 
   return [
     ...startFrames,
-    { transform: `translate(${convX}px, ${reachY}px) rotateZ(${impAngle}deg) scale(${impScaleX}, ${impScaleY}) skewX(${impSkew}deg)`, offset: effAtk },
-    { transform: `translate(${convX}px, ${reachY + 4}px) rotateZ(${inSign * 3.5}deg) scale(${impScaleX}) skewX(0deg)`, offset: holdOff, easing: rebEasing },
+    { transform: `translate(${convX}px, ${reachY}px) rotateZ(${impAngle}deg) scale(${impScaleX}, ${impScaleY}) skewX(${impSkew}deg)`, offset: impactOff },
+    { transform: `translate(${convX}px, ${reachY + 3}px) rotateZ(${inSign * 3.5}deg) scale(${impScaleX}) skewX(0deg)`, offset: holdEndOff, easing: rebEasing },
     { transform: endTransform, offset: 1 },
   ];
 }
 
 export function generateBacalhauTipKeyframes(isLeftSide: boolean, durationMs: number): Keyframe[] {
-  const inSign = isLeftSide ? 1 : -1, { attackSpeed, bacalhau } = CONFIG_ALFAIA_STICKS;
-  const atkOff = Math.min(0.45, Math.max(0.06, attackSpeed));
-  const snapOff = Math.min(0.88, +(atkOff + bacalhau.bendSnapMs / Math.max(110, durationMs)).toFixed(2));
+  const inSign = isLeftSide ? 1 : -1, { bacalhau } = CONFIG_ALFAIA_STICKS;
+  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
   const bend = bacalhau.impactBendDeg, sq = bacalhau.impactSquashX;
   return [
     { transform: `rotateZ(${-inSign * +(bend * 0.35).toFixed(1)}deg) skewX(0deg) scaleX(1)`, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
-    { transform: `rotateZ(${inSign * bend}deg) skewX(${-inSign * +(bend * 0.65).toFixed(1)}deg) scaleX(${sq})`, offset: atkOff },
-    { transform: `rotateZ(${inSign * +(bend * 0.55).toFixed(1)}deg) skewX(${-inSign * +(bend * 0.3).toFixed(1)}deg) scaleX(${+(1 + (sq - 1) * 0.5).toFixed(2)})`, offset: snapOff, easing: 'cubic-bezier(0.25, 1.4, 0.4, 1)' },
+    { transform: `rotateZ(${inSign * bend}deg) skewX(${-inSign * +(bend * 0.65).toFixed(1)}deg) scaleX(${sq})`, offset: impactOff },
+    { transform: `rotateZ(${inSign * +(bend * 0.55).toFixed(1)}deg) skewX(${-inSign * +(bend * 0.3).toFixed(1)}deg) scaleX(${+(1 + (sq - 1) * 0.5).toFixed(2)})`, offset: holdEndOff, easing: 'cubic-bezier(0.25, 1.4, 0.4, 1)' },
     { transform: 'rotateZ(0deg) skewX(0deg) scaleX(1)', offset: 1 },
   ];
 }
 
-export function generateAlfaiaShadowKeyframes(stroke: string, isLeftSide: boolean, nextKind: AlfaiaNextStrokeKind, wasPressedOnSkin = false, autoLiftBeforeOtherHand = false): Keyframe[] {
+export function generateAlfaiaShadowKeyframes(
+  stroke: string, isLeftSide: boolean, nextKind: AlfaiaNextStrokeKind,
+  wasPressedOnSkin = false, autoLiftBeforeOtherHand = false, durationMs = 225, forceCompact = false
+): Keyframe[] {
   const sUp = stroke.toUpperCase();
   if (sUp === 'A') return generateAlfaiaAbafadoShadowKeyframes(isLeftSide, wasPressedOnSkin, autoLiftBeforeOtherHand);
-  const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity, attackSpeed } = CONFIG_ALFAIA_STICKS;
-  const atkOff = Math.min(0.45, Math.max(0.06, attackSpeed)), effAtk = wasPressedOnSkin ? Math.min(0.5, +(atkOff + 0.08).toFixed(2)) : atkOff;
+  const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity } = CONFIG_ALFAIA_STICKS;
+  const { delayOff, impactOff, holdEndOff } = computeImpactHoldTiming(durationMs, wasPressedOnSkin ? Math.min(12, durationMs * 0.08) : 0);
   const airY = -Math.round(shadowDepthPx * 1.5), airOp = +(shadowOpacity * 0.45).toFixed(2);
   const startFrames: Keyframe[] = wasPressedOnSkin
-    ? [{ transform: 'translate(0px, 0px) scale(1)', opacity: shadowOpacity, offset: 0 }, { transform: `translate(${inSign * 5}px, ${Math.round(airY * 0.45)}px) scale(0.9)`, opacity: +(shadowOpacity * 0.62).toFixed(2), offset: 0.07 }]
+    ? [{ transform: 'translate(0px, 0px) scale(1)', opacity: shadowOpacity, offset: 0 }, { transform: `translate(${inSign * 5}px, ${Math.round(airY * 0.45)}px) scale(0.9)`, opacity: +(shadowOpacity * 0.62).toFixed(2), offset: delayOff }]
     : [{ transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }];
   if (sUp === 'C') {
-    return [...startFrames, { transform: `translate(${-inSign * 16}px, ${Math.round(airY * 0.6)}px) scale(0.82)`, opacity: +(airOp * 0.75).toFixed(2), offset: effAtk }, { transform: getAlfaiaShadowRestTransform(isLeftSide), opacity: airOp, offset: 1 }];
+    const mid = { transform: `translate(${-inSign * 16}px, ${Math.round(airY * 0.6)}px) scale(0.82)`, opacity: +(airOp * 0.75).toFixed(2) };
+    return [...startFrames, { ...mid, offset: impactOff }, { ...mid, offset: holdEndOff }, { transform: getAlfaiaShadowRestTransform(isLeftSide), opacity: airOp, offset: 1 }];
   }
-  const endFrame = nextKind === 'weak'
+  const endFrame = nextKind === 'weak' || (nextKind === 'strong' && forceCompact)
     ? { transform: `translate(${inSign * 4}px, ${Math.round(airY * 0.35)}px) scale(0.92)`, opacity: +(shadowOpacity * 0.72).toFixed(2), offset: 1 }
     : { transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 1 };
-  return [...startFrames, { transform: 'translate(0px, 4px) scale(0.95)', opacity: shadowOpacity, offset: effAtk }, endFrame];
+  return [...startFrames, { transform: 'translate(0px, 4px) scale(0.95)', opacity: shadowOpacity, offset: impactOff }, { transform: 'translate(0px, 4px) scale(0.95)', opacity: shadowOpacity, offset: holdEndOff }, endFrame];
 }

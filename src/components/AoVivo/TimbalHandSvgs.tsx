@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CONFIG_TIMBAL_HANDS, getTimbalHandRestTransform, getTimbalShadowRestTransform, subscribeTimbalHandsConfig } from '../../audio/animations/timbalKinematics';
+import { cancelTrackedElementAnimation } from '../../audio/animations/waapiAnimTracker';
 
 export interface TimbalHandSvgProps { side: 'left' | 'right'; style?: React.CSSProperties; className?: string; }
 
@@ -14,28 +15,35 @@ const PALM_PATH = 'M 54 152 L 147 152 L 154 202 L 138 256 L 64 256 L 48 202 Z';
 const THUMB_PATH = 'M 140 232 L 160 198 L 178 152 Q 184 137 171 131 Q 158 126 150 142 L 134 182 L 130 218 Z';
 const FOREARM_PATH = 'M 64 250 L 22 2200 L 178 2200 L 138 250 Z';
 
+const handBioCache = new WeakMap<SVGSVGElement, { palmEl: SVGGElement | null; thumbEl: SVGGElement | null; fingers: SVGGElement[] }>();
+function getHandBioNodes(handEl: SVGSVGElement) {
+  let cached = handBioCache.get(handEl);
+  if (!cached) {
+    cached = {
+      palmEl: handEl.querySelector('[data-hand-palm]') as SVGGElement | null,
+      thumbEl: handEl.querySelector('[data-hand-thumb]') as SVGGElement | null,
+      fingers: Array.from(handEl.querySelectorAll<SVGGElement>('[data-finger-mult]')),
+    };
+    handBioCache.set(handEl, cached);
+  }
+  return cached;
+}
+
 export function applyTimbalSlapBiomechanics(handEl: SVGSVGElement | null, isSlap: boolean): void {
   if (!handEl) return;
   const { anatomy, strokes } = CONFIG_TIMBAL_HANDS;
-  const lift = isSlap ? strokes.slapThumbLift : 0;
-  const splay = isSlap ? strokes.slapFingerSplayDeg : 0;
+  const lift = isSlap ? strokes.slapThumbLift : 0, splay = isSlap ? strokes.slapFingerSplayDeg : 0;
   const pw = +anatomy.palmWidth.toFixed(3), pl = +anatomy.palmLength.toFixed(3);
-  const palmEl = handEl.querySelector('[data-hand-palm]') as SVGGElement | null;
+  const { palmEl, thumbEl, fingers } = getHandBioNodes(handEl);
   if (palmEl) palmEl.style.transform = `scale(${pw}, ${pl}) skewY(${+(-lift * 14).toFixed(2)}deg)`;
-  const thumbEl = handEl.querySelector('[data-hand-thumb]') as SVGGElement | null;
   if (thumbEl) {
-    const scT = +(1 + lift * 0.38).toFixed(3);
-    const dyT = +(-lift * 26).toFixed(1);
-    const rotT = +(anatomy.thumbSpreadDeg + lift * 14).toFixed(1);
-    thumbEl.style.transform = `translateY(${dyT}px) scale(${scT}) rotate(${rotT}deg)`;
+    thumbEl.style.transform = `translateY(${+(-lift * 26).toFixed(1)}px) scale(${+(1 + lift * 0.38).toFixed(3)}) rotate(${+(anatomy.thumbSpreadDeg + lift * 14).toFixed(1)}deg)`;
   }
-  handEl.querySelectorAll<SVGGElement>('[data-finger-mult]').forEach((fEl) => {
-    fEl.getAnimations().forEach((a) => a.cancel());
-    const mult = Number(fEl.getAttribute('data-finger-mult') || 0);
-    const deg = +(mult * splay).toFixed(2);
-    const dy = +(-mult * lift * 11).toFixed(1);
-    fEl.style.transform = `translateY(${dy}px) rotate(${deg}deg)`;
-  });
+  for (let i = 0; i < fingers.length; i++) {
+    const fEl = fingers[i], mult = Number(fEl.getAttribute('data-finger-mult') || 0);
+    cancelTrackedElementAnimation(fEl);
+    fEl.style.transform = `translateY(${+(-mult * lift * 11).toFixed(1)}px) rotate(${+(mult * splay).toFixed(2)}deg)`;
+  }
 }
 
 function renderTimbalHandContent(side: 'left' | 'right', isShadow: boolean) {
@@ -113,7 +121,7 @@ export const TimbalHandsOverlay: React.FC<{
     setTick((n) => n + 1);
     [leftStickRef.current, rightStickRef.current].forEach((el, idx) => {
       if (!el) return;
-      el.getAnimations().forEach((a) => a.cancel());
+      cancelTrackedElementAnimation(el);
       el.style.transform = getTimbalHandRestTransform(idx === 0);
       applyTimbalSlapBiomechanics(el, CONFIG_TIMBAL_HANDS.posePreview === 'slap');
     });

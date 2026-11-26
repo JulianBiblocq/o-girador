@@ -75,6 +75,7 @@ export function dispatchVisualTick(params: VisualTickDispatchParams): void {
       visualStep16: Math.floor(ratioVal * 16) % 16,
       visualStep12: Math.floor(ratioVal * 12) % 12,
       time: drawTime,
+      audioTime: time,
       iteration: sectionIteration,
       loopIteration,
       measureStartTime: measureStartTimeSec,

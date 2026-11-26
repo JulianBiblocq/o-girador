@@ -113,6 +113,7 @@
 
 /* Neutralisation du flou d'arrière-plan sur mobile pour soulager le GPU */
 @media (max-width: 768px) {
+  [class*="backdrop-blur"],
   .backdrop-blur,
   .backdrop-blur-sm,
   .backdrop-blur-md,
@@ -122,6 +123,5 @@
   .backdrop-blur-xs {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
-    background-color: rgba(18, 14, 12, 0.88) !important;
   }
 }

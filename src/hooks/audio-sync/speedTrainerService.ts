@@ -1,9 +1,12 @@
 import * as Tone from 'tone';
 import { SpeedTrainerConfig } from '../../types';
-import { useAudioStore } from '../../stores/useAudioStore';
 import { useSequencerStore } from '../../stores/useSequencerStore';
-import { activateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
-import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
+import {
+  cancelAudioContextAutoSuspend,
+  safeResumeAudioContext,
+  unlockAudioOnUserGestureSync,
+} from '../../audio/audioContextSuspendManager';
+import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 import { playCountInBeep } from '../../audio/nativeSynths';
 import { AudioEngine } from '../../AudioEngine';
 import { getBeatsCount, getBeatDurationSec } from '../../utils/meterTiming';
@@ -19,6 +22,7 @@ export interface SpeedTrainerContext {
   handleStop: () => void;
   setCurrentMeasure: (m: number) => void;
   setIsPlaying: (playing: boolean) => void;
+  setIsLoading?: (loading: boolean) => void;
 }
 
 export function stopSpeedTrainerAudio(ctx: SpeedTrainerContext): void {
@@ -32,11 +36,21 @@ export function stopSpeedTrainerAudio(ctx: SpeedTrainerContext): void {
 }
 
 export async function launchSpeedTrainer(config: SpeedTrainerConfig, ctx: SpeedTrainerContext): Promise<void> {
+  unlockAudioOnUserGestureSync(ctx.audioEngine?.getAudioContext?.());
   ctx.handleStop();
-  activateMultimediaAudioSession();
-  if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
   cancelAudioContextAutoSuspend();
-  await safeResumeAudioContext();
+  ctx.setIsLoading?.(true);
+  try {
+    await safeResumeAudioContext();
+    const initTracks = useSequencerStore.getState().tracks;
+    if (ctx.audioEngine) {
+      try { await ctx.audioEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(initTracks)); } catch (_) {}
+      await ctx.audioEngine.waitForWorkletReady();
+      ctx.audioEngine.syncTracksToWorklet(initTracks);
+    }
+  } finally {
+    ctx.setIsLoading?.(false);
+  }
   const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
 
   const startMeasureSig = ctx.measureTimeSigsRef.current?.[config.startMeasure] || '4/4';

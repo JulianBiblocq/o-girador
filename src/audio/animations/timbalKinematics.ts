@@ -1,3 +1,4 @@
+import { computeImpactHoldTiming, isFastRepeatCompactPrep } from './aoVivoBallisticMath';
 import { getEffectiveMobileOffset } from './aoVivoMobileOffsets';
 import { CONFIG_TIMBAL_HANDS, TimbalNextStrokeKind } from './timbalHandConfig';
 import { getHandMemory, getTransitionRiseEasing, resetHandPostureMemory, setHandMemory } from './handTransitionEngine';
@@ -39,8 +40,7 @@ export function getTimbalShadowRestTransform(isLeftSide: boolean, forceRest = fa
 
 function resolveZoneTarget(sym: string, sign: number): { tx: number; ty: number } {
   const { strokes } = CONFIG_TIMBAL_HANDS;
-  const mobY = getEffectiveMobileOffset('timbal').reachDeltaY;
-  const up = (sym || 'A').toUpperCase();
+  const mobY = getEffectiveMobileOffset('timbal').reachDeltaY, up = (sym || 'A').toUpperCase();
   if (up === 'G') return { tx: sign * strokes.graveConvergeX, ty: strokes.graveImpactY + mobY };
   if (up === 'S' || up === 'T' || up === 'P' || up === 'V') return { tx: sign * strokes.slapConvergeX, ty: strokes.slapImpactY + mobY };
   if (up === 'C' || up === 'X') return { tx: sign * strokes.clapConvergeX, ty: strokes.clapImpactY + mobY };
@@ -48,7 +48,7 @@ function resolveZoneTarget(sym: string, sign: number): { tx: number; ty: number 
 }
 
 function resolveTimbalZonePrepTransform(
-  curX: number, curY: number, nextSymbol: string, isNextWeak: boolean, isLeftSide: boolean
+  curX: number, curY: number, nextSymbol: string, isNextWeak: boolean, isLeftSide: boolean, realMsUntilNext?: number
 ): string {
   const { anatomy, strokes, transitions } = CONFIG_TIMBAL_HANDS;
   const sign = isLeftSide ? 1 : -1, hs = anatomy.handScale;
@@ -57,16 +57,16 @@ function resolveTimbalZonePrepTransform(
     setHandMemory(isLeftSide, 'rest', restTr);
     return restTr;
   }
+  const compact = isNextWeak || isFastRepeatCompactPrep(realMsUntilNext);
   const { tx, ty } = resolveZoneTarget(nextSymbol, sign);
-  const ratio = transitions.zoneAnticipationRatio ?? 0.85;
-  const nUp = nextSymbol.toUpperCase();
-  const slapOut = (nUp === 'S' || nUp === 'T') && !isNextWeak ? -sign * strokes.slapEntryOutsideX * 0.35 : 0;
+  const ratio = transitions.zoneAnticipationRatio ?? 0.85, nUp = nextSymbol.toUpperCase();
+  const slapOut = (nUp === 'S' || nUp === 'T') && !compact ? -sign * strokes.slapEntryOutsideX * 0.35 : 0;
   const endX = curX + (tx - curX) * ratio + slapOut;
-  const endY = ty + (isNextWeak ? transitions.stayLowAfterStrongY : transitions.liftHighAfterWeakY);
-  const endSc = hs * (isNextWeak ? transitions.stayLowScaleZ : transitions.liftHighScaleZ);
-  const rot = isNextWeak ? sign * 2 : -sign * transitions.liftWhipDeg * 0.6;
+  const endY = ty + (compact ? transitions.stayLowAfterStrongY : transitions.liftHighAfterWeakY);
+  const endSc = hs * (compact ? transitions.stayLowScaleZ : transitions.liftHighScaleZ);
+  const rot = compact ? sign * 2 : -sign * transitions.liftWhipDeg * 0.6;
   const tr = buildTransform(endX, endY, endSc, endSc, rot);
-  setHandMemory(isLeftSide, isNextWeak ? 'low_tucked' : 'high_armed', tr);
+  setHandMemory(isLeftSide, compact ? 'low_tucked' : 'high_armed', tr);
   return tr;
 }
 
@@ -89,55 +89,51 @@ export function resolveTimbalBarulhoBounds(isLeftSide: boolean, nextSymbol = 'id
 
 export function generateTimbalPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, nextKind: TimbalNextStrokeKind,
-  stepDurationMs: number = 150, flaRole: 'none' | 'main' | 'grace' = 'none',
-  nextSymbol: string = 'idle', isNextWeak: boolean = false
+  durationMs: number = 225, flaRole: 'none' | 'main' | 'grace' = 'none',
+  nextSymbol: string = 'idle', isNextWeak: boolean = false, realMsUntilNext?: number
 ): Keyframe[] {
-  const { anatomy, strokes, transitions, attackSpeed, wristWhipDeg } = CONFIG_TIMBAL_HANDS;
+  const { anatomy, strokes, transitions, wristWhipDeg } = CONFIG_TIMBAL_HANDS;
   const sign = isLeftSide ? 1 : -1, hs = anatomy.handScale, sUp = stroke.toUpperCase();
   if (sUp === 'B' || stroke === '~') return generateTimbalBarulhoLoopFrames(isLeftSide, stroke === 'b' ? 0.6 : 1);
   const isWeakStroke = ['g', 'a', 's', 't', 'd', 'p', 'D'].includes(stroke) || flaRole === 'grace';
   const amp = isWeakStroke ? strokes.weakStrokeRatio : 1;
-  const graceDelay = flaRole === 'main' ? Math.min(0.28, strokes.flaGraceDelayMs / Math.max(60, stepDurationMs)) : 0;
-  const atkOff = Math.min(0.52, Math.max(0.06, (flaRole === 'grace' ? attackSpeed * 0.72 : attackSpeed) + graceDelay));
+  const { delayOff, impactOff, holdEndOff } = computeImpactHoldTiming(durationMs, flaRole === 'main' ? strokes.flaGraceDelayMs : 0);
   const mem = getHandMemory(isLeftSide), { tx: curX, ty: curY } = resolveZoneTarget(stroke, sign);
   const effNextSym = nextSymbol !== 'idle' ? nextSymbol : nextKind === 'idle' ? 'idle' : nextKind === 'grave' ? 'G' : nextKind === 'slap' ? 'S' : nextKind === 'ghost' ? 'd' : 'A';
-  const endTr = resolveTimbalZonePrepTransform(curX, curY, effNextSym, isNextWeak || nextKind === 'ghost', isLeftSide);
+  const endTr = resolveTimbalZonePrepTransform(curX, curY, effNextSym, isNextWeak || nextKind === 'ghost', isLeftSide, realMsUntilNext);
   const riseEase = getTransitionRiseEasing(transitions.transitionRiseCurve);
   const fallbackStart = buildTransform(curX, curY + (isWeakStroke ? transitions.stayLowAfterStrongY : transitions.liftHighAfterWeakY), hs * (isWeakStroke ? transitions.stayLowScaleZ : transitions.liftHighScaleZ), hs * (isWeakStroke ? transitions.stayLowScaleZ : transitions.liftHighScaleZ), -sign * 3);
   const startTr = mem.posture !== 'rest' && mem.transform ? mem.transform : fallbackStart;
 
   if (sUp === 'C' || sUp === 'X') {
-    const sx = hs * strokes.clapProfileScaleX, sy = hs * 1.15;
-    return [
-      { transform: buildTransform(sign * (strokes.clapConvergeX - strokes.clapRecoilPx * 1.4), strokes.clapImpactY + 10, sx * 1.08, sy * 1.04, sign * (strokes.clapVerticalTiltDeg * 0.75)), offset: 0, easing: 'cubic-bezier(0.2, 0.85, 0.3, 1)' },
-      { transform: getTimbalImpactPoseTransform('C', isLeftSide), offset: atkOff, easing: 'ease-out' },
-      { transform: buildTransform(sign * (strokes.clapConvergeX - strokes.clapRecoilPx), strokes.clapImpactY + 6, sx * 1.05, sy, sign * (strokes.clapVerticalTiltDeg * 0.55)), offset: Math.min(0.68, +(atkOff + 0.24).toFixed(2)), easing: riseEase },
-      { transform: endTr, offset: 1 },
-    ];
+    const sx = hs * strokes.clapProfileScaleX, sy = hs * 1.15, imp = getTimbalImpactPoseTransform('C', isLeftSide);
+    const wind = buildTransform(sign * (strokes.clapConvergeX - strokes.clapRecoilPx * 1.4), strokes.clapImpactY + 10, sx * 1.08, sy * 1.04, sign * (strokes.clapVerticalTiltDeg * 0.75));
+    return [{ transform: wind, offset: 0, easing: 'cubic-bezier(0.2, 0.85, 0.3, 1)' }, { transform: imp, offset: impactOff }, { transform: imp, offset: holdEndOff, easing: riseEase }, { transform: endTr, offset: 1 }];
   }
   if (sUp === 'D') {
-    return [{ transform: startTr, offset: 0 }, { transform: getTimbalImpactPoseTransform('D', isLeftSide), offset: atkOff, easing: riseEase }, { transform: endTr, offset: 1 }];
+    const imp = getTimbalImpactPoseTransform('D', isLeftSide);
+    return [{ transform: startTr, offset: 0 }, { transform: imp, offset: impactOff }, { transform: imp, offset: holdEndOff, easing: riseEase }, { transform: endTr, offset: 1 }];
   }
   if (sUp === 'P') {
-    const holdOff = Math.min(0.84, atkOff + strokes.presoHoldMs / Math.max(70, stepDurationMs)), impTr = getTimbalImpactPoseTransform('P', isLeftSide);
-    return [{ transform: startTr, offset: 0 }, { transform: impTr, offset: atkOff }, { transform: impTr, offset: holdOff, easing: riseEase }, { transform: endTr, offset: 1 }];
+    const presoHoldOff = Math.min(0.84, Math.max(holdEndOff, +(impactOff + strokes.presoHoldMs / Math.max(70, durationMs)).toFixed(3)));
+    const impTr = getTimbalImpactPoseTransform('P', isLeftSide);
+    return [{ transform: startTr, offset: 0 }, { transform: impTr, offset: impactOff }, { transform: impTr, offset: presoHoldOff, easing: riseEase }, { transform: endTr, offset: 1 }];
   }
   if (sUp === 'S' || sUp === 'T') {
-    const iSc = hs * strokes.slapImpactScaleZ, snapOff = Math.min(0.76, atkOff + strokes.slapSnapBackMs / Math.max(70, stepDurationMs));
+    const iSc = hs * strokes.slapImpactScaleZ;
     const impTr = buildTransform(curX, curY, iSc * 1.05, iSc, sign * (wristWhipDeg + strokes.slapHandRotateDeg) * amp);
-    const snapTr = buildTransform(curX, curY + 12, iSc * 1.06, iSc * 1.06, sign * wristWhipDeg * 0.35);
+    const snapTr = buildTransform(curX, curY + 8, iSc * 1.05, iSc * 1.05, sign * wristWhipDeg * 0.35);
     const kf: Keyframe[] = [{ transform: startTr, offset: 0, easing: 'cubic-bezier(0.18, 0.92, 0.28, 1)' }];
-    if (graceDelay > 0.02) kf.push({ transform: startTr, offset: +graceDelay.toFixed(3), easing: 'cubic-bezier(0.18, 0.92, 0.28, 1)' });
-    kf.push({ transform: impTr, offset: +atkOff.toFixed(3), easing: 'cubic-bezier(0.15, 0.95, 0.25, 1)' }, { transform: snapTr, offset: +snapOff.toFixed(3), easing: riseEase }, { transform: endTr, offset: 1 });
+    if (delayOff > 0.02) kf.push({ transform: startTr, offset: delayOff, easing: 'cubic-bezier(0.18, 0.92, 0.28, 1)' });
+    kf.push({ transform: impTr, offset: impactOff }, { transform: snapTr, offset: holdEndOff, easing: riseEase }, { transform: endTr, offset: 1 });
     return kf;
   }
 
-  const isGrave = sUp === 'G';
-  const iScale = hs * (isGrave ? strokes.graveImpactScaleZ : strokes.abertoImpactScaleZ);
+  const isGrave = sUp === 'G', iScale = hs * (isGrave ? strokes.graveImpactScaleZ : strokes.abertoImpactScaleZ);
   const impTr = buildTransform(curX, curY, isGrave ? iScale * strokes.gravePalmSquash : iScale, isGrave ? iScale : iScale * strokes.abertoFingerFlex, sign * wristWhipDeg * amp);
-  const rebOff = Math.min(0.72, atkOff + 0.18), rebTr = buildTransform(curX, curY + 10, iScale * 1.03, iScale * 1.03, sign * 2);
+  const rebTr = buildTransform(curX, curY + 6, iScale * 1.02, iScale * 1.02, sign * 2);
   const kf: Keyframe[] = [{ transform: startTr, offset: 0, easing: 'cubic-bezier(0.22, 0.88, 0.32, 1)' }];
-  if (graceDelay > 0.02) kf.push({ transform: startTr, offset: +graceDelay.toFixed(3), easing: 'cubic-bezier(0.22, 0.88, 0.32, 1)' });
-  kf.push({ transform: impTr, offset: +atkOff.toFixed(3), easing: 'cubic-bezier(0.25, 0.9, 0.35, 1)' }, { transform: rebTr, offset: +rebOff.toFixed(3), easing: riseEase }, { transform: endTr, offset: 1 });
+  if (delayOff > 0.02) kf.push({ transform: startTr, offset: delayOff, easing: 'cubic-bezier(0.22, 0.88, 0.32, 1)' });
+  kf.push({ transform: impTr, offset: impactOff }, { transform: rebTr, offset: holdEndOff, easing: riseEase }, { transform: endTr, offset: 1 });
   return kf;
 }

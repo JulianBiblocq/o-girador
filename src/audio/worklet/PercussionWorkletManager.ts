@@ -33,10 +33,8 @@ export class PercussionWorkletManager {
   public syncTracks(tracks: TrackGroup[], liveBpm?: number): void { this.trackSync.syncTracks(this.workletNode?.port ?? null, tracks, this.slotRouter, this.configMap, liveBpm); }
 
   public init(
-    audioContext: AudioContext,
-    configMap: Map<string, InstrumentAudioConfig>,
-    initialTracks: TrackGroup[] = [],
-    bufferPool?: Map<string, unknown>
+    audioContext: AudioContext, configMap: Map<string, InstrumentAudioConfig>,
+    initialTracks: TrackGroup[] = [], bufferPool?: Map<string, unknown>
   ): Promise<boolean> {
     this.configMap = configMap;
     if (bufferPool) this.sampleBridge.syncBufferPool(bufferPool);
@@ -64,7 +62,12 @@ export class PercussionWorkletManager {
         numberOfOutputs: MAX_WORKLET_OUTPUTS,
         outputChannelCount: new Array(MAX_WORKLET_OUTPUTS).fill(2),
       });
-      node.onprocessorerror = (err) => console.error('[PercussionWorklet] Processor runtime error:', err);
+      node.onprocessorerror = (err) => {
+        console.error('[PercussionWorklet] Processor runtime error:', err);
+        this._isReady = false;
+        try { node.disconnect(); } catch (_) {}
+        this.workletNode = null;
+      };
       this.workletNode = node;
       this.slotRouter.attachWorkletNode(audioContext, nativeCtx, node);
       if (bufferPool) this.sampleBridge.syncBufferPool(bufferPool);
@@ -72,11 +75,6 @@ export class PercussionWorkletManager {
       this.trackSync.resetDiffCache();
       this.trackSync.syncTracks(node.port, initialTracks, this.slotRouter, this.configMap);
       this._isReady = true;
-      if (import.meta.env.DEV) {
-        console.info('[PercussionWorklet] Ready:', {
-          isReady: this.isReady, isNativeCtx, routedSlots: this.slotRouter.routedSlotCount, loadedSamples: this.sampleBridge.loadedSampleCount,
-        });
-      }
       return true;
     }).catch((err) => {
       console.error('[PercussionWorklet] Failed to initialize AudioWorklet:', err);
@@ -111,21 +109,15 @@ export class PercussionWorkletManager {
   }
 
   public purgeAll(): void {
-    if (!this.workletNode) return;
-    const msg: PurgeAllMessage = { type: 'PURGE_ALL' };
-    try { this.workletNode.port.postMessage(msg); } catch (_) {}
+    if (this.workletNode) { try { this.workletNode.port.postMessage({ type: 'PURGE_ALL' } as PurgeAllMessage); } catch (_) {} }
   }
 
   public purgeFromFrame(fromFrame: number, measureSeqId?: number): void {
-    if (!this.workletNode) return;
-    const msg: PurgeFromFrameMessage = { type: 'PURGE_FROM_FRAME', fromFrame, measureSeqId };
-    try { this.workletNode.port.postMessage(msg); } catch (_) {}
+    if (this.workletNode) { try { this.workletNode.port.postMessage({ type: 'PURGE_FROM_FRAME', fromFrame, measureSeqId } as PurgeFromFrameMessage); } catch (_) {} }
   }
 
   public purgeTrack(trackId: number): void {
-    if (!this.workletNode) return;
-    const msg: PurgeTrackMessage = { type: 'PURGE_TRACK', trackId };
-    try { this.workletNode.port.postMessage(msg); } catch (_) {}
+    if (this.workletNode) { try { this.workletNode.port.postMessage({ type: 'PURGE_TRACK', trackId } as PurgeTrackMessage); } catch (_) {} }
   }
 
   public dispose(): void {

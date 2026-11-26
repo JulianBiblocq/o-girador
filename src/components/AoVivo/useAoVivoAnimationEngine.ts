@@ -1,20 +1,19 @@
 import { useEffect, useRef } from 'react';
+import { CONFIG_ALFAIA_STICKS } from '../../audio/animations/alfaiaStickConfig';
+import { isBarulhoRollActive, resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
+import { MineiroPole } from '../../audio/animationGenerators';
+import { useSequencer } from '../../contexts/SequencerContext';
 import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
-import { useSequencer } from '../../contexts/SequencerContext';
-import { isBarulhoRollActive, resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
-import { MineiroPole } from '../../audio/animationGenerators';
+import { getPhysicalStepFromRatio } from '../circle-sequencer/measurePatternHelpers';
 import { computeAoVivoHitLeadMs } from './aoVivoHitTiming';
 import { pauseAoVivoAnimations, prepareAoVivoForStepPreview, resumeAoVivoAnimations } from './aoVivoFreezeHelper';
-import { resolveAoVivoMeasureAndLookahead } from './aoVivoMeasureLookahead';
-import { dispatchAgbe, dispatchGongue, dispatchMineiro } from './aoVivoOtherDispatchers';
+import { AoVivoBarCacheEntry, resolveCachedAoVivoBarForTick } from './aoVivoMeasureBarCache';
 import { resetAoVivoRestPosition } from './aoVivoReset';
 import { cancelAoVivoShockwave } from './AoVivoShockwave';
-import { dispatchAlfaiaPredictiveStroke } from './alfaiaLookaheadHelper';
-import { dispatchCaixaPredictiveStroke } from './caixaLookaheadHelper';
-import { AoVivoResolvedFamily, resolveTrackAoVivoFamily } from './resolveAoVivoFamily';
-import { dispatchTimbalPredictiveStroke } from './timbalLookaheadHelper';
+import { AoVivoResolvedFamily } from './resolveAoVivoFamily';
+import { clearPendingAoVivoSubSteps, dispatchAoVivoStepStrokes, PendingSubStepTimer } from './aoVivoStrokeDispatcher';
 
 export { computeAoVivoHitLeadMs };
 
@@ -35,107 +34,101 @@ export function useAoVivoAnimationEngine(
   const mineiroPoleRef = useRef<MineiroPole>('backWeak');
   const lastDispatchedKeyRef = useRef<string>('');
   const isInSilentMeasureRef = useRef<boolean>(false);
-  const subStepTimersRef = useRef<any[]>([]);
+  const subStepTimersRef = useRef<PendingSubStepTimer[]>([]);
+  const barCacheRef = useRef<AoVivoBarCacheEntry | null>(null);
 
-  const clearSubStepTimers = () => { subStepTimersRef.current.forEach((t) => clearTimeout(t)); subStepTimersRef.current = []; };
+  const livePropsRef = useRef({ activeAoVivoTrackId, isLeftHanded, activeTrack, family, isSyntheticPreview, isPreRolling });
+  livePropsRef.current = { activeAoVivoTrackId, isLeftHanded, activeTrack, family, isSyntheticPreview, isPreRolling };
+  const prevIdentityRef = useRef<string | null>(null);
+  const leftStickMode = CONFIG_ALFAIA_STICKS.leftStickMode;
+
+  const resetEngineToRest = () => {
+    clearPendingAoVivoSubSteps(subStepTimersRef);
+    resetBarulhoRollState();
+    barCacheRef.current = null;
+    lastDispatchedKeyRef.current = ''; isInSilentMeasureRef.current = false;
+    allAnimRefs.forEach((r) => r.current?.cancel()); cancelAoVivoShockwave(haloRef.current);
+    const p = livePropsRef.current;
+    resetAoVivoRestPosition(p.family ?? undefined, p.isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, p.activeTrack);
+  };
 
   useEffect(() => {
-    const resetAllToRest = () => {
-      clearSubStepTimers(); resetBarulhoRollState();
-      lastDispatchedKeyRef.current = ''; isInSilentMeasureRef.current = false;
-      allAnimRefs.forEach((r) => r.current?.cancel()); cancelAoVivoShockwave(haloRef.current);
-      resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
-    };
     const onResume = () => resumeAoVivoAnimations(allAnimRefs, haloRef.current);
-    resetAllToRest();
-    window.addEventListener('o-girador-playback-stopped', resetAllToRest);
+    window.addEventListener('o-girador-playback-stopped', resetEngineToRest);
     window.addEventListener('o-girador-playback-resumed', onResume);
     return () => {
-      window.removeEventListener('o-girador-playback-stopped', resetAllToRest);
+      window.removeEventListener('o-girador-playback-stopped', resetEngineToRest);
       window.removeEventListener('o-girador-playback-resumed', onResume);
     };
-  }, [isPreRolling, family, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack]);
+  }, [leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, haloRef]);
 
   useEffect(() => {
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; measureSeqId?: number; isPreRoll?: boolean; isPaused?: boolean; isStepPreview?: boolean }) => {
+    const identityKey = `${String(activeAoVivoTrackId ?? '')}|${family ?? ''}|${isLeftHanded ? 'L' : 'R'}|${leftStickMode}`;
+    const identityChanged = prevIdentityRef.current !== identityKey;
+    prevIdentityRef.current = identityKey;
+    if (isPreRolling || !useSequencerStore.getState().isPlaying || identityChanged) {
+      resetEngineToRest();
+    }
+  }, [activeAoVivoTrackId, family, isLeftHanded, leftStickMode, isPreRolling]);
+
+  useEffect(() => {
+    const handleTick = (detail: any) => {
       const { step, measure, maxTicks, ratio = step / maxTicks, isStepPreview } = detail;
+      const p = livePropsRef.current;
       if (detail.isPaused && !isStepPreview && step >= 0) {
-        clearSubStepTimers(); pauseAoVivoAnimations(allAnimRefs, haloRef.current); return;
+        clearPendingAoVivoSubSteps(subStepTimersRef); pauseAoVivoAnimations(allAnimRefs, haloRef.current); return;
       }
-      if (isPreRolling || Boolean(detail.isPreRoll) || step < 0) {
-        clearSubStepTimers(); resetBarulhoRollState();
-        lastDispatchedKeyRef.current = ''; isInSilentMeasureRef.current = false;
-        allAnimRefs.forEach((r) => r.current?.cancel()); cancelAoVivoShockwave(haloRef.current);
-        resetAoVivoRestPosition(family ?? undefined, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
-        return;
-      }
+      if (p.isPreRolling || Boolean(detail.isPreRoll) || step < 0) { resetEngineToRest(); return; }
+      if (!p.family || p.isSyntheticPreview || !p.activeTrack) { lastDispatchedKeyRef.current = ''; return; }
 
-      const state = useSequencerStore.getState();
-      if (!family || isSyntheticPreview || !activeTrack || resolveTrackAoVivoFamily(activeTrack, state.tracks).family !== family) {
-        lastDispatchedKeyRef.current = ''; return;
-      }
-
-      const soloPlayId = useTransportStore.getState().soloPatternPlayId ?? null;
-      const measureSeqId = isStepPreview ? undefined : detail.measureSeqId;
-      const ctx = resolveAoVivoMeasureAndLookahead({
-        activeTrack, allTracks: state.tracks, measure, ratio, soloPlayId, measureSeqId, varMap: activeVariationsRef?.current, state,
+      const state = useSequencerStore.getState(), trState = useTransportStore.getState();
+      const soloPlayId = trState.soloPatternPlayId ?? null, measureSeqId = isStepPreview ? undefined : detail.measureSeqId;
+      const bar = resolveCachedAoVivoBarForTick({
+        cacheRef: barCacheRef, activeTrack: p.activeTrack, family: p.family, measure, measureSeqId,
+        soloPlayId, soloVarId: trState.soloPatternVariationId ?? null, isStepPreview: Boolean(isStepPreview),
+        varMap: activeVariationsRef?.current, state,
       });
 
-      if (!ctx.pattern || ctx.stepInMeasure < 0) {
-        clearSubStepTimers();
-        lastDispatchedKeyRef.current = '';
-        if (!isInSilentMeasureRef.current || isBarulhoRollActive()) {
+      if (!bar || !bar.pattern || !bar.effectivePattern) {
+        clearPendingAoVivoSubSteps(subStepTimersRef); lastDispatchedKeyRef.current = '';
+        if (bar && (!isInSilentMeasureRef.current || isBarulhoRollActive())) {
           isInSilentMeasureRef.current = true;
           allAnimRefs.forEach((r) => r.current?.cancel()); cancelAoVivoShockwave(haloRef.current);
-          resetAoVivoRestPosition(family, isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, activeTrack);
+          resetAoVivoRestPosition(p.family, p.isLeftHanded, leftStickRef, rightStickRef, gongueStickRef, mineiroStickRef, agbeWholeRef, p.activeTrack);
         }
         return;
       }
       isInSilentMeasureRef.current = false;
 
-      const dispatchKey = `${measureSeqId ?? 0}:${measure}:${ctx.targetStep}:${ctx.pattern.id}`;
+      const stepInMeasure = Math.max(0, getPhysicalStepFromRatio(ratio, bar.effectivePattern, bar.stepsPerMeasure, bar.beatsCount, bar.beatRes));
+      const targetStep = bar.stepOffset + stepInMeasure;
+      const dispatchKey = `${measureSeqId ?? 0}:${measure}:${targetStep}:${bar.pattern.id}`;
       if (!isStepPreview && dispatchKey === lastDispatchedKeyRef.current) return;
       lastDispatchedKeyRef.current = dispatchKey;
-      clearSubStepTimers();
 
-      const { currSlice, lookaheadSteps, stepInMeasure, stepDurationMs } = ctx;
-      const rawVal = currSlice[stepInMeasure];
+      const rawVal = bar.currSlice[stepInMeasure];
       if (isStepPreview) {
-        prepareAoVivoForStepPreview(allAnimRefs, haloRef.current, family, isLeftHanded, activeTrack, rawVal, leftStickRef.current, rightStickRef.current, leftAnimRef, rightAnimRef);
+        clearPendingAoVivoSubSteps(subStepTimersRef);
+        prepareAoVivoForStepPreview(allAnimRefs, haloRef.current, p.family, p.isLeftHanded, p.activeTrack, rawVal, leftStickRef.current, rightStickRef.current, leftAnimRef, rightAnimRef);
       }
-      if ((!rawVal || rawVal === '-' || rawVal === '0' || rawVal === 0) && !isBarulhoRollActive(family)) return;
+      if ((!rawVal || rawVal === '-' || rawVal === '0' || rawVal === 0) && !isBarulhoRollActive(p.family)) return;
 
-      const triggerStroke = (stroke: string, isSubStep: boolean, extraSec = 0) => {
-        const tok = (stroke || '').trim();
-        const isSilent = !tok || tok === '0' || tok === '-';
-        if (isSilent && !isBarulhoRollActive(family)) return;
-        const effStroke = isSilent ? '.' : tok, isVibrate = effStroke === '~';
-        const leadMs = computeAoVivoHitLeadMs(detail, extraSec);
-        const subDurMs = isSubStep ? Math.max(35, Math.round(stepDurationMs * 0.5)) : stepDurationMs;
-        const oneShot = Boolean(isStepPreview);
-        if (family === 'alfaia') dispatchAlfaiaPredictiveStroke(activeTrack, effStroke, isVibrate, isSubStep, isLeftHanded, lookaheadSteps, stepInMeasure, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs, oneShot);
-        else if (family === 'caixa' || family === 'tarol') dispatchCaixaPredictiveStroke(family, effStroke, isVibrate, isSubStep, isLeftHanded, lookaheadSteps, stepInMeasure, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs, oneShot);
-        else if (family === 'timbal') dispatchTimbalPredictiveStroke(effStroke, isVibrate, isSubStep, isLeftHanded, lookaheadSteps, stepInMeasure, subDurMs, leftStickRef.current, rightStickRef.current, haloRef.current, leftAnimRef, rightAnimRef, geometryRef.current, leadMs, oneShot);
-        else if (family === 'mineiro') dispatchMineiro(effStroke, isVibrate, mineiroStickRef.current, mineiroPoleRef, mineiroAnimRef, isLeftHanded, lookaheadSteps, stepInMeasure, subDurMs, isSubStep, leadMs, oneShot);
-        else if (family === 'agbe') {
-          const nextRaw = !isSubStep && Array.isArray(rawVal) && rawVal.length > 1 ? rawVal[1] : lookaheadSteps[stepInMeasure + 1];
-          dispatchAgbe(effStroke, isVibrate, agbeWholeRef.current, agbeAnimRef, Array.isArray(nextRaw) ? String(nextRaw[0] || '') : String(nextRaw || ''), lookaheadSteps, stepInMeasure, subDurMs, isSubStep, leadMs, oneShot, isLeftHanded);
-        } else if (family === 'gongue') dispatchGongue(effStroke, isVibrate, isSubStep, isLeftHanded, lookaheadSteps, stepInMeasure, subDurMs, gongueStickRef.current, gongueAnimRef, haloRef.current, geometryRef.current, leadMs);
-      };
-
-      if (Array.isArray(rawVal)) {
-        triggerStroke(String(rawVal[0] ?? ''), false, 0);
-        subStepTimersRef.current.push(setTimeout(() => triggerStroke(String(rawVal[1] ?? ''), true, stepDurationMs / 2000), Math.max(15, Math.round(stepDurationMs * 0.48))));
-      } else if (typeof rawVal === 'object' && Array.isArray(rawVal.sim)) {
-        rawVal.sim.forEach((s: string) => triggerStroke(String(s), false, 0));
-      } else {
-        triggerStroke(String(rawVal ?? ''), false, 0);
-      }
+      dispatchAoVivoStepStrokes({
+        detail, rawVal, family: p.family, activeTrack: p.activeTrack, concreteTrack: bar.concreteTrack,
+        effectivePattern: bar.effectivePattern, effectiveMicrotimings: bar.effectiveMicrotimings, currentSig: bar.currentSig,
+        isLeftHanded: p.isLeftHanded, isStepPreview: Boolean(isStepPreview),
+        lookaheadSteps: bar.lookaheadSteps, lookaheadDurationsMs: bar.lookaheadDurationsMs,
+        stepInMeasure, targetStep, stepDurationMs: bar.currStepDursMs[stepInMeasure] ?? 150, geometry: geometryRef.current,
+        leftStickEl: leftStickRef.current, rightStickEl: rightStickRef.current,
+        mineiroStickEl: mineiroStickRef.current, agbeWholeEl: agbeWholeRef.current,
+        gongueStickEl: gongueStickRef.current, haloEl: haloRef.current,
+        leftAnimRef, rightAnimRef, mineiroAnimRef, agbeAnimRef, gongueAnimRef, mineiroPoleRef, subStepTimersRef,
+      });
     };
 
     subscribeToTick(handleTick);
-    return () => { unsubscribeFromTick(handleTick); clearSubStepTimers(); };
-  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, family, isSyntheticPreview, isPreRolling, geometryRef, leftStickRef, rightStickRef, mineiroStickRef, agbeWholeRef, gongueStickRef, haloRef, activeVariationsRef]);
+    return () => { unsubscribeFromTick(handleTick); clearPendingAoVivoSubSteps(subStepTimersRef); };
+  }, [geometryRef, leftStickRef, rightStickRef, mineiroStickRef, agbeWholeRef, gongueStickRef, haloRef, activeVariationsRef]);
 
   return { leftAnimRef, rightAnimRef };
 }

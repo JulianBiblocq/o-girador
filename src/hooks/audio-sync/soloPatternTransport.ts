@@ -10,8 +10,11 @@ import { AudioEngine } from '../../AudioEngine';
 import { getAudioEngine } from './audioEngineNodes';
 import { buildFlatSongSchedule } from '../../workers/compiler/flatScheduleBuilder';
 import { instrumentsConfig } from '../../data';
-import { activateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
-import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
+import {
+  cancelAudioContextAutoSuspend,
+  safeResumeAudioContext,
+  unlockAudioOnUserGestureSync,
+} from '../../audio/audioContextSuspendManager';
 import { restoreStoreChannelGains } from './realtimeFaderAudioUpdater';
 import { clearFreeze } from './frozenPlaybackState';
 import { resetWorkletHorizonState } from '../../audio/worklet/horizon/percussionHorizonPusher';
@@ -48,7 +51,7 @@ export interface SoloTransportContext {
 }
 
 export async function handleStartSoloPattern(patternId: number, variationId: string | undefined, ctx: SoloTransportContext): Promise<void> {
-  activateMultimediaAudioSession();
+  unlockAudioOnUserGestureSync((ctx.audioEngine || getAudioEngine())?.getAudioContext?.());
   if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
   cancelAudioContextAutoSuspend();
   await safeResumeAudioContext();

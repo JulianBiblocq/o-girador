@@ -1,3 +1,5 @@
+import { isFastRepeatCompactPrep } from './aoVivoBallisticMath';
+
 export type HandStrokeEnergy = 'strong' | 'weak' | 'special' | 'rest';
 export type HandPosture = 'high_armed' | 'low_tucked' | 'pressed_skin' | 'rest';
 
@@ -83,7 +85,8 @@ export function resolveStickStartAndEndTransforms(
   restTransform: string,
   tr: HandTransitionConfig,
   isCurrentStrong: boolean,
-  nextKind: 'strong' | 'weak' | 'rufada' | 'idle'
+  nextKind: 'strong' | 'weak' | 'rufada' | 'idle',
+  realMsUntilNext?: number
 ): { startTransform: string; endTransform: string; rebEasing: string; wasPressedOnSkin: boolean; pressedTransform: string | null } {
   const mem = getHandMemory(isLeftSide);
   const wasPressedOnSkin = mem.posture === 'pressed_skin' && Boolean(mem.transform);
@@ -94,15 +97,16 @@ export function resolveStickStartAndEndTransforms(
   let startTransform: string;
   if (wasPressedOnSkin && mem.transform) {
     startTransform = mem.transform;
-  } else if (mem.transform && ((isCurrentStrong && mem.posture === 'high_armed') || (!isCurrentStrong && mem.posture === 'low_tucked'))) {
+  } else if (mem.posture !== 'rest' && mem.transform) {
     startTransform = mem.transform;
   } else {
     startTransform = isCurrentStrong ? highTr : lowTr;
   }
 
+  const forceCompact = isFastRepeatCompactPrep(realMsUntilNext);
   let endTransform: string;
   let endPosture: HandPosture;
-  if (nextKind === 'weak' || nextKind === 'rufada') {
+  if (nextKind === 'weak' || nextKind === 'rufada' || (nextKind === 'strong' && forceCompact)) {
     endTransform = lowTr;
     endPosture = 'low_tucked';
   } else if (nextKind === 'strong') {

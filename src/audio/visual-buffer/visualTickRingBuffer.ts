@@ -8,7 +8,7 @@ export const HIT_QUEUE_SIZE = 512;
 
 export const tickQueue: VisualTickEvent[] = Array.from({ length: TICK_QUEUE_SIZE }, () => ({
   drawTime: 0, step: 0, measure: 0, maxTicks: 96, ratio: 0, visualStep16: 0, visualStep12: 0,
-  time: 0, iteration: 1, loopIteration: 1, measureStartTime: 0, measureDuration: 0, targetStartTime: 0,
+  time: 0, audioTime: 0, iteration: 1, loopIteration: 1, measureStartTime: 0, measureDuration: 0, targetStartTime: 0,
   isPreRoll: false, preRollMeasureIndex: 0, preRollTotalMeasures: 1, preRollBeat: 0, measureSeqId: 0,
 }));
 
@@ -26,7 +26,7 @@ export function setHitReadIdx(idx: number) { hitReadIdx = idx; }
 
 const lastAudibleTickSnapshot: VisualTickEvent = {
   drawTime: 0, step: 0, measure: 0, maxTicks: 96, ratio: 0, visualStep16: 0, visualStep12: 0,
-  time: 0, iteration: 1, loopIteration: 1, measureStartTime: 0, measureDuration: 0, targetStartTime: 0,
+  time: 0, audioTime: 0, iteration: 1, loopIteration: 1, measureStartTime: 0, measureDuration: 0, targetStartTime: 0,
   isPreRoll: false, preRollMeasureIndex: 0, preRollTotalMeasures: 1, preRollBeat: 0, measureSeqId: 0,
 };
 let hasLastAudibleTick = false;
@@ -34,7 +34,7 @@ let hasLastAudibleTick = false;
 function copyTickEvent(dst: VisualTickEvent, src: VisualTickEvent): void {
   dst.drawTime = src.drawTime; dst.step = src.step; dst.measure = src.measure;
   dst.maxTicks = src.maxTicks; dst.ratio = src.ratio; dst.visualStep16 = src.visualStep16;
-  dst.visualStep12 = src.visualStep12; dst.time = src.time; dst.iteration = src.iteration;
+  dst.visualStep12 = src.visualStep12; dst.time = src.time; dst.audioTime = src.audioTime ?? src.time; dst.iteration = src.iteration;
   dst.loopIteration = src.loopIteration ?? 1; dst.measureStartTime = src.measureStartTime;
   dst.measureDuration = src.measureDuration; dst.targetStartTime = src.targetStartTime;
   dst.isPreRoll = !!src.isPreRoll; dst.preRollMeasureIndex = src.preRollMeasureIndex ?? 0;

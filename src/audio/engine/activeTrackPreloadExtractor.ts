@@ -7,6 +7,7 @@ import { instrumentsConfig } from '../../data';
 import { InstrumentAudioConfig } from '../../data/audioConfig';
 import { useWizardStore } from '../../stores/useWizardStore';
 import { Pattern, TrackGroup } from '../../types';
+import { resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { ActiveInstrumentData } from './engineTypes';
 
 function normalizeStrokeSymbolForPreload(instId: string, raw: string): string {
@@ -66,8 +67,9 @@ export function extractActiveInstrumentsFromTracks(tracks: TrackGroup[]): Active
 
     let patternsToScan = t.patterns;
     if (t.linkedToTrackId) {
+      const master = resolveMasterTrack(t.id, safeTracks);
       const parentLink = safeTracks.find((p) => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-      if (parentLink) patternsToScan = parentLink.patterns;
+      patternsToScan = master?.patterns?.length ? master.patterns : (parentLink?.patterns ?? t.patterns);
     }
     for (const s of collectWrittenStrokesFromPatterns(inst.id, patternsToScan)) set.add(s);
   }

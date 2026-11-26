@@ -1,10 +1,10 @@
 /**
- * masterChainInitializer.ts — Chaîne Master Studio Zéro-GC (< 140 lignes)
- * Route l'instrumental vers `MasterBusWorklet.inputs[0]` et `TOADA` vers `inputs[1]` (avec subsonic 30 Hz + compensation headroom +4.5 dB).
+ * masterChainInitializer.ts — Chaîne Master Studio Zéro-GC avec repli automatique anti-silence (< 122 lignes).
  */
 import * as Tone from 'tone';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as nodes from './effectsChainNodes';
+import { createDualAudioParam } from './dualAudioParam';
 import { initMasterMonoNodes, setMasterMonoWorkletActive } from './masterMonoHandler';
 import { createStudioConvolverReverb } from './studioReverbImpulse';
 import { createStudioSaturationChain } from './studioSaturationChain';
@@ -14,36 +14,9 @@ import { resetMasterCompressorCache } from './masterBypassHandler';
 import { MasterBusWorkletManager } from '../worklet/master-bus/MasterBusWorkletManager';
 import { CONSOLE_MAKEUP_GAIN } from '../worklet/master-bus/masterBusWorkletTypes';
 
-function createDualAudioParam(rawCtx: BaseAudioContext, a: AudioParam, b: AudioParam) {
-  return {
-    context: rawCtx,
-    get defaultValue() { return a.defaultValue; },
-    get minValue() { return a.minValue; },
-    get maxValue() { return a.maxValue; },
-    get value() { return a.value; },
-    set value(v: number) { a.value = v; b.value = v; },
-    rampTo(v: number, dur = 0.02) {
-      const now = rawCtx.currentTime ?? 0, tau = Math.max(0.005, dur / 3);
-      a.cancelScheduledValues?.(now); b.cancelScheduledValues?.(now);
-      a.setTargetAtTime(v, now, tau); b.setTargetAtTime(v, now, tau);
-    },
-    setValueAtTime(v: number, t: number) { a.setValueAtTime(v, t); b.setValueAtTime(v, t); return a; },
-    linearRampToValueAtTime(v: number, t: number) { a.linearRampToValueAtTime(v, t); b.linearRampToValueAtTime(v, t); return a; },
-    exponentialRampToValueAtTime(v: number, t: number) { a.exponentialRampToValueAtTime(v, t); b.exponentialRampToValueAtTime(v, t); return a; },
-    setTargetAtTime(v: number, t: number, tau: number) { a.setTargetAtTime(v, t, tau); b.setTargetAtTime(v, t, tau); return a; },
-    setValueCurveAtTime(c: number[] | Float32Array, t: number, d: number) { a.setValueCurveAtTime(c, t, d); b.setValueCurveAtTime(c, t, d); return a; },
-    cancelScheduledValues(t: number) { a.cancelScheduledValues(t); b.cancelScheduledValues(t); return a; },
-    cancelAndHoldAtTime(t: number) {
-      if (typeof (a as any).cancelAndHoldAtTime === 'function') (a as any).cancelAndHoldAtTime(t); else a.cancelScheduledValues(t);
-      if (typeof (b as any).cancelAndHoldAtTime === 'function') (b as any).cancelAndHoldAtTime(t); else b.cancelScheduledValues(t);
-      return a;
-    },
-  };
-}
-
 export function initMasterEffectsChain(
   masterVol: number, masterEQ: { low: number; mid: number; high: number },
-  isEco: boolean, masterReverbVol: number, metroVolume: number, isMetroOn: boolean
+  _isEco: boolean, masterReverbVol: number, metroVolume: number, isMetroOn: boolean
 ) {
   if (nodes.masterVolumeNode) return;
   if (!Tone.context || Tone.getContext().state === 'closed') Tone.setContext(new Tone.Context());
@@ -102,6 +75,10 @@ export function initMasterEffectsChain(
   Tone.connect(fallbackBridge, postLimiterTap);
 
   const workletMgr = new MasterBusWorkletManager();
+  workletMgr.onProcessorError = () => {
+    fallbackBridge.gain.value = CONSOLE_MAKEUP_GAIN;
+    setMasterMonoWorkletActive(false);
+  };
   nodes.setMasterBusWorkletManager(workletMgr);
   resetMasterCompressorCache();
   void workletMgr.init(rawCtx, { monoCheck: Boolean(useSequencerStore.getState().isMasterMono) }).then((ok) => {

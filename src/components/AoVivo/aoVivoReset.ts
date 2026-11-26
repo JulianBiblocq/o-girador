@@ -4,7 +4,7 @@ import { resetGonguePostureMemory } from '../../audio/animations/gongueKinematic
 import { resetHandPostureMemory } from '../../audio/animations/handTransitionEngine';
 import { getVariationSnapshotBySeqOrMeasure } from '../../hooks/audio-sync/liveVariationSnapshotStore';
 import { useTransportStore } from '../../stores/useTransportStore';
-import { resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
+import { getVariationSculptArrays, resolveEffectivePatternStepsForSoloOrLive } from '../../utils/soloVariationMatcher';
 import { isSlaveTrack, resolveMasterTrack } from '../../utils/trackMasterResolver';
 import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { resetAlfaiaSticksAndShadows } from './alfaiaLookaheadHelper';
@@ -21,7 +21,7 @@ export function resolveAoVivoPatternAndSteps(
   soloPlayId: number | null,
   varMap?: Record<number, any>,
   seqIdOrCombine?: number | boolean
-): { pattern: any | null; effectivePattern: any | null; activePlayingSteps: any[] } {
+): { pattern: any | null; effectivePattern: any | null; activePlayingSteps: any[]; effectiveMicrotimings?: any[] } {
   if (!activeTrack) return { pattern: null, effectivePattern: null, activePlayingSteps: [] };
 
   const concreteTrack =
@@ -66,11 +66,15 @@ export function resolveAoVivoPatternAndSteps(
   const effectivePattern = resolved.beatResolutions
     ? { ...pattern, beatResolutions: resolved.beatResolutions }
     : pattern;
+  const effectiveMicrotimings = resolved.matchedVariation
+    ? getVariationSculptArrays(pattern, resolved.matchedVariation).microtimings
+    : pattern.microtimings;
 
   return {
     pattern,
     effectivePattern,
     activePlayingSteps: resolved.steps || [],
+    effectiveMicrotimings,
   };
 }
 

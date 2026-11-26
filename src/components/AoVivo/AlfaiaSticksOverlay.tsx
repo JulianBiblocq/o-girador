@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CONFIG_ALFAIA_STICKS, AlfaiaSecondaryStickFamily, getAlfaiaStickRestTransform, subscribeAlfaiaSticksConfig } from '../../audio/animations/alfaiaKinematics';
+import { cancelTrackedElementAnimation, getTrackedElementAnimation } from '../../audio/animations/waapiAnimTracker';
 import {
   AlfaiaBacalhauStickSvg,
   AlfaiaFinaStickSvg,
@@ -73,14 +74,14 @@ export const AlfaiaSticksOverlay: React.FC<AlfaiaSticksOverlayProps> = ({
         const isLeft = idx === 0;
         const fam: AlfaiaSecondaryStickFamily =
           (isLeft && isLeftHanded) || (!isLeft && !isLeftHanded) ? 'macaneta' : famNow;
-        const activeAnims = el.getAnimations();
-        if (activeAnims.every((a) => a.playState !== 'running')) {
-          activeAnims.forEach((a) => a.cancel());
+        const tracked = getTrackedElementAnimation(el);
+        if (!tracked || tracked.playState !== 'running') {
+          cancelTrackedElementAnimation(el);
           el.style.transform = getAlfaiaStickRestTransform(isLeft, fam);
           const sh = el.querySelector('[data-stick-shadow]') as SVGGElement | null;
-          if (sh) sh.getAnimations().forEach((a) => a.cancel());
+          if (sh) cancelTrackedElementAnimation(sh);
           const tip = el.querySelector('[data-bacalhau-tip]') as SVGGElement | null;
-          if (tip) { tip.getAnimations().forEach((a) => a.cancel()); tip.style.transform = 'rotateZ(0deg) skewX(0deg) scaleX(1)'; }
+          if (tip) { cancelTrackedElementAnimation(tip); tip.style.transform = 'rotateZ(0deg) skewX(0deg) scaleX(1)'; }
         }
       });
     };

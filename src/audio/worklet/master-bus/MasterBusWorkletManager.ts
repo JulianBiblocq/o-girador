@@ -30,6 +30,7 @@ export class MasterBusWorkletManager {
     peakL: 0, peakR: 0, rmsL: 0, rmsR: 0, grDb: 0, duckDb: 0,
   };
   private readonly listeners = new Set<MasterBusTelemetryListener>();
+  public onProcessorError: (() => void) | null = null;
 
   public get isReady(): boolean { return this._isReady && this.workletNode !== null; }
   public get latestTelemetry(): MasterBusTelemetrySnapshot { return this.lastTelemetry; }
@@ -67,7 +68,11 @@ export class MasterBusWorkletManager {
         numberOfOutputs: 1,
         outputChannelCount: [2],
       });
-      node.onprocessorerror = (err) => console.error('[MasterBusWorklet] Processor runtime error:', err);
+      node.onprocessorerror = (err) => {
+        console.error('[MasterBusWorklet] Processor runtime error:', err);
+        this.dispose();
+        this.onProcessorError?.();
+      };
       node.port.onmessage = (e: MessageEvent<MasterBusTelemetryMessage>) => {
         const d = e.data;
         if (d && d.type === 'TELEMETRY') {

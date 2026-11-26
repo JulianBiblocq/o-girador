@@ -1,16 +1,22 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useRef, useSyncExternalStore } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { getIsAoVivoLabOpen, subscribeAoVivoLabOpen } from '../audio/animations/aoVivoConfigStorage';
 import { AoVivoOverlayInner } from './AoVivo/AoVivoOverlayInner';
 
 export const AoVivoOverlay: React.FC = () => {
   const isEco = useSequencerStore((state) => state.isEcoMode);
+  const isPlaying = useSequencerStore((state) => state.isPlaying);
   const activeAoVivoTrackId = useSequencerStore((state) => state.activeAoVivoTrackId);
   const isLabOpen = useSyncExternalStore(subscribeAoVivoLabOpen, getIsAoVivoLabOpen);
 
-  // Palier 1 Eco : l'animation decorative Ao Vivo est coupee (Zero Cost basis), sauf si
-  // l'utilisateur ouvre explicitement le Lab Ao Vivo (le Mode Eco n'est jamais force a Off).
-  if ((isEco && !isLabOpen) || (activeAoVivoTrackId === null && !isLabOpen)) {
+  // Hystérésis stricte pendant la lecture : interdit tout démontage/remontage cyclique en plein jeu.
+  const lockedEcoDuringPlayRef = useRef(isEco);
+  if (!isPlaying) {
+    lockedEcoDuringPlayRef.current = isEco;
+  }
+  const effectiveEco = isPlaying ? lockedEcoDuringPlayRef.current : isEco;
+
+  if ((effectiveEco && !isLabOpen) || (activeAoVivoTrackId === null && !isLabOpen)) {
     return null;
   }
 

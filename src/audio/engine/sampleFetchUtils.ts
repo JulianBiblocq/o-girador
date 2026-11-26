@@ -1,10 +1,11 @@
 /**
- * Résolution des chemins canoniques (.ogg), détection native iOS/WebKit (.m4a) et chargement réseau (< 135 lignes).
+ * Résolution des chemins canoniques (.ogg), détection native iOS/WebKit (.m4a) et chargement réseau auto-réparant (< 120 lignes).
  * - Détecte d'emblée l'absence de support Ogg Vorbis sur iOS/WebKit (sans télécharger les .ogg en pure perte).
  * - Garantit que tous les appelants indexent les AudioBuffers décodés sous leur clé canonique `.ogg`.
- * - Appose `?v=${revTag}` après la résolution d'extension `.ogg` <-> `.m4a` pour contourner un cache SW/HTTP obsolète.
+ * - Purge explicitement `'audio-samples-cache'` avant `{ cache: 'reload' }` si une réponse `text/html` ou corrompue est détectée.
  */
 import { getSampleRevisionTag, normalizeCanonicalSampleKey } from '../sampleCacheFingerprint';
+import { fetchAndDecodeWithCacheHeal } from './sampleCacheHealer';
 
 export { normalizeCanonicalSampleKey };
 
@@ -107,29 +108,26 @@ export async function fetchAndDecodeAudioSample(
 
   if (hasM4aVariant && shouldPreferM4aFallback()) {
     try {
-      const m4aResp = await fetchSampleWithRetry(m4aUrl);
-      return await ctx.decodeAudioData(await m4aResp.arrayBuffer());
+      return await fetchAndDecodeWithCacheHeal(ctx, m4aUrl, fetchSampleWithRetry, false);
     } catch (_) {
       return null;
     }
   }
 
+  let oggNetworkOk = false;
   try {
-    const oggResp = await fetchSampleWithRetry(oggUrl);
-    const oggBytes = await oggResp.arrayBuffer();
-    try {
-      return await ctx.decodeAudioData(oggBytes);
-    } catch (_) {
-      if (!hasM4aVariant) return null;
-      markM4aFallbackPreferred();
-    }
+    return await fetchAndDecodeWithCacheHeal(ctx, oggUrl, async (u) => {
+      const r = await fetchSampleWithRetry(u);
+      oggNetworkOk = true;
+      return r;
+    }, false);
   } catch (_) {
     if (!hasM4aVariant) return null;
+    if (oggNetworkOk) markM4aFallbackPreferred();
   }
 
   try {
-    const fallbackResp = await fetchSampleWithRetry(m4aUrl);
-    return await ctx.decodeAudioData(await fallbackResp.arrayBuffer());
+    return await fetchAndDecodeWithCacheHeal(ctx, m4aUrl, fetchSampleWithRetry, false);
   } catch (_) {
     return null;
   }

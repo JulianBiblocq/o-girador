@@ -1,7 +1,6 @@
 /**
- * Gel, reprise et préparation pas-à-pas WAAPI pour les baguettes Ao Vivo (< 115 lignes).
+ * Gel, reprise et préparation pas-à-pas WAAPI pour les baguettes Ao Vivo (< 95 lignes, zéro `getAnimations()`).
  */
-
 import React from 'react';
 import { getHandMemory } from '../../audio/animations/handTransitionEngine';
 import { resetBarulhoRollState } from '../../audio/animations/barulhoRollPlanner';
@@ -13,6 +12,7 @@ import {
 import { getPhysicalStepFromRatio } from '../circle-sequencer/measurePatternHelpers';
 import { resolveAlfaiaSecondaryFamily } from './AlfaiaSticksOverlay';
 import { isMufflingStickRef, releaseMufflingStickImmediately } from './alfaiaMuffleReleaseHelper';
+import { cancelAoVivoShockwave, pauseAoVivoShockwave, resumeAoVivoShockwave } from './AoVivoShockwave';
 
 export function pauseAoVivoAnimations(
   animRefs: React.MutableRefObject<Animation | null>[],
@@ -24,14 +24,7 @@ export function pauseAoVivoAnimations(
       try { anim.pause(); } catch (_) {}
     }
   }
-  if (haloEl) {
-    const shockEls = haloEl.querySelectorAll('[data-shock-primary], [data-shock-secondary]');
-    shockEls.forEach((el) => {
-      (el as HTMLElement).getAnimations?.().forEach((a) => {
-        if (a.playState === 'running') { try { a.pause(); } catch (_) {} }
-      });
-    });
-  }
+  pauseAoVivoShockwave(haloEl);
 }
 
 export function resumeAoVivoAnimations(
@@ -44,14 +37,7 @@ export function resumeAoVivoAnimations(
       try { anim.play(); } catch (_) {}
     }
   }
-  if (haloEl) {
-    const shockEls = haloEl.querySelectorAll('[data-shock-primary], [data-shock-secondary]');
-    shockEls.forEach((el) => {
-      (el as HTMLElement).getAnimations?.().forEach((a) => {
-        if (a.playState === 'paused') { try { a.play(); } catch (_) {} }
-      });
-    });
-  }
+  resumeAoVivoShockwave(haloEl);
 }
 
 export function resolveAoVivoMeasureStepInfo(
@@ -97,14 +83,7 @@ export function prepareAoVivoForStepPreview(
       try { anim.finish(); } catch (_) { try { anim.cancel(); } catch (__) {} }
     }
   }
-  if (haloEl) {
-    const shockEls = haloEl.querySelectorAll('[data-shock-primary], [data-shock-secondary]');
-    shockEls.forEach((el) => {
-      (el as HTMLElement).getAnimations?.().forEach((a) => {
-        if (a.playState === 'paused') { try { a.cancel(); } catch (_) {} }
-      });
-    });
-  }
+  cancelAoVivoShockwave(haloEl);
   if (family === 'alfaia' && !hasAbafadoToken(rawVal)) {
     const secSide = !isLeftHanded;
     if (isMufflingStickRef.current || getHandMemory(secSide).posture === 'pressed_skin') {

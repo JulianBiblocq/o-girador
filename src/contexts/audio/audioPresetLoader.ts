@@ -53,12 +53,12 @@ export async function fetchFallbackPresetData(name: string, lang: string, t: (ke
   if (name.endsWith('.json')) {
     try {
       const response = await fetch(`${ASSETS_BASE_URL}presets/${encodeURI(name)}`);
-      if (!response.ok) throw new Error('Network response was not ok');
+      const ct = response.headers?.get?.('content-type') || '';
+      if (!response.ok || ct.toLowerCase().includes('text/html')) throw new Error('Network response was not valid JSON');
       return stampSignatureTuningOnStaticFallback(await response.json());
     } catch (error) {
-      console.error('Error fetching preset:', error);
-      notifyToast(t('invalidFile'), 'error');
-      return null;
+      console.warn('[audioPresetLoader] Fallback to embedded static preset after fetch failure:', name, error);
+      return stampSignatureTuningOnStaticFallback(name.toLowerCase().includes('imale') ? baqueDeImalePreset : vouVadiarPreset);
     }
   }
 

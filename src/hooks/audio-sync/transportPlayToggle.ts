@@ -1,9 +1,6 @@
 import * as Tone from 'tone';
 import { Track } from '../../types';
-import { activateMultimediaAudioSession } from '../../audio/iosAudioSessionUnlock';
-import { vocalEngineService } from '../../audio/vocalEngineService';
-import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
-import { useAudioStore } from '../../stores/useAudioStore';
+import { unlockAudioOnUserGestureSync } from '../../audio/audioContextSuspendManager';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useTransportStore } from '../../stores/useTransportStore';
 import { requestWakeLock } from './wakeLockHelper';
@@ -13,25 +10,35 @@ import { getAudioEngine } from './audioEngineNodes';
 import { prepareTransportResume, ResumePreparationContext } from './transportResumeAnchor';
 import { clearFreeze, frozenPlaybackState } from './frozenPlaybackState';
 import { resolveTargetMeasureAndPreRoll } from './transportTargetMeasureResolver';
-import { extractActiveInstrumentsFromTracks } from '../../audio/engine/activeTrackPreloadExtractor';
 import { bumpVariationSessionSeed } from '../../utils/deterministicVariationRng';
+import { ensureTransportPlayReady } from './transportPlayReadiness';
 
 export interface PlayToggleContext extends TransportPauseContext, ResumePreparationContext {
-  isStartingRef: { current: boolean }; isPlayingRef: { current: boolean };
-  soloPatternPlayIdRef: { current: number | null }; autoStopTimeoutRef: { current: number | null };
+  isStartingRef: { current: boolean }; isStartingPlayRef?: { current: boolean }; isPlayingRef: { current: boolean };
+  soloPatternPlayIdRef: { current: number | null }; soloPatternVariationIdRef?: { current: string | null };
+  autoStopTimeoutRef: { current: number | null };
   isPlaybackEndingRef: { current: boolean }; lastPlayedSignalIdRef: { current: string | null };
   tracksRef: { current: Track[] }; measureBpmsRef: { current: number[] };
   measureTimeSigsRef: { current: Record<number, string> }; targetPreRollMeasureRef: { current: number };
   engineTimeoutsRef: { current: Set<number> }; trackInputs: Record<string | number, Tone.Gain>;
   channels: Record<string | number, Tone.Channel>; busChannels: Record<string | number, Tone.Channel>;
+  flatCompiledScheduleRef?: { current: Float64Array | null };
+  lastAppliedTracksParamsRef?: { current: Record<string | number, string> };
+  lastAppliedBussesRef?: { current: Record<string | number, string | number | null> };
   setSoloPatternPlayId: (id: number | null) => void;
+  setIsLoading?: (loading: boolean) => void;
 }
 
 export async function handleTogglePlay(
   playOptions: { skipPreRoll?: boolean; forcePreRoll?: boolean; targetMeasure?: number; scheduledStartTime?: number } | undefined,
   ctx: PlayToggleContext
 ): Promise<void> {
-  if (ctx.isStartingRef.current) return;
+  // Ligne 1 100 % synchrone sur le geste utilisateur : bascule `playback` + réveil natif immédiat
+  if (!ctx.isPlayingRef.current) {
+    unlockAudioOnUserGestureSync((ctx.audioEngine || getAudioEngine())?.getAudioContext?.());
+  }
+  if (ctx.isStartingPlayRef?.current || ctx.isStartingRef.current) return;
+
   if (ctx.isPlayingRef.current) {
     if (ctx.soloPatternPlayIdRef.current !== null || useTransportStore.getState().soloPatternVariationId !== null) {
       ctx.soloPatternPlayIdRef.current = null;
@@ -41,13 +48,10 @@ export async function handleTogglePlay(
     return;
   }
 
-  activateMultimediaAudioSession();
   ctx.isStartingRef.current = true;
+  if (ctx.isStartingPlayRef) ctx.isStartingPlayRef.current = true;
   try {
     const activeEngine = ctx.audioEngine || getAudioEngine();
-    if (!useAudioStore.getState().isAudioUnlocked) useAudioStore.getState().unlockAudio();
-    cancelAudioContextAutoSuspend();
-    await safeResumeAudioContext();
 
     if (ctx.soloPatternPlayIdRef.current !== null || useTransportStore.getState().soloPatternVariationId !== null) {
       ctx.soloPatternPlayIdRef.current = null;
@@ -59,18 +63,7 @@ export async function handleTogglePlay(
     ctx.lastPlayedSignalIdRef.current = null;
     activeEngine?.stopAllBarulho();
 
-    const startTracks = ctx.tracksRef.current;
-    if (activeEngine) {
-      try { await activeEngine.syncActiveInstrumentsMemory(extractActiveInstrumentsFromTracks(startTracks)); } catch (_) {}
-      await activeEngine.waitForWorkletReady();
-      activeEngine.syncTracksToWorklet(startTracks);
-    }
-    if (vocalEngineService.getRehydratingPromise() || vocalEngineService.needsRehydration(startTracks)) {
-      try { await vocalEngineService.rehydrateVocalBuffers(startTracks); } catch (_) {}
-    }
-    if (activeEngine && activeEngine.getAudioContext().state !== 'running') {
-      await safeResumeAudioContext();
-    }
+    const startTracks = await ensureTransportPlayReady(activeEngine, ctx);
 
     const isResumeFromPause = Boolean(
       useTransportStore.getState().isPaused && frozenPlaybackState.active &&
@@ -123,14 +116,17 @@ export async function handleTogglePlay(
     }
     ctx.currentStepIndexRef.current = -1;
     ctx.measureCountRef.current = targetM;
-    if (Tone.Transport.state !== 'started') {
-      Tone.Transport.position = `${targetM}:0:0`;
-      Tone.Transport.start(scheduledMusicStartTime);
-    }
+    try {
+      if (Tone.Transport && Tone.Transport.state !== 'started' && typeof Tone.Transport.start === 'function') {
+        Tone.Transport.position = `${targetM}:0:0`;
+        Tone.Transport.start(scheduledMusicStartTime);
+      }
+    } catch (_) {}
     activeEngine?.start(scheduledMusicStartTime);
     ctx.setIsPlaying(true); ctx.isPlayingRef.current = true;
     requestWakeLock();
   } finally {
     ctx.isStartingRef.current = false;
+    if (ctx.isStartingPlayRef) ctx.isStartingPlayRef.current = false;
   }
 }

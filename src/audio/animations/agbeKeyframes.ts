@@ -1,4 +1,5 @@
 import { CONFIG_AGBE_LAB } from './agbeLabConfig';
+import { computeImpactHoldTiming } from './aoVivoBallisticMath';
 
 export * from './agbeLabConfig';
 
@@ -72,11 +73,11 @@ export function buildAgbeBarulhoFrames(amplitude = 1, nextStroke?: string, commi
   return { startTr, loopFrames, endTr };
 }
 
-export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: string, isLeftHanded = false): Keyframe[] {
+export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: string, isLeftHanded = false, durationMs = 225): Keyframe[] {
   const c = CONFIG_AGBE_LAB, s = (stroke || 'D').trim(), sUp = s.toUpperCase();
-  const atk = Math.min(0.42, Math.max(0.08, c.attackOffset));
   if (sUp === 'B' || s === '~') return buildAgbeBarulhoFrames(s === 'b' ? 0.6 : 1, nextStroke, true, isLeftHanded).loopFrames;
 
+  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
   const highEntryY = Math.round(Math.min(-18, c.saltoJumpY * 0.55));
   const voltaHighTr = `translate(0px, ${highEntryY}px) rotateZ(0deg) scale(0.96, 1.04)`;
   const endTr = resolveAgbeNextTransform(nextStroke, isLeftHanded);
@@ -87,14 +88,16 @@ export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: s
   if (sUp === 'V') {
     return [
       { transform: startTr, offset: 0, easing: 'cubic-bezier(0.35, 0, 0.85, 0.5)' },
-      { transform: impTr, offset: atk, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      { transform: impTr, offset: impactOff },
+      { transform: impTr, offset: holdEndOff, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
       { transform: endTr, offset: 1 },
     ];
   }
   if (sUp === 'S') {
     return [
       { transform: startTr, offset: 0, easing: 'cubic-bezier(0.2, 0, 0.35, 1)' },
-      { transform: impTr, offset: atk, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+      { transform: impTr, offset: impactOff },
+      { transform: impTr, offset: holdEndOff, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
       { transform: endTr, offset: 1 },
     ];
   }
@@ -105,8 +108,8 @@ export function generateAgbeKeyframes(stroke: string, _bpm = 100, nextStroke?: s
   const microX = c.beadInertiaPx * dir, microZ = +(c.beadInertiaPx * 0.45 * dir).toFixed(1);
   return [
     { transform: startTr, offset: 0, easing: 'cubic-bezier(0.2, 0, 0.35, 1)' },
-    { transform: impTr, offset: atk, easing: 'linear' },
-    { transform: `translate(${tx - microX}px, 0px) rotateZ(${rz - microZ}deg) scale(1, 1)`, offset: Math.min(0.65, +(atk + 0.1).toFixed(2)), easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+    { transform: impTr, offset: impactOff, easing: 'linear' },
+    { transform: `translate(${tx - microX}px, 0px) rotateZ(${rz - microZ}deg) scale(1, 1)`, offset: holdEndOff, easing: 'cubic-bezier(0.25, 1, 0.5, 1)' },
     { transform: endTr, offset: 1 },
   ];
 }

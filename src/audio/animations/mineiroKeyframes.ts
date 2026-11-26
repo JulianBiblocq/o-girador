@@ -1,3 +1,4 @@
+import { computeImpactHoldTiming } from './aoVivoBallisticMath';
 import { MineiroPole } from './configMineiro';
 import { CONFIG_MINEIRO_LAB } from './mineiroLabConfig';
 
@@ -88,38 +89,34 @@ export function buildMineiroBarulhoFrames(currentPole: MineiroPole = 'backWeak',
   return { startTr: formatMineiroPose(startPose), loopFrames, endTr: formatMineiroPose(restPose) };
 }
 
-export function generateMineiroKeyframes(stroke: string, currentPole: MineiroPole = 'backWeak', isLeftHanded = false): Keyframe[] {
+export function generateMineiroKeyframes(stroke: string, currentPole: MineiroPole = 'backWeak', isLeftHanded = false, durationMs = 200): Keyframe[] {
   const c = CONFIG_MINEIRO_LAB;
   const s = (stroke || 'P').trim();
-  const atk = Math.min(0.45, Math.max(0.08, c.beadImpactOffset));
   const startPose: MineiroPose = lastMineiroPose || getMineiroPolePose(currentPole);
 
   if (s.toUpperCase() === 'B' || s === '~') {
     return buildMineiroBarulhoFrames(currentPole, s === 'b' ? 0.6 : 1, true).loopFrames;
   }
 
+  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
   const f = Math.max(0, Math.min(1, c.fluidity));
   const d = Math.max(0.1, Math.min(1, c.dampingSoftness));
-  const rec = Math.max(0, Math.min(0.85, c.recoilReturnRatio));
-  const keep = 1 - rec;
-
+  const keep = 1 - Math.max(0, Math.min(0.85, c.recoilReturnRatio));
   const attackEase = `cubic-bezier(${+(0.12 + (1 - f) * 0.25).toFixed(2)}, ${+(0.55 + f * 0.4).toFixed(2)}, ${+(0.25 + (1 - f) * 0.35).toFixed(2)}, 1)`;
   const settleEase = `cubic-bezier(${+(0.25 * (1 - d * 0.5)).toFixed(2)}, ${+(0.7 + d * 0.3).toFixed(2)}, ${+(0.35 + d * 0.25).toFixed(2)}, 1)`;
 
   const peakPose = resolveMineiroPeakPose(s, isLeftHanded);
   const settlePose: MineiroPose = {
-    x: peakPose.x * keep,
-    y: peakPose.y * keep,
-    scale: 1 + (peakPose.scale - 1) * keep,
-    rot: peakPose.rot * keep,
-    skewX: peakPose.skewX * keep,
-    skewY: peakPose.skewY * keep,
+    x: peakPose.x * keep, y: peakPose.y * keep, scale: 1 + (peakPose.scale - 1) * keep,
+    rot: peakPose.rot * keep, skewX: peakPose.skewX * keep, skewY: peakPose.skewY * keep,
   };
   lastMineiroPose = settlePose;
+  const peakTr = formatMineiroPose(peakPose);
 
   return [
     { transform: formatMineiroPose(startPose), offset: 0, easing: attackEase },
-    { transform: formatMineiroPose(peakPose), offset: atk, easing: settleEase },
+    { transform: peakTr, offset: impactOff },
+    { transform: peakTr, offset: holdEndOff, easing: settleEase },
     { transform: formatMineiroPose(settlePose), offset: 1 },
   ];
 }

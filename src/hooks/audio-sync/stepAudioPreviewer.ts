@@ -6,7 +6,11 @@
 
 import { instrumentsConfig } from '../../data';
 import { Track } from '../../types';
-import { cancelAudioContextAutoSuspend, safeResumeAudioContext } from '../../audio/audioContextSuspendManager';
+import {
+  cancelAudioContextAutoSuspend,
+  safeResumeAudioContext,
+  unlockAudioOnUserGestureSync,
+} from '../../audio/audioContextSuspendManager';
 import { pushVisualHitTrigger } from '../../audio/visualTickBuffer';
 import { useAudioStore } from '../../stores/useAudioStore';
 import { getEffectiveMuteState, useSequencerStore } from '../../stores/useSequencerStore';
@@ -47,6 +51,7 @@ export function resolveTrackStepIndexForExplore(
 
 export function previewRodaStepAudio(params: PreviewRodaStepAudioParams): void {
   const engine = params.audioEngine ?? getAudioEngine();
+  unlockAudioOnUserGestureSync(engine?.getAudioContext?.());
   if (!engine) return;
 
   if (!useAudioStore.getState().isAudioUnlocked) {

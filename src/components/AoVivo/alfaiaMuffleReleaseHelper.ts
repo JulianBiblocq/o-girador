@@ -1,11 +1,12 @@
 /**
- * alfaiaMuffleReleaseHelper.ts — Verrou impératif & Lookahead inter-mains pour l'Abafado (A/a) sur Alfaia (< 120L).
- * Garantit zéro useState : décolle automatiquement la baguette étouffée avant toute frappe de l'autre main ou au Stop.
+ * alfaiaMuffleReleaseHelper.ts — Verrou impératif & Lookahead inter-mains Abafado (A/a) Alfaia (< 120L, zéro `getAnimations()`).
  */
 import React from 'react';
 import { getAlfaiaAbafadoPoseTransform } from '../../audio/animations/alfaiaAbafadoKinematics';
 import { AlfaiaSecondaryStickFamily, CONFIG_ALFAIA_STICKS, getProfileScale } from '../../audio/animations/alfaiaStickConfig';
+import { sumLookaheadDurationMs } from '../../audio/animations/aoVivoBallisticMath';
 import { buildTuckedLowTransform, getHandMemory, setHandMemory } from '../../audio/animations/handTransitionEngine';
+import { runClockSyncedWaapi } from './aoVivoWaapiClockSync';
 
 export const isMufflingStickRef: { current: boolean } = { current: false };
 
@@ -32,7 +33,8 @@ export function findAlfaiaCrossHandLookahead(
   currentStep: number,
   stepDurationMs: number,
   _isLeftHanded: boolean,
-  isSubStep = false
+  isSubStep = false,
+  stepDurationsMs?: readonly number[]
 ): AlfaiaCrossHandLookahead {
   if (!activePlayingSteps || activePlayingSteps.length === 0) {
     return { msUntilNextAnyHand: null, nextIsOtherHand: false };
@@ -42,7 +44,7 @@ export function findAlfaiaCrossHandLookahead(
     const subTok = String(activePlayingSteps[currentStep][1] || '').trim();
     if (isActiveStrokeToken(subTok)) {
       return {
-        msUntilNextAnyHand: Math.max(60, Math.round(stepDurationMs * 0.5)),
+        msUntilNextAnyHand: sumLookaheadDurationMs(currentStep, currentStep, false, true, stepDurationMs, stepDurationsMs),
         nextIsOtherHand: OTHER_HAND_OR_DUAL_UPPER.has(subTok.toUpperCase()),
       };
     }
@@ -56,8 +58,7 @@ export function findAlfaiaCrossHandLookahead(
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
       if (!isActiveStrokeToken(tok)) continue;
-      const stepMult = (isSubStep ? offset - 0.5 : offset) + (i > 0 && Array.isArray(raw) ? 0.5 : 0);
-      const msUntilNextAnyHand = Math.max(70, Math.round(stepMult * stepDurationMs));
+      const msUntilNextAnyHand = sumLookaheadDurationMs(currentStep, nextIdx, isSubStep, i > 0 && Array.isArray(raw), stepDurationMs, stepDurationsMs);
       const sameSliceHasOther = Array.isArray(raw)
         ? OTHER_HAND_OR_DUAL_UPPER.has(tok.toUpperCase())
         : tokens.some((t) => isActiveStrokeToken(t) && OTHER_HAND_OR_DUAL_UPPER.has(t.toUpperCase()));
@@ -72,45 +73,39 @@ export function releaseMufflingStickImmediately(
   secAnimRef: React.MutableRefObject<Animation | null>,
   isLeftSide: boolean,
   fam: AlfaiaSecondaryStickFamily,
-  releaseDurationMs = 65
+  releaseDurationMs = 65,
+  deltaMs = 0
 ): void {
   isMufflingStickRef.current = false;
   if (!secStickEl) return;
-  const c = CONFIG_ALFAIA_STICKS;
-  const profScale = getProfileScale(fam);
+  const c = CONFIG_ALFAIA_STICKS, profScale = getProfileScale(fam);
   const mem = getHandMemory(isLeftSide);
   const fromTr = mem.transform || getAlfaiaAbafadoPoseTransform(isLeftSide, fam);
   const lowTr = buildTuckedLowTransform(isLeftSide, profScale, c.transitions);
   const dur = Math.max(40, Math.min(90, Math.round(releaseDurationMs / c.speedMultiplier)));
 
   setHandMemory(isLeftSide, 'low_tucked', lowTr);
-  secAnimRef.current?.cancel();
-  secAnimRef.current = secStickEl.animate(
-    [
-      { transform: fromTr, offset: 0, easing: 'ease-out' },
-      { transform: lowTr, offset: 1 },
-    ],
-    { duration: dur, iterations: 1, fill: 'forwards' }
-  );
+  runClockSyncedWaapi({
+    el: secStickEl,
+    keyframes: [{ transform: fromTr, offset: 0, easing: 'ease-out' }, { transform: lowTr, offset: 1 }],
+    durationMs: dur, deltaMs, animRef: secAnimRef,
+  });
 
   const tipEl = secStickEl.querySelector('[data-bacalhau-tip]') as SVGGElement | null;
   if (tipEl && fam === 'bacalhau') {
-    tipEl.getAnimations().forEach((a) => a.cancel());
-    tipEl.animate([{ transform: 'rotateZ(0deg) skewX(0deg) scaleX(1)' }], { duration: dur, iterations: 1, fill: 'forwards' });
+    runClockSyncedWaapi({ el: tipEl, keyframes: [{ transform: 'rotateZ(0deg) skewX(0deg) scaleX(1)', offset: 1 }], durationMs: dur, deltaMs });
   }
   const shadowEl = secStickEl.querySelector('[data-stick-shadow]') as SVGGElement | null;
   if (shadowEl) {
-    const inSign = isLeftSide ? 1 : -1;
-    const lowAirY = -Math.round(c.shadowDepthPx * 0.5);
-    const lowOp = +(c.shadowOpacity * 0.72).toFixed(2);
-    shadowEl.getAnimations().forEach((a) => a.cancel());
-    shadowEl.animate(
-      [
+    const inSign = isLeftSide ? 1 : -1, lowAirY = -Math.round(c.shadowDepthPx * 0.5), lowOp = +(c.shadowOpacity * 0.72).toFixed(2);
+    runClockSyncedWaapi({
+      el: shadowEl,
+      keyframes: [
         { transform: 'translate(0px, 0px) scale(1)', opacity: c.shadowOpacity, offset: 0, easing: 'ease-out' },
         { transform: `translate(${inSign * 4}px, ${lowAirY}px) scale(0.92)`, opacity: lowOp, offset: 1 },
       ],
-      { duration: dur, iterations: 1, fill: 'forwards' }
-    );
+      durationMs: dur, deltaMs,
+    });
   }
 }
 

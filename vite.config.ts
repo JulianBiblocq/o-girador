@@ -17,7 +17,17 @@ const pwaRuntimeCaching = [
         maxEntries: 500,
         maxAgeSeconds: 30 * 24 * 60 * 60,
       },
-      cacheableResponse: { statuses: [0, 200] },
+      cacheableResponse: { statuses: [200] },
+      plugins: [
+        {
+          cacheWillUpdate: async ({ response }: { response: Response }) => {
+            if (!response || response.status !== 200) return null;
+            const ct = (response.headers.get('content-type') || '').toLowerCase();
+            if (ct.includes('text/html')) return null;
+            return response;
+          },
+        },
+      ],
     },
   },
   {

@@ -11,26 +11,23 @@ import { resolveActivePattern } from '../../workers/compiler/patternResolver';
 import { getPhysicalStepFromRatio } from '../circle-sequencer/measurePatternHelpers';
 import { resolveAoVivoPatternAndSteps } from './aoVivoReset';
 
+const ZEROS_16: readonly number[] = Object.freeze(new Array(16).fill(0));
+
 export function predictAoVivoNextMeasureIdx(
   measure: number,
   soloPlayId: number | null,
   state: Record<string, any>
 ): number | null {
   if (soloPlayId !== null && soloPlayId !== undefined) return measure;
-  const totalM = Math.max(1, state.totalMeasures || 1);
-  const lastM = totalM - 1;
+  const totalM = Math.max(1, state.totalMeasures || 1), lastM = totalM - 1;
   if (state.queuedMeasure !== null && state.queuedMeasure !== undefined) {
     return Math.max(0, Math.min(lastM, state.queuedMeasure));
   }
-
-  const loopMode = state.loopMode ?? 'infinite';
-  const loopIter = state.currentLoopIteration ?? 1;
-  const isLooping = state.isLooping !== false;
-  const exitReq = Boolean(state.isLoopExitRequested);
+  const loopMode = state.loopMode ?? 'infinite', loopIter = state.currentLoopIteration ?? 1;
+  const isLooping = state.isLooping !== false, exitReq = Boolean(state.isLoopExitRequested);
   const regionActive = Boolean(
     state.isLoopRegionActive && state.loopStartMeasure !== null && state.loopEndMeasure !== null && !state.isLoopBypassed
   );
-
   if (state.isLoopBypassed) return measure >= lastM ? null : measure + 1;
   if (regionActive) {
     const lEnd = state.loopEndMeasure as number;
@@ -49,75 +46,84 @@ export function predictAoVivoNextMeasureIdx(
   return measure + 1;
 }
 
-function sliceBarStepsForMeasure(
-  concreteTrack: any,
-  allTracks: any[],
-  basePattern: any,
-  effectivePattern: any,
-  fullSteps: any[],
-  sig: string,
-  measureIdx: number,
-  isSolo: boolean
-): { slice: any[]; stepsPerMeasure: number; stepOffset: number; geom: ReturnType<typeof getRodaMeasureGeometry>; beatRes: number[] } {
+function sliceBarStepsAndDurations(
+  concreteTrack: any, allTracks: any[], basePattern: any, effectivePattern: any,
+  fullSteps: any[], sig: string, bpm: number, measureIdx: number, isSolo: boolean
+) {
   const geom = getRodaMeasureGeometry(sig);
   const beatRes = resolveActiveBeatResolutions(sig, effectivePattern);
   const stepsPerMeasure = Math.max(1, beatRes.reduce((acc, v) => acc + Math.max(1, v), 0) || geom.defaultSteps);
   const pred = isSolo ? undefined : (m: number) => resolveActivePattern(concreteTrack, allTracks, m, false, null)?.id === basePattern.id;
   const stepOffset = computeMeasurePatternStepOffset(effectivePattern, stepsPerMeasure, measureIdx, pred);
-  const slice = Array.from({ length: stepsPerMeasure }, (_, i) => fullSteps[stepOffset + i] ?? 0);
-  return { slice, stepsPerMeasure, stepOffset, geom, beatRes };
+  const tickDurMs = (getMeasureDurationSec(sig, bpm) * 1000) / Math.max(1, geom.maxTicks);
+  const slice = new Array(stepsPerMeasure);
+  const stepDursMs = new Array<number>(stepsPerMeasure);
+  for (let i = 0; i < stepsPerMeasure; i++) {
+    slice[i] = fullSteps[stepOffset + i] ?? 0;
+    stepDursMs[i] = Math.max(40, tickDurMs * getRodaStepDurationTicks(sig, effectivePattern, i));
+  }
+  return { slice, stepDursMs, stepsPerMeasure, stepOffset, geom, beatRes, tickDurMs };
 }
 
-export function resolveAoVivoMeasureAndLookahead(params: {
-  activeTrack: any;
-  allTracks: any[];
-  measure: number;
-  ratio: number;
-  soloPlayId: number | null;
-  measureSeqId?: number;
-  varMap?: Record<number, any>;
-  state: Record<string, any>;
+export function resolveAoVivoMeasureBarData(params: {
+  activeTrack: any; allTracks: any[]; measure: number; soloPlayId: number | null;
+  measureSeqId?: number; varMap?: Record<number, any>; state: Record<string, any>;
 }) {
-  const { activeTrack, allTracks, measure, ratio, soloPlayId, measureSeqId, varMap, state } = params;
+  const { activeTrack, allTracks, measure, soloPlayId, measureSeqId, varMap, state } = params;
   const isSolo = soloPlayId !== null && soloPlayId !== undefined;
-  const concreteTrack =
-    activeTrack?.isBusFolder || activeTrack?.isLinkFolder
-      ? resolveMasterTrack(activeTrack.id, allTracks) ?? activeTrack
-      : activeTrack;
+  const concreteTrack = activeTrack?.isBusFolder || activeTrack?.isLinkFolder
+    ? resolveMasterTrack(activeTrack.id, allTracks) ?? activeTrack
+    : activeTrack;
 
   const currRes = resolveAoVivoPatternAndSteps(concreteTrack, allTracks, measure, soloPlayId, varMap, measureSeqId);
   if (!currRes.pattern || !currRes.effectivePattern) {
     return {
-      pattern: null, effectivePattern: null, currSlice: [] as any[], lookaheadSteps: [] as any[],
-      stepInMeasure: -1, targetStep: -1, stepsPerMeasure: 16, stepDurationMs: 150, nextMeasureIdx: null as number | null,
+      concreteTrack, pattern: null, effectivePattern: null, effectiveMicrotimings: undefined as any[] | undefined,
+      currSlice: [] as any[], lookaheadSteps: [] as any[], currStepDursMs: [] as number[], lookaheadDurationsMs: [] as number[],
+      stepsPerMeasure: 16, stepOffset: 0, beatsCount: 4, maxTicks: 96, tickDurMs: 25, beatRes: [4, 4, 4, 4],
+      currentSig: '4/4', nextMeasureIdx: null as number | null,
     };
   }
 
   const currentSig = state.measureTimeSigs?.[measure] || state.timeSig || '4/4';
-  const currBar = sliceBarStepsForMeasure(concreteTrack, allTracks, currRes.pattern, currRes.effectivePattern, currRes.activePlayingSteps, currentSig, measure, isSolo);
-  const stepInMeasure = Math.max(0, getPhysicalStepFromRatio(ratio, currRes.effectivePattern, currBar.stepsPerMeasure, currBar.geom.beatsCount, currBar.beatRes));
-  const targetStep = currBar.stepOffset + stepInMeasure;
-
   const currentBpm = state.measureBpms?.[measure] || state.bpm || 100;
-  const tickDurSec = getMeasureDurationSec(currentSig, currentBpm) / Math.max(1, currBar.geom.maxTicks);
-  const stepTicks = getRodaStepDurationTicks(currentSig, currRes.effectivePattern, stepInMeasure);
-  const stepDurationMs = Math.max(40, tickDurSec * stepTicks * 1000);
+  const currBar = sliceBarStepsAndDurations(concreteTrack, allTracks, currRes.pattern, currRes.effectivePattern, currRes.activePlayingSteps, currentSig, currentBpm, measure, isSolo);
 
   const nextMeasureIdx = predictAoVivoNextMeasureIdx(measure, soloPlayId, state);
-  let nextSlice: any[] = Array(16).fill(0);
+  let nextSlice: readonly any[] = ZEROS_16;
+  let nextDursMs: readonly number[] = currBar.stepDursMs;
   if (nextMeasureIdx !== null) {
     const nextSeqId = measureSeqId && measureSeqId > 0 ? measureSeqId + 1 : undefined;
     const fallbackNextMap = nextSeqId === undefined ? (getLiveVariationRodaSnapshots(nextMeasureIdx).nextStepsByTrackId ?? undefined) : undefined;
     const nextRes = resolveAoVivoPatternAndSteps(concreteTrack, allTracks, nextMeasureIdx, soloPlayId, fallbackNextMap, nextSeqId);
     if (nextRes.pattern && nextRes.effectivePattern) {
       const nextSig = state.measureTimeSigs?.[nextMeasureIdx] || state.timeSig || '4/4';
-      nextSlice = sliceBarStepsForMeasure(concreteTrack, allTracks, nextRes.pattern, nextRes.effectivePattern, nextRes.activePlayingSteps, nextSig, nextMeasureIdx, isSolo).slice;
+      const nextBpm = state.measureBpms?.[nextMeasureIdx] || state.bpm || 100;
+      const nextBar = sliceBarStepsAndDurations(concreteTrack, allTracks, nextRes.pattern, nextRes.effectivePattern, nextRes.activePlayingSteps, nextSig, nextBpm, nextMeasureIdx, isSolo);
+      nextSlice = nextBar.slice;
+      nextDursMs = nextBar.stepDursMs;
     }
   }
 
   return {
-    pattern: currRes.pattern, effectivePattern: currRes.effectivePattern,
+    concreteTrack, pattern: currRes.pattern, effectivePattern: currRes.effectivePattern, effectiveMicrotimings: currRes.effectiveMicrotimings,
     currSlice: currBar.slice, lookaheadSteps: [...currBar.slice, ...nextSlice],
-    stepInMeasure, targetStep, stepsPerMeasure: currBar.stepsPerMeasure, stepDurationMs, nextMeasureIdx,
+    currStepDursMs: currBar.stepDursMs, lookaheadDurationsMs: [...currBar.stepDursMs, ...nextDursMs],
+    stepsPerMeasure: currBar.stepsPerMeasure, stepOffset: currBar.stepOffset, beatsCount: currBar.geom.beatsCount,
+    maxTicks: currBar.geom.maxTicks, tickDurMs: currBar.tickDurMs, beatRes: currBar.beatRes, currentSig, nextMeasureIdx,
   };
+}
+
+export function resolveAoVivoMeasureAndLookahead(params: {
+  activeTrack: any; allTracks: any[]; measure: number; ratio: number;
+  soloPlayId: number | null; measureSeqId?: number; varMap?: Record<number, any>; state: Record<string, any>;
+}) {
+  const bar = resolveAoVivoMeasureBarData(params);
+  if (!bar.pattern || !bar.effectivePattern) {
+    return { ...bar, stepInMeasure: -1, targetStep: -1, stepDurationMs: 150 };
+  }
+  const stepInMeasure = Math.max(0, getPhysicalStepFromRatio(params.ratio, bar.effectivePattern, bar.stepsPerMeasure, bar.beatsCount, bar.beatRes));
+  const targetStep = bar.stepOffset + stepInMeasure;
+  const stepDurationMs = bar.currStepDursMs[stepInMeasure] ?? 150;
+  return { ...bar, stepInMeasure, targetStep, stepDurationMs };
 }

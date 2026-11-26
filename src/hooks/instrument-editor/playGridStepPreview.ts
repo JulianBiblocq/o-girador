@@ -1,5 +1,6 @@
 
 import * as Tone from 'tone';
+import { wakeAudioContextForNotePreview } from '../../audio/audioContextSuspendManager';
 import { audioEngine } from '../useAudioSync';
 import { getSculptNumber } from '../../components/instrument-editor/grid/gridConstants';
 import { Pattern } from '../../types';
@@ -11,6 +12,7 @@ export function playGridStepPreview(
   idx: number,
   subIndex?: 0 | 1
 ) {
+  wakeAudioContextForNotePreview(audioEngine?.getAudioContext?.());
   if (strokeVal === 0 || strokeVal === '0' || strokeVal === '' || strokeVal === undefined) return;
   try {
     if (audioEngine) {

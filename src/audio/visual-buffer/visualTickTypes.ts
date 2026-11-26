@@ -15,6 +15,7 @@ export interface VisualTickEvent {
   visualStep16: number;
   visualStep12: number;
   time: number;
+  audioTime?: number;
   iteration: number;
   loopIteration?: number;
   measureStartTime?: number;

@@ -1,8 +1,10 @@
 /**
- * Déverrouillage synchrone du canal Multimédia iOS/iPadOS (`playback`) (< 90 lignes).
+ * Déverrouillage synchrone du canal Multimédia iOS/iPadOS (`playback`) & impulsion matérielle native (< 115 lignes).
  * - Niveau 1 (iOS 17+) : `navigator.audioSession.type = 'playback'` synchrone (ignore le bouton Silencieux).
  * - Niveau 2 (Secours iOS/iPadOS 15–16 sans `navigator.audioSession`) : singleton `<audio playsinline>`
  *   portant une micro-trame WAV PCM 16-bit signée (point zéro `0x0000`), mis en `.pause()` dès Pause/Stop/veille.
+ * - Impulsion matérielle `primeNativeAudioContextHardwareSync` : réveille un `AudioContext` natif `'suspended'`
+ *   ou `'interrupted'` avec un buffer 1 échantillon à zéro dans la pile synchrone du geste utilisateur.
  */
 
 let legacySilentAudioEl: HTMLAudioElement | null = null;
@@ -69,6 +71,27 @@ export function activateMultimediaAudioSession(): void {
       if (p && typeof p.catch === 'function') p.catch(() => {});
     }
   } catch {}
+}
+
+export function primeNativeAudioContextHardwareSync(nativeCtx: AudioContext | null | undefined): boolean {
+  if (!nativeCtx) return false;
+  const state = String((nativeCtx as any).state || '');
+  if (state === 'running' || state === 'closed') return false;
+  try {
+    const p = nativeCtx.resume?.();
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch {}
+  try {
+    if (typeof nativeCtx.createBuffer === 'function' && typeof nativeCtx.createBufferSource === 'function' && nativeCtx.destination) {
+      const silentBuf = nativeCtx.createBuffer(1, 1, nativeCtx.sampleRate || 44100);
+      const src = nativeCtx.createBufferSource();
+      src.buffer = silentBuf;
+      src.connect(nativeCtx.destination);
+      src.onended = () => { try { src.disconnect(); } catch {} };
+      src.start(0);
+    }
+  } catch {}
+  return true;
 }
 
 export function deactivateMultimediaAudioSession(): void {

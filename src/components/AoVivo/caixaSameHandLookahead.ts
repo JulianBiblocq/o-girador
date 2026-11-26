@@ -1,8 +1,8 @@
 /**
  * caixaSameHandLookahead.ts — Analyse prédictive de la prochaine frappe par main pour Caixa/Tarol (< 65 lignes).
- * - Inclut `A` (Rimshot main dominante) et `a` (Rimshot main secondaire) comme frappes fortes.
+ * - Intègre `isSubStep ? offset - 0.5 : offset` et `stepDurationsMs` (`M` + `M+1`).
  */
-
+import { sumLookaheadDurationMs } from '../../audio/animations/aoVivoBallisticMath';
 import { CaixaNextStrokeKind } from '../../audio/animations/caixaKinematics';
 
 export function isCaixaStrokeForHand(token: string, isDominantHand: boolean): boolean {
@@ -33,30 +33,30 @@ export function findCaixaSameHandLookahead(
   currentStep: number,
   stepDurationMs: number,
   isDominantHand: boolean,
-  isSubStep = false
+  isSubStep = false,
+  stepDurationsMs?: readonly number[]
 ): { nextKind: CaixaNextStrokeKind; msUntilNext: number } {
   if (!activePlayingSteps || activePlayingSteps.length === 0) {
-    return { nextKind: 'idle', msUntilNext: Math.round(stepDurationMs * 2) };
+    return { nextKind: 'idle', msUntilNext: Math.max(240, Math.round(stepDurationMs * 3)) };
   }
   const len = activePlayingSteps.length;
   if (!isSubStep && Array.isArray(activePlayingSteps[currentStep]) && activePlayingSteps[currentStep].length > 1) {
     const subTok = String(activePlayingSteps[currentStep][1] || '').trim();
     if (isCaixaStrokeForHand(subTok, isDominantHand)) {
-      return { nextKind: classifyCaixaNextKind(subTok), msUntilNext: Math.max(65, Math.round(stepDurationMs * 0.5)) };
+      return { nextKind: classifyCaixaNextKind(subTok), msUntilNext: sumLookaheadDurationMs(currentStep, currentStep, false, true, stepDurationMs, stepDurationsMs) };
     }
   }
-  for (let offset = 1; offset <= Math.min(len, 4); offset++) {
+  for (let offset = 1; offset <= Math.min(len, 8); offset++) {
     const nextIdx = currentStep + offset;
     if (nextIdx >= len) break;
-    const raw = activePlayingSteps[nextIdx];
-    const list = extractTokens(raw);
+    const raw = activePlayingSteps[nextIdx], list = extractTokens(raw);
     for (let i = 0; i < list.length; i++) {
       const token = list[i];
       if (isCaixaStrokeForHand(token, isDominantHand)) {
-        const stepMult = offset + (i > 0 && Array.isArray(raw) ? 0.5 : 0);
-        return { nextKind: classifyCaixaNextKind(token), msUntilNext: Math.max(85, Math.round(stepMult * stepDurationMs)) };
+        const msUntilNext = sumLookaheadDurationMs(currentStep, nextIdx, isSubStep, i > 0 && Array.isArray(raw), stepDurationMs, stepDurationsMs);
+        return { nextKind: classifyCaixaNextKind(token), msUntilNext };
       }
     }
   }
-  return { nextKind: 'idle', msUntilNext: Math.max(170, Math.round(stepDurationMs * 2)) };
+  return { nextKind: 'idle', msUntilNext: Math.max(240, Math.round(stepDurationMs * 3)) };
 }

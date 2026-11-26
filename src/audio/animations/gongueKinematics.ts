@@ -1,10 +1,12 @@
+import { computeBallisticDurationMs } from './aoVivoBallisticMath';
 import { CONFIG_GONGUE_STICK, GongueDynamicState, GongueNextStrokeKind } from './gongueStickConfig';
-import { getGongueStaticPoseState, updateGongueStickGeometry } from '../../components/AoVivo/GongueStickSvg';
-import { buildGonguePoseForStroke, classifyGongueToken, lerpGongueState } from './gonguePoseBuilder';
+import { updateGongueStickGeometry } from '../../components/AoVivo/GongueStickSvg';
+import { buildGonguePoseForStroke, lerpGongueState } from './gonguePoseBuilder';
 import { BarulhoStepPlan } from './barulhoRollPlanner';
+import { findGongueLookahead, resolveGongueEndPose } from './gongueLookahead';
 
 export * from './gongueStickConfig';
-export { buildGonguePoseForStroke };
+export { buildGonguePoseForStroke, findGongueLookahead };
 
 let activeRafId: number | null = null;
 let lastPreparedPose: GongueDynamicState | null = null;
@@ -24,34 +26,6 @@ export function resetGonguePostureMemory(): void {
   gongueRollCtrl.active = false;
 }
 
-function resolveGongueEndPose(nextKind: GongueNextStrokeKind, isAbafadoX = false, impPose?: GongueDynamicState): GongueDynamicState {
-  const nextTok = nextKind === 'aigu_strong' ? 'A' : nextKind === 'aigu_weak' ? 'a' : nextKind === 'grave_weak' ? 'g' : 'G';
-  const nextAmp = nextKind === 'grave_weak' || nextKind === 'aigu_weak' ? CONFIG_GONGUE_STICK.stayLowBeforeWeakRatio : CONFIG_GONGUE_STICK.liftHighBeforeStrongMult;
-  return nextKind === 'idle' ? (isAbafadoX && impPose ? impPose : getGongueStaticPoseState(true)) : buildGonguePoseForStroke(nextTok, false, nextAmp);
-}
-
-export function findGongueLookahead(
-  activePlayingSteps: any[] | undefined, currentStep: number, stepDurationMs: number, isSubStep = false
-): { nextKind: GongueNextStrokeKind; msUntilNext: number } {
-  if (!activePlayingSteps || activePlayingSteps.length === 0) return { nextKind: 'idle', msUntilNext: Math.round(stepDurationMs * 2) };
-  const len = activePlayingSteps.length;
-  if (!isSubStep && Array.isArray(activePlayingSteps[currentStep]) && activePlayingSteps[currentStep].length > 1) {
-    const subKind = classifyGongueToken(String(activePlayingSteps[currentStep][1] || ''));
-    if (subKind) return { nextKind: subKind, msUntilNext: Math.max(70, Math.round(stepDurationMs * 0.5)) };
-  }
-  for (let offset = 1; offset <= Math.min(len, 4); offset++) {
-    const nextIdx = currentStep + offset;
-    if (nextIdx >= len) break;
-    const raw = activePlayingSteps[nextIdx];
-    const list = Array.isArray(raw) ? raw : typeof raw === 'object' && Array.isArray(raw?.sim) ? raw.sim : [raw];
-    for (let i = 0; i < list.length; i++) {
-      const k = classifyGongueToken(String(list[i] || ''));
-      if (k) return { nextKind: k, msUntilNext: Math.max(90, Math.round((offset + (i > 0 && Array.isArray(raw) ? 0.5 : 0)) * stepDurationMs)) };
-    }
-  }
-  return { nextKind: 'idle', msUntilNext: Math.max(180, Math.round(stepDurationMs * 2)) };
-}
-
 export function startGongueBarulhoAnimation(
   svgEl: SVGSVGElement | null, isLeftHanded: boolean, nextKind: GongueNextStrokeKind,
   stepDurationMs: number, leadMs: number, plan: BarulhoStepPlan
@@ -59,18 +33,25 @@ export function startGongueBarulhoAnimation(
   if (!svgEl) return;
   const endPose = resolveGongueEndPose(nextKind);
   lastPreparedPose = endPose;
-  const safeLead = Math.max(0, Math.round(leadMs)), rollSpanMs = Math.max(75, Math.round(stepDurationMs * 0.78));
+  const lagMs = Number.isFinite(leadMs) && leadMs < 0 ? -leadMs : 0;
+  const safeLead = Number.isFinite(leadMs) && leadMs > 0 ? Math.round(leadMs) : 0;
+  const rollSpanMs = Math.max(75, Math.round(stepDurationMs * 0.78));
   if (plan.action === 'continue' && gongueRollCtrl.active && activeRafId !== null) {
     gongueRollCtrl.amp = plan.amplitude;
     gongueRollCtrl.endPose = endPose;
-    gongueRollCtrl.releaseAtMs = plan.sustain ? Infinity : performance.now() + safeLead + rollSpanMs;
+    gongueRollCtrl.releaseAtMs = plan.sustain ? Infinity : performance.now() - lagMs + safeLead + rollSpanMs;
     return;
   }
   stopGongueTwoNodeAnimation();
+  if (!plan.sustain && lagMs >= (rollSpanMs + 125) * 0.85) {
+    lastRenderedPose = endPose;
+    updateGongueStickGeometry(svgEl, endPose, isLeftHanded);
+    return;
+  }
   const startPose = lastRenderedPose || lastPreparedPose || buildGonguePoseForStroke('G', false);
   const impPose = buildGonguePoseForStroke('G', true), altPose = buildGonguePoseForStroke('A', true);
   let relFromPose = impPose;
-  const t0 = performance.now();
+  const t0 = performance.now() - lagMs;
   gongueRollCtrl.active = true; gongueRollCtrl.amp = plan.amplitude; gongueRollCtrl.endPose = endPose;
   gongueRollCtrl.releaseAtMs = plan.sustain ? Infinity : t0 + safeLead + rollSpanMs;
 
@@ -106,32 +87,42 @@ export function releaseGongueBarulho(svgEl: SVGSVGElement | null, isLeftHanded: 
 }
 
 export function startGongueTwoNodeAnimation(
-  svgEl: SVGSVGElement | null, stroke: string, isLeftHanded: boolean, nextKind: GongueNextStrokeKind, durationMs: number
+  svgEl: SVGSVGElement | null, stroke: string, isLeftHanded: boolean, nextKind: GongueNextStrokeKind, realMsUntilNext: number, deltaMs = 0
 ): void {
   if (!svgEl) return;
   const s = (stroke || 'G').trim(), sUp = s.toUpperCase();
   if (sUp === 'B' || s === '~') {
-    startGongueBarulhoAnimation(svgEl, isLeftHanded, nextKind, durationMs, 0, { action: 'start', sustain: false, amplitude: s === 'b' ? 0.6 : 1, ampChanged: true });
+    startGongueBarulhoAnimation(svgEl, isLeftHanded, nextKind, realMsUntilNext, -deltaMs, { action: 'start', sustain: false, amplitude: s === 'b' ? 0.6 : 1, ampChanged: true });
     return;
   }
+  const startPose = lastRenderedPose || lastPreparedPose || buildGonguePoseForStroke(s, false);
   stopGongueTwoNodeAnimation();
-  const isAbafadoX = sUp === 'X';
-  const startPose = lastPreparedPose || buildGonguePoseForStroke(s, false), impPose = buildGonguePoseForStroke(s, true);
+  const isAbafadoX = sUp === 'X', isStrong = s === 'G' || s === 'A' || isAbafadoX;
+  const impPose = buildGonguePoseForStroke(s, true);
   const rebPose = isAbafadoX ? impPose : lerpGongueState(impPose, startPose, CONFIG_GONGUE_STICK.reboundRatio);
-  const endPose = resolveGongueEndPose(nextKind, isAbafadoX, impPose);
+  const endPose = resolveGongueEndPose(nextKind, isAbafadoX, impPose, realMsUntilNext);
   lastPreparedPose = endPose;
-  const spd = CONFIG_GONGUE_STICK.speedMultiplier, strikeMs = Math.max(18, CONFIG_GONGUE_STICK.strikeDurationMs / spd);
-  const holdOrCrushMs = isAbafadoX ? Math.max(80, (durationMs - strikeMs) * 0.72) : Math.max(0, CONFIG_GONGUE_STICK.metalCrushMs / spd);
-  const retMs = Math.max(35, (durationMs - strikeMs - holdOrCrushMs) / Math.max(0.25, CONFIG_GONGUE_STICK.returnSpeedMult));
-  const totalMs = strikeMs + holdOrCrushMs + retMs, t0 = performance.now();
+  const spd = CONFIG_GONGUE_STICK.speedMultiplier;
+  const totalMs = isAbafadoX ? Math.max(85, Math.round(realMsUntilNext / spd)) : computeBallisticDurationMs(isStrong, realMsUntilNext, spd);
+  const strikeMs = Math.min(18, totalMs * 0.22);
+  const holdMs = isAbafadoX ? Math.max(50, (totalMs - strikeMs) * 0.72) : Math.max(34, Math.min(CONFIG_GONGUE_STICK.metalCrushMs / spd, totalMs * 0.52 - strikeMs));
+  const retMs = Math.max(20, totalMs - strikeMs - holdMs);
 
+  const leadWaitMs = Number.isFinite(deltaMs) && deltaMs < -1.5 ? Math.round(-deltaMs) : 0;
+  const posDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+  if (leadWaitMs === 0 && posDelta >= totalMs * 0.85) {
+    lastRenderedPose = endPose;
+    updateGongueStickGeometry(svgEl, endPose, isLeftHanded);
+    return;
+  }
+  const seekMs = leadWaitMs > 0 ? 0 : posDelta <= strikeMs + holdMs + 12 ? Math.min(posDelta, strikeMs + 6) : posDelta;
+  const t0 = performance.now() + leadWaitMs - seekMs;
   const stepFrame = (now: number) => {
     const elapsed = now - t0;
-    const cur = elapsed <= strikeMs
-      ? lerpGongueState(startPose, impPose, Math.pow(elapsed / strikeMs, 2.0))
-      : elapsed <= strikeMs + holdOrCrushMs
-        ? (isAbafadoX ? impPose : lerpGongueState(impPose, rebPose, (elapsed - strikeMs) / Math.max(1, holdOrCrushMs)))
-        : lerpGongueState(rebPose, endPose, 1 - Math.pow(1 - Math.min(1, (elapsed - strikeMs - holdOrCrushMs) / retMs), 2.1));
+    const cur = elapsed <= 0 ? startPose
+      : elapsed <= strikeMs ? lerpGongueState(startPose, impPose, Math.pow(elapsed / strikeMs, 2.0))
+        : elapsed <= strikeMs + holdMs ? (isAbafadoX ? impPose : lerpGongueState(impPose, rebPose, (elapsed - strikeMs) / Math.max(1, holdMs)))
+          : lerpGongueState(rebPose, endPose, 1 - Math.pow(1 - Math.min(1, (elapsed - strikeMs - holdMs) / retMs), 2.1));
     lastRenderedPose = cur;
     updateGongueStickGeometry(svgEl, cur, isLeftHanded);
     activeRafId = elapsed < totalMs ? reqRaf(stepFrame) : null;

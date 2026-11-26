@@ -3,6 +3,7 @@ import {
   CaixaStickFamily,
   getActiveCaixaSticksConfig,
 } from './caixaStickConfig';
+import { computeImpactHoldTiming } from './aoVivoBallisticMath';
 import { getEffectiveMobileOffset } from './aoVivoMobileOffsets';
 import { resetHandPostureMemory, resolveStickStartAndEndTransforms } from './handTransitionEngine';
 
@@ -55,15 +56,14 @@ export function generateCaixaBarulhoLoopFrames(isLeftSide: boolean, family: Caix
 
 export function generateCaixaPredictiveKeyframes(
   stroke: string, isLeftSide: boolean, family: CaixaStickFamily,
-  nextKind: CaixaNextStrokeKind, durationMs: number = 200, flaRole: 'none' | 'main' | 'grace' = 'none'
+  nextKind: CaixaNextStrokeKind, durationMs: number = 225, flaRole: 'none' | 'main' | 'grace' = 'none', realMsUntilNext?: number
 ): Keyframe[] {
   const inSign = isLeftSide ? 1 : -1, c = getActiveCaixaSticksConfig(family), prof = c[family], flex = prof.flexibility;
   const sUp = stroke.toUpperCase(), mobY = getEffectiveMobileOffset(family).reachDeltaY;
-  const sc = (v: number) => +(v * prof.scale).toFixed(3);
-  const atkOff = Math.min(0.42, Math.max(0.05, c.attackSpeed)), convX = inSign * c.impactConvergeX;
+  const sc = (v: number) => +(v * prof.scale).toFixed(3), convX = inSign * c.impactConvergeX;
   const restTr = getCaixaStickRestTransform(isLeftSide, family);
   const isStrong = stroke === 'D' || stroke === 'E' || sUp === 'A' || sUp === 'F' || stroke === 'S' || stroke === 'V' || sUp === 'C' || sUp === 'X';
-  const { startTransform, endTransform, rebEasing } = resolveStickStartAndEndTransforms(isLeftSide, prof.scale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind);
+  const { startTransform, endTransform, rebEasing } = resolveStickStartAndEndTransforms(isLeftSide, prof.scale, c.restOffsetY, restTr, c.transitions, isStrong, nextKind, realMsUntilNext);
 
   if (stroke === '~' || sUp === 'B' || sUp === 'R') {
     if (sUp === 'B' || stroke === '~') return generateCaixaBarulhoLoopFrames(isLeftSide, family, stroke === 'b' ? 0.6 : 1);
@@ -77,61 +77,56 @@ export function generateCaixaPredictiveKeyframes(
     return frames;
   }
 
+  const graceMs = flaRole === 'main' ? c.flaGraceDelayMs : 0;
+  const { delayOff, impactOff, holdEndOff } = computeImpactHoldTiming(durationMs, graceMs);
+
   if (sUp === 'C' || sUp === 'X') {
-    return [
-      { transform: startTransform, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
-      { transform: getCaixaImpactPoseTransform(stroke, isLeftSide, family), offset: atkOff, easing: rebEasing },
-      { transform: endTransform, offset: 1 },
-    ];
+    const impTr = getCaixaImpactPoseTransform(stroke, isLeftSide, family);
+    return [{ transform: startTransform, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }, { transform: impTr, offset: impactOff }, { transform: impTr, offset: holdEndOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
   }
   if (sUp === 'A') {
     const isSubtle = stroke === 'a', ratio = isSubtle ? c.rimshotWeakRatio : 1;
     const wZ = sc(c.rimshotWindUpScaleZ * (isSubtle ? 0.85 + 0.15 * ratio : 1));
     const windUpTr = `translate(${Math.round(inSign * c.rimshotSkinOffsetX * 0.45)}px, ${Math.round(c.restOffsetY + 18 * ratio)}px) rotateZ(${-inSign * +(c.wristWhipDeg * 0.9).toFixed(1)}deg) scale(${wZ}) skewX(0deg)`;
     const impTr = getCaixaImpactPoseTransform(stroke, isLeftSide, family);
-    return [
-      { transform: windUpTr, offset: 0, easing: 'cubic-bezier(0.78, 0, 1, 1)' },
-      { transform: impTr, offset: atkOff },
-      { transform: impTr, offset: Math.min(0.8, +(atkOff + 0.03).toFixed(2)), easing: rebEasing },
-      { transform: endTransform, offset: 1 },
-    ];
+    return [{ transform: windUpTr, offset: 0, easing: 'cubic-bezier(0.78, 0, 1, 1)' }, { transform: impTr, offset: impactOff }, { transform: impTr, offset: holdEndOff, easing: rebEasing }, { transform: endTransform, offset: 1 }];
   }
-
   if (flaRole === 'grace') {
     const grImpactY = Math.round(c.impactReachY * c.ghostReachRatio) + mobY;
+    const grImpTr = `translate(${convX}px, ${grImpactY}px) rotateZ(${inSign * 3}deg) scale(${sc(c.impactScaleZ + 0.03)}) skewX(${-inSign * +(flex * 1.5).toFixed(1)}deg)`;
     return [
       { transform: `translate(${-inSign * 4}px, ${Math.round(c.transitions.stayLowAfterStrongY)}px) rotateZ(${-inSign * 2}deg) scale(${sc(c.flaGraceScaleZ)}) skewX(0deg)`, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' },
-      { transform: `translate(${convX}px, ${grImpactY}px) rotateZ(${inSign * 3}deg) scale(${sc(c.impactScaleZ + 0.03)}) skewX(${-inSign * +(flex * 1.5).toFixed(1)}deg)`, offset: Math.max(0.04, +(atkOff * 0.65).toFixed(2)), easing: rebEasing },
+      { transform: grImpTr, offset: impactOff },
+      { transform: grImpTr, offset: holdEndOff, easing: rebEasing },
       { transform: endTransform, offset: 1 },
     ];
   }
 
-  const graceDelayOff = flaRole === 'main' ? Math.min(0.26, +(c.flaGraceDelayMs / Math.max(110, durationMs)).toFixed(2)) : 0;
-  const hitOff = Math.min(0.65, +(graceDelayOff + atkOff).toFixed(2));
-  const holdOff = Math.min(0.85, +(hitOff + 0.03 + flex * 0.03).toFixed(2));
   const targetY = (isStrong ? c.impactReachY : Math.round(c.impactReachY * c.ghostReachRatio)) + mobY;
   const impScaleX = sc(isStrong ? c.impactScaleZ : Math.min(1.05, c.impactScaleZ + 0.05));
   const impScaleY = +(impScaleX * (0.97 - flex * 0.04)).toFixed(3);
-
-  const frames: Keyframe[] = [{ transform: startTransform, offset: 0, easing: graceDelayOff > 0 ? 'linear' : 'cubic-bezier(0.75, 0, 1, 1)' }];
-  if (graceDelayOff > 0) frames.push({ transform: startTransform, offset: graceDelayOff, easing: 'cubic-bezier(0.8, 0, 1, 1)' });
+  const frames: Keyframe[] = [{ transform: startTransform, offset: 0, easing: delayOff > 0 ? 'linear' : 'cubic-bezier(0.75, 0, 1, 1)' }];
+  if (delayOff > 0) frames.push({ transform: startTransform, offset: delayOff, easing: 'cubic-bezier(0.8, 0, 1, 1)' });
   frames.push(
-    { transform: `translate(${convX}px, ${targetY}px) rotateZ(${inSign * (isStrong ? 4.5 : 2.5)}deg) scale(${impScaleX}, ${impScaleY}) skewX(${-inSign * +(flex * 2.2).toFixed(1)}deg)`, offset: hitOff },
-    { transform: `translate(${convX}px, ${targetY + 4}px) rotateZ(${inSign * 3}deg) scale(${impScaleX}) skewX(0deg)`, offset: holdOff, easing: rebEasing },
+    { transform: `translate(${convX}px, ${targetY}px) rotateZ(${inSign * (isStrong ? 4.5 : 2.5)}deg) scale(${impScaleX}, ${impScaleY}) skewX(${-inSign * +(flex * 2.2).toFixed(1)}deg)`, offset: impactOff },
+    { transform: `translate(${convX}px, ${targetY + 3}px) rotateZ(${inSign * 3}deg) scale(${impScaleX}) skewX(0deg)`, offset: holdEndOff, easing: rebEasing },
     { transform: endTransform, offset: 1 }
   );
   return frames;
 }
 
-export function generateCaixaShadowKeyframes(stroke: string, isLeftSide: boolean, nextKind: CaixaNextStrokeKind, family: CaixaStickFamily = 'caixa'): Keyframe[] {
-  const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity, attackSpeed } = getActiveCaixaSticksConfig(family);
-  const atkOff = Math.min(0.42, Math.max(0.05, attackSpeed)), airY = -Math.round(shadowDepthPx * 1.5), airOp = +(shadowOpacity * 0.42).toFixed(2);
-  const sUp = stroke.toUpperCase();
+export function generateCaixaShadowKeyframes(
+  stroke: string, isLeftSide: boolean, nextKind: CaixaNextStrokeKind,
+  family: CaixaStickFamily = 'caixa', durationMs = 225, forceCompact = false
+): Keyframe[] {
+  const inSign = isLeftSide ? 1 : -1, { shadowDepthPx, shadowOpacity } = getActiveCaixaSticksConfig(family);
+  const { impactOff, holdEndOff } = computeImpactHoldTiming(durationMs);
+  const airY = -Math.round(shadowDepthPx * 1.5), airOp = +(shadowOpacity * 0.42).toFixed(2), sUp = stroke.toUpperCase();
   if (sUp === 'R' || sUp === 'B' || stroke === '~') {
     return [{ transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: 0 }, { transform: 'translate(0px, -2px) scale(0.93)', opacity: +(shadowOpacity * 0.88).toFixed(2), offset: 0.5 }, { transform: getCaixaShadowRestTransform(isLeftSide, family), opacity: airOp, offset: 1 }];
   }
-  const endSh = nextKind === 'weak' || nextKind === 'rufada'
+  const endSh = nextKind === 'weak' || nextKind === 'rufada' || (nextKind === 'strong' && forceCompact)
     ? { transform: `translate(${inSign * 3}px, ${Math.round(airY * 0.3)}px) scale(0.92)`, opacity: +(shadowOpacity * 0.72).toFixed(2), offset: 1 }
     : { transform: getCaixaShadowRestTransform(isLeftSide, family), opacity: airOp, offset: 1 };
-  return [{ transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: atkOff }, endSh];
+  return [{ transform: `translate(${inSign * 8}px, ${airY}px) scale(0.85)`, opacity: airOp, offset: 0, easing: 'cubic-bezier(0.75, 0, 1, 1)' }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: impactOff }, { transform: 'translate(0px, 3px) scale(0.95)', opacity: shadowOpacity, offset: holdEndOff }, endSh];
 }

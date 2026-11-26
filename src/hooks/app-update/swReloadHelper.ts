@@ -1,4 +1,3 @@
-
 export async function applyServiceWorkerReload(reg?: ServiceWorkerRegistration | null): Promise<void> {
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -14,6 +13,16 @@ export async function applyServiceWorkerReload(reg?: ServiceWorkerRegistration |
       for (const key of keys) {
         if ((key.includes('workbox') && !key.includes('-precache-')) || key.includes('o-girador')) {
           await caches.delete(key);
+        } else if (key === 'audio-samples-cache') {
+          const sampleCache = await caches.open(key);
+          const reqs = await sampleCache.keys();
+          for (const req of reqs) {
+            const resp = await sampleCache.match(req);
+            const ct = (resp?.headers.get('content-type') || '').toLowerCase();
+            if (!resp || resp.status !== 200 || ct.includes('text/html')) {
+              await sampleCache.delete(req);
+            }
+          }
         }
       }
     }
